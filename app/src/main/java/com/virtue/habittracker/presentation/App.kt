@@ -146,7 +146,7 @@ fun App(
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
                 label = { Text("Home") })
             NavigationBarItem(selected = selectedTab == AppTab.PROGRESS, onClick = { selectedTab = AppTab.PROGRESS },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_program), contentDescription = "Progress") },
+                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_progress), contentDescription = "Progress") },
                 label = { Text("Progress") })
             NavigationBarItem(selected = selectedTab == AppTab.HISTORY, onClick = { selectedTab = AppTab.HISTORY },
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_history), contentDescription = "History") },
