@@ -30,6 +30,9 @@ interface ProgramDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertActivity(entity: ProgramActivityEntity)
 
+    @Query("DELETE FROM program_activities WHERE id = :activityId")
+    suspend fun deleteActivityRow(activityId: String)
+
     @Query("DELETE FROM program_activities WHERE enrollmentId = :enrollmentId")
     suspend fun deleteActivitiesForEnrollment(enrollmentId: String)
 
