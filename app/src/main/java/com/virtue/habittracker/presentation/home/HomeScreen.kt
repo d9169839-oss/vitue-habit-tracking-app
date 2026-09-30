@@ -67,7 +67,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Your habits", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Button(onClick = { title = ""; description = ""; formError = null; showAddDialog = true }) { Text("+ Add habit") }
+            Button(onClick = { title = ""; description = ""; formError = null; showAddDialog = true }, enabled = date == LocalDate.now()) { Text("+ Add habit") }
         }
         if (habits.isEmpty()) {
             Card(Modifier.fillMaxWidth()) {
@@ -79,7 +79,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(habits, key = { it.habit.id }) { entry -> HabitCard(entry, onToggle = { vm.toggleCompletion(entry) }) }
+                items(habits, key = { it.habit.id }) { entry -> HabitCard(entry, isFuture = date.isAfter(LocalDate.now()), onToggle = { vm.toggleCompletion(entry) }) }
             }
         }
     }
@@ -101,7 +101,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
 }
 
 @Composable
-private fun HabitCard(entry: HabitDayEntry, onToggle: () -> Unit) {
+private fun HabitCard(entry: HabitDayEntry, isFuture: Boolean, onToggle: () -> Unit) {
     val statusText = when (entry.status) {
         HabitDayStatus.UNRECORDED -> "Not recorded"
         HabitDayStatus.COMPLETED -> "Completed"
@@ -115,7 +115,7 @@ private fun HabitCard(entry: HabitDayEntry, onToggle: () -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Text(statusText, color = if (entry.status == HabitDayStatus.COMPLETED) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            FilledTonalButton(onClick = onToggle, enabled = true) { Text(if (entry.status == HabitDayStatus.COMPLETED) "Undo" else "Done") }
+            FilledTonalButton(onClick = onToggle, enabled = !isFuture) { Text(if (entry.status == HabitDayStatus.COMPLETED) "Undo" else "Done") }
         }
     }
 }
