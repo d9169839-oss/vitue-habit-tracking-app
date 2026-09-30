@@ -89,6 +89,7 @@ class HabitCloudDataSource @Inject constructor(
             // Stay comfortably below Firestore's 500-write batch limit.
             pending.chunked(350).forEach { chunk ->
                 val batch = firestore.batch()
+                var hasWrites = false
                 val operationsToAcknowledge = mutableListOf<SyncOperationEntity>()
 
                 for (operation in chunk) {
@@ -106,6 +107,7 @@ class HabitCloudDataSource @Inject constructor(
                                     "inactiveFromEpochDay" to habit.inactiveFromEpochDay,
                                     "updatedAtMillis" to System.currentTimeMillis()
                                 ), SetOptions.merge())
+                                hasWrites = true
                                 operationsToAcknowledge += operation
                             }
                         }
@@ -127,6 +129,7 @@ class HabitCloudDataSource @Inject constructor(
                                         "deleted" to true,
                                         "updatedAtMillis" to System.currentTimeMillis()
                                     ), SetOptions.merge())
+                                    hasWrites = true
                                 } else {
                                     batch.set(ref, mapOf(
                                         "habitId" to habitId,
@@ -135,6 +138,7 @@ class HabitCloudDataSource @Inject constructor(
                                         "deleted" to false,
                                         "updatedAtMillis" to maxOf(local.updatedAtMillis, System.currentTimeMillis())
                                     ), SetOptions.merge())
+                                    hasWrites = true
                                 }
                                 operationsToAcknowledge += operation
                             }
@@ -142,17 +146,8 @@ class HabitCloudDataSource @Inject constructor(
                     }
                 }
 
-                // Firestore rejects an empty batch; malformed/deleted local operations still
-                // need acknowledgement, while all actual writes commit as one atomic batch.
-                if (operationsToAcknowledge.any { op ->
-                        (op.entityType == "HABIT" && dao.getHabitById(op.entityId) != null) ||
-                            (op.entityType == "CHECK_IN" && run {
-                                val epoch = op.entityId.substringAfterLast("_").toLongOrNull()
-                                epoch != null
-                            })
-                    }) {
-                    batch.commit().await()
-                }
+                // Firestore rejects empty batches. Acknowledgement only follows a successful commit.
+                if (hasWrites) batch.commit().await()
                 operationsToAcknowledge.forEach { op ->
                     dao.deleteSyncOperationIfUnchanged(op.operationKey, op.queuedAtMillis)
                 }
