@@ -27,6 +27,8 @@ class HabitSyncScheduler @Inject constructor(
 
     fun enqueueSync() {
         val request = OneTimeWorkRequestBuilder<HabitSyncWorker>()
+            // A tiny debounce lets rapid taps/edit sequences collapse into one latest-value upload.
+            .setInitialDelay(2, TimeUnit.SECONDS)
             .setConstraints(connectedConstraint)
             .setBackoffCriteria(
                 androidx.work.BackoffPolicy.EXPONENTIAL,
