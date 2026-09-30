@@ -10,6 +10,13 @@ interface HabitDao {
     fun observeHabitsForDay(epochDay: Long): Flow<List<HabitEntity>>
     @Query("SELECT * FROM habit_check_ins WHERE epochDay <= :epochDay ORDER BY habitId, epochDay DESC")
     fun observeCheckInsThroughDay(epochDay: Long): Flow<List<HabitCheckInEntity>>
+    // These full-table reads support a simple retry pass for local writes made while offline.
+    @Query("SELECT * FROM habits")
+    suspend fun getAllHabits(): List<HabitEntity>
+
+    @Query("SELECT * FROM habit_check_ins")
+    suspend fun getAllCheckIns(): List<HabitCheckInEntity>
+
     @Query("SELECT * FROM habits WHERE id = :habitId LIMIT 1")
     suspend fun getHabitById(habitId: String): HabitEntity?
 
