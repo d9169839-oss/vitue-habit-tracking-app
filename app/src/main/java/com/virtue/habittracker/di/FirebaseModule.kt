@@ -3,6 +3,10 @@ import android.content.Context
 import androidx.room.Room
 import com.virtue.habittracker.data.local.HabitDao
 import com.virtue.habittracker.data.local.HabitDatabase
+import com.virtue.habittracker.data.local.ProgramDao
+import com.virtue.habittracker.domain.service.ProgramPersonalizationEngine
+import com.virtue.habittracker.data.repository.RoomProgramRepository
+import com.virtue.habittracker.domain.repository.ProgramRepository
 import com.virtue.habittracker.data.repository.RoomHabitRepository
 import com.virtue.habittracker.domain.repository.HabitRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -20,9 +24,15 @@ import javax.inject.Singleton
 object FirebaseProviders {
     @Provides @Singleton
     fun provideHabitDatabase(@dagger.hilt.android.qualifiers.ApplicationContext context: Context): HabitDatabase =
-        Room.databaseBuilder(context, HabitDatabase::class.java, "vitue_habits.db")\n            .addMigrations(HabitDatabase.MIGRATION_1_2)\n            .build()
+        Room.databaseBuilder(context, HabitDatabase::class.java, "vitue_habits.db")\n            .addMigrations(HabitDatabase.MIGRATION_1_2, HabitDatabase.MIGRATION_2_3)\n            .build()
     @Provides
     fun provideHabitDao(database: HabitDatabase): HabitDao = database.habitDao()
+
+    @Provides
+    fun provideProgramDao(database: HabitDatabase): ProgramDao = database.programDao()
+
+    @Provides @Singleton
+    fun provideProgramPersonalizationEngine(): ProgramPersonalizationEngine = ProgramPersonalizationEngine()
     @Provides @Singleton
     fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
 
@@ -37,4 +47,7 @@ abstract class RepositoryBindings {
     abstract fun bindAuthRepository(implementation: FirebaseAuthRepository): AuthRepository
     @Binds @Singleton
     abstract fun bindHabitRepository(implementation: RoomHabitRepository): HabitRepository
+
+    @Binds @Singleton
+    abstract fun bindProgramRepository(implementation: RoomProgramRepository): ProgramRepository
 }
