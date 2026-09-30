@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.virtue.habittracker.domain.repository.PremiumEntitlementProvider
 
 /**
  * Google Play subscription client.
@@ -25,7 +26,7 @@ import javax.inject.Singleton
 @Singleton
 class PremiumBillingManager @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext context: Context
-) : com.android.billingclient.api.PurchasesUpdatedListener {
+) : com.android.billingclient.api.PurchasesUpdatedListener, PremiumEntitlementProvider {
 
     companion object {
         const val MONTHLY_PRODUCT_ID = "vitue_premium_monthly"
@@ -35,6 +36,8 @@ class PremiumBillingManager @Inject constructor(
 
     private val _isPremium = MutableStateFlow(false)
     val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
+    override val premiumEntitlement: StateFlow<Boolean> get() = isPremium
+    override fun refreshEntitlement() = refreshPurchases()
     private val _products = MutableStateFlow<List<ProductDetails>>(emptyList())
     val products: StateFlow<List<ProductDetails>> = _products.asStateFlow()
     private val _message = MutableStateFlow<String?>(null)
