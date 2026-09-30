@@ -51,6 +51,8 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    // Firestore provides per-user cloud persistence and offline write queuing.
+    implementation(libs.firebase.firestore)
     implementation(libs.coroutines.play.services)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services)
