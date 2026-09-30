@@ -32,5 +32,9 @@ Follow [docs/SETUP.md](docs/SETUP.md). Add your own `app/google-services.json`, 
 ## Architecture
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the companion [enterprise architecture learning repository](https://github.com/d9169839-oss/android-enterprise_architecture).
 
+## Programs feature
+
+The product and implementation specification for personalized 14/30/60/90-day programs (fitness, self-grooming, and mindfulness/spiritual growth) is in [docs/PROGRAMS_FEATURE.md](docs/PROGRAMS_FEATURE.md). It covers the curated catalog, personalization questionnaire, Clean Architecture package layout, Room-first persistence, Firestore sync, premium entitlement, privacy/safety safeguards, and test plan. This document is the design specification; the feature code and premium billing are not yet implemented.
+
 ## Remaining work
 The History tab is a date-specific snapshot: it shows habits created by the selected date and their check-in status for that day. Archived habits remain visible but dimmed when inactive on that date. The sync outbox and incremental sync are implemented, but cross-device conflict resolution, pagination for very large histories, and explicit user-facing last-sync/error status remain follow-up milestones. The project has not been built on a local Android SDK in this environment; run Gradle sync and tests locally and share any errors for correction. The project has not been built on a local Android SDK in this environment; run Gradle sync and tests locally and share any errors for correction.
