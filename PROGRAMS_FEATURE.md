@@ -4,6 +4,19 @@
 
 This document defines the production-oriented implementation for the Programs tab. It is the source of truth for the first release and should be updated as the product decisions are finalized.
 
+## Implementation status (2026-09-30)
+
+The first implementation has been committed in the repository:
+- The Programs bottom tab replaces the old Progress tab; Home, History, and Profile remain.
+- Bundled catalog: beginner movement, home strength, everyday stamina, sustainable wellness habits, grooming, skincare, mindfulness, and gratitude/reflection.
+- Deterministic schedule generation creates a day-by-day snapshot, respecting the chosen time budget and number of available days per week.
+- Room schema version 3 stores enrollments and scheduled activities. Migration 2→3 adds program tables without deleting existing habit data.
+- Program enrollment and activity changes are enqueued transactionally and uploaded/pulled by the existing network-constrained WorkManager sync worker.
+- Hilt-backed ViewModel/use cases manage catalog filtering, start/pause/resume, completion/skip, progress, and deletion.
+- Google Play Billing client loads subscription products, starts checkout, and restores owned subscriptions.
+
+This is an initial implementation, not a release certification. Android compilation/tests have not yet been verified. The product IDs `vitue_premium_monthly` and `vitue_premium_yearly` are placeholders. Before production, configure real Play Console product IDs, validate purchase tokens on a trusted backend, and derive durable entitlements from server-verified state. Fitness content is conservative starter content and still needs qualified review. Firestore rules must explicitly protect the new `programEnrollments` and `programActivities` subcollections.
+
 The first release should combine **curated, versioned templates** with **deterministic personalization rules**. Do not ask an AI model to invent a complete health or spiritual plan without reviewed constraints. AI can be added later to explain or rephrase a reviewed plan, but it must not bypass safety rules.
 
 ## Product goals
