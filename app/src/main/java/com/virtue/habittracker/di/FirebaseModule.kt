@@ -6,6 +6,7 @@ import com.virtue.habittracker.data.local.HabitDatabase
 import com.virtue.habittracker.data.repository.RoomHabitRepository
 import com.virtue.habittracker.domain.repository.HabitRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.virtue.habittracker.data.repository.FirebaseAuthRepository
 import com.virtue.habittracker.domain.repository.AuthRepository
 import dagger.Binds
@@ -24,6 +25,10 @@ object FirebaseProviders {
     fun provideHabitDao(database: HabitDatabase): HabitDao = database.habitDao()
     @Provides @Singleton
     fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+
+    // Keep a single Firestore client for the lifetime of the application.
+    @Provides @Singleton
+    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
 }
 @Module
 @InstallIn(SingletonComponent::class)
