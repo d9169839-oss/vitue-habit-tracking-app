@@ -20,7 +20,7 @@ import javax.inject.Singleton
 object FirebaseProviders {
     @Provides @Singleton
     fun provideHabitDatabase(@dagger.hilt.android.qualifiers.ApplicationContext context: Context): HabitDatabase =
-        Room.databaseBuilder(context, HabitDatabase::class.java, "vitue_habits.db").build()
+        Room.databaseBuilder(context, HabitDatabase::class.java, "vitue_habits.db")\n            .addMigrations(HabitDatabase.MIGRATION_1_2)\n            .build()
     @Provides
     fun provideHabitDao(database: HabitDatabase): HabitDao = database.habitDao()
     @Provides @Singleton
