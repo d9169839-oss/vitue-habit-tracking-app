@@ -69,7 +69,7 @@ class RoomProgramRepository @Inject constructor(
             createdAtMillis = now,
             updatedAtMillis = now
         )
-        val schedule = personalizationEngine.buildSchedule(template, enrollmentId, startEpochDay, preferences)
+        val schedule = personalizationEngine.buildSchedule(template, enrollmentId, startEpochDay, preferences, createdAtMillis = now)
         dao.saveEnrollmentAndSchedule(enrollment, schedule.map { it.toEntity() })
         syncScheduler.enqueueSync()
         return enrollmentId
