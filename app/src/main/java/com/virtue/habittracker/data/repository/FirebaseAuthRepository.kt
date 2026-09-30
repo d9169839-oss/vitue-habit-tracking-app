@@ -6,6 +6,7 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.virtue.habittracker.domain.model.AuthOutcome
 import com.virtue.habittracker.domain.model.User
 import com.virtue.habittracker.domain.repository.AuthRepository
+import com.virtue.habittracker.data.sync.HabitSyncScheduler
 import javax.inject.Inject
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -14,7 +15,8 @@ import kotlinx.coroutines.tasks.await
 
 class FirebaseAuthRepository @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
-    private val habitCloudDataSource: HabitCloudDataSource
+    private val habitCloudDataSource: HabitCloudDataSource,
+    private val syncScheduler: HabitSyncScheduler
 ) : AuthRepository {
 
     override val authState: Flow<User?> = callbackFlow {
@@ -30,6 +32,7 @@ class FirebaseAuthRepository @Inject constructor(
         firebaseAuth.signInWithEmailAndPassword(email, password).await()
         // Profile writes are best-effort; an unavailable network must not invalidate login.
         runCatching { habitCloudDataSource.prepareForCurrentUser() }
+        syncScheduler.enqueueSync()
         currentUser()
     }
 
@@ -43,6 +46,7 @@ class FirebaseAuthRepository @Inject constructor(
             )?.await()
         }
         runCatching { habitCloudDataSource.prepareForCurrentUser() }
+        syncScheduler.enqueueSync()
         currentUser()
     }
 
