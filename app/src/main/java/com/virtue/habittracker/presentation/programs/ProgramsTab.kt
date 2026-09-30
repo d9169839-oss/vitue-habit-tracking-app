@@ -2,6 +2,7 @@ package com.virtue.habittracker.presentation.programs
 
 import android.app.Activity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -122,7 +123,7 @@ fun ProgramsTab(
         }
 
         Text("DISCOVER", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = state.selectedCategory == null, onClick = { vm.selectCategory(null) }, label = { Text("All") })
             FilterChip(selected = state.selectedCategory == ProgramCategory.FITNESS, onClick = { vm.selectCategory(ProgramCategory.FITNESS) }, label = { Text("Fitness") })
             FilterChip(selected = state.selectedCategory == ProgramCategory.SELF_GROOMING, onClick = { vm.selectCategory(ProgramCategory.SELF_GROOMING) }, label = { Text("Grooming") })
