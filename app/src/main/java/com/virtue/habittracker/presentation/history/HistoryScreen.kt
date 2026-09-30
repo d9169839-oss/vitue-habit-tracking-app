@@ -84,10 +84,13 @@ fun HistoryScreen(modifier: Modifier = Modifier, vm: HistoryViewModel = hiltView
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("HISTORY THROUGH", style = MaterialTheme.typography.labelMedium,
+                Text("DAY SNAPSHOT", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMM yyyy")),
                     style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("Habits created by this date · status recorded on this day",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = vm::previousDay, modifier = Modifier.weight(1f)) {
                         Text("← Previous")
