@@ -2,6 +2,7 @@ package com.virtue.habittracker.presentation.auth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,7 +67,7 @@ fun ForgotPasswordScreen(state: AuthUiState, vm: AuthViewModel, onBack: () -> Un
 private fun AuthScaffold(
     title: String, subtitle: String, state: AuthUiState, email: (String) -> Unit,
     password: ((String) -> Unit)? = null, confirmPassword: ((String) -> Unit)? = null,
-    content: @Composable Column.() -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 36.dp), verticalArrangement = Arrangement.Center) {
         Text("VITUE", color = MaterialTheme.colorScheme.primary, fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
