@@ -12,6 +12,7 @@ import com.virtue.habittracker.domain.model.program.ProgramEquipment
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
 import com.virtue.habittracker.domain.model.program.ProgramStatus
+import com.virtue.habittracker.domain.model.program.WorkActivityLevel
 import com.virtue.habittracker.domain.model.program.ProgramCatalog
 import com.virtue.habittracker.domain.model.program.ScheduledProgramActivity
 import com.virtue.habittracker.domain.repository.ProgramRepository
@@ -62,6 +63,7 @@ class RoomProgramRepository @Inject constructor(
             availableMinutesPerDay = preferences.availableMinutesPerDay.coerceIn(5, 90),
             availableDaysPerWeek = preferences.availableDaysPerWeek.coerceIn(1, 7),
             experience = preferences.experience.name,
+            workActivityLevel = preferences.workActivityLevel.name,
             equipment = preferences.equipment.name,
             isPremium = template.isPremium,
             createdAtMillis = now,
@@ -98,6 +100,7 @@ class RoomProgramRepository @Inject constructor(
         ProgramPreferences(
             availableMinutesPerDay, availableDaysPerWeek,
             runCatching { ProgramExperience.valueOf(experience) }.getOrDefault(ProgramExperience.BEGINNER),
+            runCatching { WorkActivityLevel.valueOf(workActivityLevel) }.getOrDefault(WorkActivityLevel.MIXED),
             runCatching { ProgramEquipment.valueOf(equipment) }.getOrDefault(ProgramEquipment.NONE)
         ),
         isPremium, createdAtMillis, updatedAtMillis
