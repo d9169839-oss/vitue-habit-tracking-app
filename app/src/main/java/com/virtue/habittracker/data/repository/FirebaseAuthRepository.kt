@@ -29,7 +29,7 @@ class FirebaseAuthRepository @Inject constructor(
     override suspend fun signIn(email: String, password: String): AuthOutcome = safely {
         firebaseAuth.signInWithEmailAndPassword(email, password).await()
         // Profile writes are best-effort; an unavailable network must not invalidate login.
-        runCatching { habitCloudDataSource.syncProfile() }
+        runCatching { habitCloudDataSource.prepareForCurrentUser() }
         currentUser()
     }
 
@@ -39,13 +39,13 @@ class FirebaseAuthRepository @Inject constructor(
         firebaseAuth.currentUser?.updateProfile(
             UserProfileChangeRequest.Builder().setDisplayName(name).build()
         )?.await()
-        runCatching { habitCloudDataSource.syncProfile() }
+        runCatching { habitCloudDataSource.prepareForCurrentUser() }
         currentUser()
     }
 
     override suspend fun signInWithGoogle(idToken: String): AuthOutcome = safely {
         firebaseAuth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
-        runCatching { habitCloudDataSource.syncProfile() }
+        runCatching { habitCloudDataSource.prepareForCurrentUser() }
         currentUser()
     }
 
