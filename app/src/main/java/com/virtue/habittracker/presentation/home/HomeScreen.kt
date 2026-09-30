@@ -15,6 +15,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -35,6 +38,8 @@ import com.virtue.habittracker.domain.model.HabitDayEntry
 import com.virtue.habittracker.domain.model.HabitDayStatus
 import com.virtue.habittracker.presentation.auth.AuthViewModel
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -45,6 +50,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var formError by remember { mutableStateOf<String?>(null) }
+    var showCalendar by remember { mutableStateOf(false) }
     val completedCount = habits.count { it.status == HabitDayStatus.COMPLETED }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -61,6 +67,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     OutlinedButton(onClick = vm::previousDay) { Text("← Previous") }
                     OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now())) { Text("Next →") }
+                    TextButton(onClick = { showCalendar = true }) { Text("Calendar") }
                 }
                 Text("$completedCount of ${habits.size} habits completed", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -81,6 +88,17 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(habits, key = { it.habit.id }) { entry -> HabitCard(entry, isFuture = date.isAfter(LocalDate.now()), canArchive = date == LocalDate.now(), onToggle = { vm.toggleCompletion(entry) }, onArchive = { vm.archiveHabit(entry) }, onClear = { vm.clearCompletion(entry) }) }
             }
+        }
+    }
+    if (showCalendar) {
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+        DatePickerDialog(onDismissRequest = { showCalendar = false }, confirmButton = {
+            TextButton(onClick = {
+                pickerState.selectedDateMillis?.let { millis -> vm.selectDate(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()) }
+                showCalendar = false
+            }) { Text("View date") }
+        }, dismissButton = { TextButton(onClick = { showCalendar = false }) { Text("Cancel") } }) {
+            DatePicker(state = pickerState)
         }
     }
     if (showAddDialog) {
