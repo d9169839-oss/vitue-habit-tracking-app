@@ -55,4 +55,11 @@ class HomeViewModel @Inject constructor(
             setHabitCompletion(entry.habit.id, selectedDate.value.toEpochDay(), completed)
         }
     }
+
+    /** Explicitly record a missed day; this differs from leaving the habit unrecorded. */
+    fun markNotCompleted(entry: HabitDayEntry) {
+        viewModelScope.launch {
+            setHabitCompletion(entry.habit.id, selectedDate.value.toEpochDay(), false)
+        }
+    }
 }
