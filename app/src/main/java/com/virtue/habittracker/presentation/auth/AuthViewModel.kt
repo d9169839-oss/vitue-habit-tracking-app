@@ -28,6 +28,7 @@ class AuthViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
     private val _events = MutableSharedFlow<AuthEvent>()
     val events = _events.asSharedFlow()
+    fun showError(message: String) = _uiState.update { it.copy(errorMessage = message) }
     fun onEmailChanged(value: String) = _uiState.update { it.copy(email = value, errorMessage = null) }
     fun onPasswordChanged(value: String) = _uiState.update { it.copy(password = value, errorMessage = null) }
     fun onConfirmPasswordChanged(value: String) = _uiState.update { it.copy(confirmPassword = value, errorMessage = null) }
