@@ -5,6 +5,9 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,7 +66,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-private enum class AppTab { HOME, HISTORY, PROGRAM, PROFILE }
+private enum class AppTab { HOME, PROGRESS, HISTORY, PROFILE }
 private enum class HistoryFilter { ALL, ACTIVE, INACTIVE }
 
 /**
@@ -124,9 +127,10 @@ fun App(
                 visible = selectedTab == AppTab.HISTORY,
                 vm = historyViewModel
             )
-            ProgramTab(
-                modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAM) 1f else 0f),
-                visible = selectedTab == AppTab.PROGRAM
+            ProgressTab(
+                modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROGRESS) 1f else 0f),
+                visible = selectedTab == AppTab.PROGRESS,
+                vm = historyViewModel
             )
             ProfileTab(
                 modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
@@ -139,12 +143,12 @@ fun App(
             NavigationBarItem(selected = selectedTab == AppTab.HOME, onClick = { selectedTab = AppTab.HOME },
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
                 label = { Text("Home") })
+            NavigationBarItem(selected = selectedTab == AppTab.PROGRESS, onClick = { selectedTab = AppTab.PROGRESS },
+                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_program), contentDescription = "Progress") },
+                label = { Text("Progress") })
             NavigationBarItem(selected = selectedTab == AppTab.HISTORY, onClick = { selectedTab = AppTab.HISTORY },
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_history), contentDescription = "History") },
                 label = { Text("History") })
-            NavigationBarItem(selected = selectedTab == AppTab.PROGRAM, onClick = { selectedTab = AppTab.PROGRAM },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_program), contentDescription = "Program") },
-                label = { Text("Program") })
             NavigationBarItem(selected = selectedTab == AppTab.PROFILE, onClick = { selectedTab = AppTab.PROFILE },
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_profile), contentDescription = "Profile") },
                 label = { Text("Profile") })
@@ -226,7 +230,7 @@ private fun HomeTab(
     val summary = summarizeHabitDay(date.toEpochDay(), habits)
 
     Column(
-        modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
+        modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -262,8 +266,8 @@ private fun HomeTab(
                 }
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(habits, key = { it.habit.id }) { entry ->
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                habits.forEach { entry ->
                     HabitCard(entry, date.isAfter(LocalDate.now()), date == LocalDate.now(),
                         onToggle = { vm.toggleCompletion(entry) }, onArchive = { vm.archiveHabit(entry) },
                         onClear = { vm.clearCompletion(entry) })
@@ -357,7 +361,7 @@ private fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMode
         HistoryFilter.INACTIVE -> entries.filter { !it.isActiveOnDate }
     }
 
-    Column(modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 20.dp),
+    Column(modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("YOUR JOURNEY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -457,20 +461,115 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
     }
 }
 
+/**
+ * Progress uses persisted records for the selected day. Long-range trend charts should only be
+ * added once the repository exposes a complete historical aggregation; this screen never fakes data.
+ */
 @Composable
-private fun ProgramTab(modifier: Modifier, visible: Boolean) {
-    Column(modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("YOUR ROUTINE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Text("Programs", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Turn small daily actions into a plan you can follow.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Your programs start here", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("Organized habit plans will appear here. You can keep tracking individual habits from Home while the program experience is being built.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
+    val date by vm.selectedDate.collectAsStateWithLifecycle()
+    val entries by vm.entries.collectAsStateWithLifecycle()
+    val activeEntries = entries.filter { it.isActiveOnDate }
+    val completed = activeEntries.count { it.status == HabitDayStatus.COMPLETED }
+    val notCompleted = activeEntries.count { it.status == HabitDayStatus.NOT_COMPLETED }
+    val unrecorded = activeEntries.count { it.status == HabitDayStatus.UNRECORDED }
+    val recorded = completed + notCompleted
+    val rate = if (recorded == 0) 0 else completed * 100 / recorded
+
+    Column(
+        modifier.offset(x = if (visible) 0.dp else 10_000.dp)
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("YOUR JOURNEY", style = MaterialTheme.typography.labelMedium, color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold)
+        Text("Your progress", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Small steps. Lasting change.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF211B30))) {
+            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("DAILY OVERVIEW", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("$rate%", style = MaterialTheme.typography.displaySmall, color = Color(0xFFF8F5FF), fontWeight = FontWeight.Bold)
+                        Text("of recorded habits completed", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Box(Modifier.background(Color(0xFF302643), RoundedCornerShape(18.dp)).padding(16.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                        Text("$completed/$recorded", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                }
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { rate / 100f },
+                    modifier = Modifier.fillMaxWidth().height(8.dp),
+                    color = Color(0xFFA78BFA),
+                    trackColor = Color(0xFF393047)
+                )
+                Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy")), color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = vm::previousDay, modifier = Modifier.weight(1f)) { Text("Previous") }
+                    OutlinedButton(onClick = vm::goToToday, modifier = Modifier.weight(1f)) { Text("Today") }
+                    OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now()), modifier = Modifier.weight(1f)) { Text("Next") }
+                }
             }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatusSummaryCard("Completed", completed, Color(0xFF34D399), Modifier.weight(1f), "✓")
+            StatusSummaryCard("Not done", notCompleted, Color(0xFFFB7185), Modifier.weight(1f), "×")
+            StatusSummaryCard("Unrecorded", unrecorded, Color(0xFF9891A8), Modifier.weight(1f), "○")
+        }
+        Text("Habit performance", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        if (activeEntries.isEmpty()) {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("No habits to summarize", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Create habits on Home and their recorded progress will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else activeEntries.forEach { entry ->
+            val accent = when (entry.status) {
+                HabitDayStatus.COMPLETED -> Color(0xFF34D399)
+                HabitDayStatus.NOT_COMPLETED -> Color(0xFFFB7185)
+                HabitDayStatus.UNRECORDED -> Color(0xFF9891A8)
+            }
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.background(Color(0xFF302643), RoundedCornerShape(12.dp)).padding(12.dp)) {
+                            Text(if (entry.habit.title.contains("read", true)) "Aa" else if (entry.habit.title.contains("workout", true)) "↗" else "✦", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold)
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(entry.habit.title, color = Color(0xFFF8F5FF), fontWeight = FontWeight.SemiBold)
+                            Text(when (entry.status) {
+                                HabitDayStatus.COMPLETED -> "Completed"
+                                HabitDayStatus.NOT_COMPLETED -> "Not completed"
+                                HabitDayStatus.UNRECORDED -> "Not recorded"
+                            }, color = accent, style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (entry.currentStreak > 0) Text("${entry.currentStreak}d streak", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelSmall)
+                    }
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { if (entry.status == HabitDayStatus.COMPLETED) 1f else 0f },
+                        modifier = Modifier.fillMaxWidth().height(5.dp),
+                        color = accent,
+                        trackColor = Color(0xFF393047)
+                    )
+                }
+            }
+        }
+        TextButton(onClick = { /* History tab shares this selected date through the same ViewModel. */ }) {
+            Text("Selected date is shared with History")
+        }
+        Text("Unrecorded habits are not counted as failures. This view summarizes saved records for the selected day.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun StatusSummaryCard(label: String, count: Int, accent: Color, modifier: Modifier, symbol: String) {
+    Card(modifier, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(symbol, color = accent, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(count.toString(), color = accent, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
