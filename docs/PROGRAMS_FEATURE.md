@@ -10,7 +10,7 @@ The first implementation has been committed in the repository:
 - The Programs bottom tab replaces the old Progress tab; Home, History, and Profile remain.
 - Bundled catalog: beginner movement, home strength, everyday stamina, sustainable wellness habits, grooming, skincare, mindfulness, and gratitude/reflection.
 - Deterministic schedule generation creates a day-by-day snapshot, respecting the chosen time budget and number of available days per week.
-- Room schema version 3 stores enrollments and scheduled activities. Migration 2→3 adds program tables without deleting existing habit data.
+- Room schema version 4 stores enrollments and scheduled activities. Migrations 2→3 add program tables and 3→4 add the daily-work activity preference without deleting existing habit data. The personalization screen asks about work activity, available time, days/week, experience, and equipment. Optional adult BMI is calculated on-device only; values are not saved or uploaded and do not set exercise intensity or calorie targets.
 - Program enrollment and activity changes are enqueued transactionally and uploaded/pulled by the existing network-constrained WorkManager sync worker.
 - Hilt-backed ViewModel/use cases manage catalog filtering, start/pause/resume, completion/skip, progress, and deletion.
 - Google Play Billing client loads subscription products, starts checkout, and restores owned subscriptions.
@@ -122,7 +122,7 @@ Rules:
 
 ### BMI and health safeguards
 
-For an adult only, BMI = weight in kilograms / (height in metres squared). Treat BMI as an optional screening value, not a diagnosis, body-composition measure, or standalone prescription rule. Do not display adult BMI categories to children/teens. Do not derive calorie targets or promise a specific amount of weight loss from BMI. Avoid asking for weight on grooming/spiritual plans. Offer “skip” and allow the user to delete optional measurements.
+For an adult only, BMI = weight in kilograms / (height in metres squared). The initial implementation calculates an optional adult BMI estimate locally in the personalization dialog; the values are not persisted or uploaded. Treat BMI as a screening value, not a diagnosis, body-composition measure, or standalone prescription rule. Do not display adult BMI categories to children/teens. Do not derive calorie targets or exercise intensity from BMI. Avoid asking for weight on grooming/mindfulness plans. Offer “skip” for optional measurements.
 
 For pregnancy, known relevant medical conditions, injury, eating-disorder concerns, or other high-risk responses, do not prescribe generic weight-loss or intense exercise programs. Direct the user toward a qualified professional and only offer general, low-risk habit content where appropriate. Content should be reviewed by a qualified fitness/health professional before launch. Do not represent the app as a medical device or substitute for care.
 
