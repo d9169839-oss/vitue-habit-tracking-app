@@ -94,7 +94,15 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
                     formError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
-            confirmButton = { Button(onClick = { vm.addHabit(title, description) { formError = it }; if (title.isNotBlank()) showAddDialog = false }) { Text("Create") } },
+            confirmButton = { Button(onClick = {
+                val cleanTitle = title.trim()
+                when {
+                    cleanTitle.isBlank() -> formError = "Give your habit a name."
+                    cleanTitle.length > 60 -> formError = "Habit names must be 60 characters or fewer."
+                    description.length > 240 -> formError = "Descriptions must be 240 characters or fewer."
+                    else -> { vm.addHabit(cleanTitle, description) { formError = it }; showAddDialog = false }
+                }
+            }) { Text("Create") } },
             dismissButton = { TextButton(onClick = { showAddDialog = false }) { Text("Cancel") } }
         )
     }
