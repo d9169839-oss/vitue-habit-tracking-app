@@ -86,6 +86,7 @@ fun ProgramsTab(
     var weightKg by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) { billingManager.connect() }
+    LaunchedEffect(state.isPremium) { if (state.isPremium) showPremiumDialog = false }
 
     val selectedTemplate = vm.catalog.firstOrNull { it.id == selectedTemplateId }
     Column(
@@ -136,6 +137,10 @@ fun ProgramsTab(
                     availableDays = 5
                     equipment = template.equipment
                     experience = com.virtue.habittracker.domain.model.program.ProgramExperience.BEGINNER
+                    workActivityLevel = WorkActivityLevel.MIXED
+                    ageYears = ""
+                    heightCm = ""
+                    weightKg = ""
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
