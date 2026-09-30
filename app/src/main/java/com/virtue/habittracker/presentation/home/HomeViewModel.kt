@@ -32,6 +32,7 @@ class HomeViewModel @Inject constructor(
     val habits = selectedDate.flatMapLatest { observeHabitsForDay(it.toEpochDay()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    fun selectDate(date: LocalDate) { _selectedDate.value = if (date.isAfter(LocalDate.now())) LocalDate.now() else date }
     fun previousDay() { _selectedDate.update { it.minusDays(1) } }
     fun nextDay() { _selectedDate.update { current -> if (current.isBefore(LocalDate.now())) current.plusDays(1) else current } }
     fun addHabit(title: String, description: String, onError: (String) -> Unit) {
