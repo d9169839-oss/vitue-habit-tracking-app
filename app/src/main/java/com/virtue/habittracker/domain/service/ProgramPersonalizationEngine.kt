@@ -14,7 +14,8 @@ class ProgramPersonalizationEngine {
         template: ProgramTemplate,
         enrollmentId: String,
         startEpochDay: Long,
-        preferences: ProgramPreferences
+        preferences: ProgramPreferences,
+        createdAtMillis: Long = 0L
     ): List<ScheduledProgramActivity> {
         val availableMinutes = preferences.availableMinutesPerDay.coerceIn(5, 90)
         // Physically demanding work already adds load; preserve recovery by capping planned sessions.
@@ -48,7 +49,7 @@ class ProgramPersonalizationEngine {
                 instructions = instructions,
                 estimatedMinutes = if (isRestDay) 0 else baseMinutes,
                 status = ProgramActivityStatus.PENDING,
-                updatedAtMillis = System.currentTimeMillis()
+                updatedAtMillis = createdAtMillis
             )
         }
     }
