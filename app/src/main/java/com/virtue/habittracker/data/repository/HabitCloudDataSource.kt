@@ -1,5 +1,6 @@
 package com.virtue.habittracker.data.repository
 
+import android.content.Context
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.virtue.habittracker.data.local.HabitDao
@@ -18,6 +19,7 @@ import kotlinx.coroutines.tasks.await
  */
 @Singleton
 class HabitCloudDataSource @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val dao: HabitDao
@@ -25,6 +27,21 @@ class HabitCloudDataSource @Inject constructor(
     private fun userIdOrNull(): String? = auth.currentUser?.uid
 
     private fun userDocument(uid: String) = firestore.collection("users").document(uid)
+
+    /**
+     * Current Room entities do not yet have a userId column. Remember the cache owner and
+     * clear it before a different account uses it, so one person's habits are not shown
+     * or uploaded under another account.
+     */
+    private suspend fun ensureLocalOwner(uid: String) {
+        val preferences = context.getSharedPreferences("habit_cache_owner", Context.MODE_PRIVATE)
+        val previousUid = preferences.getString("uid", null)
+        if (previousUid != null && previousUid != uid) {
+            dao.deleteAllCheckIns()
+            dao.deleteAllHabits()
+        }
+        preferences.edit().putString("uid", uid).apply()
+    }
 
     /** Upload the current user's profile basics; Firebase Authentication owns credentials. */
     suspend fun syncProfile() {
@@ -49,6 +66,7 @@ class HabitCloudDataSource @Inject constructor(
      */
     suspend fun pullMissingRecords() {
         val uid = userIdOrNull() ?: return
+        ensureLocalOwner(uid)
         syncProfile()
 
         val habitsSnapshot = userDocument(uid).collection("habits").get().await()
@@ -122,6 +140,7 @@ class HabitCloudDataSource @Inject constructor(
 
     suspend fun pushHabit(habit: HabitEntity) {
         val uid = userIdOrNull() ?: return // Allow local-first use while signed out.
+        ensureLocalOwner(uid)
         syncProfile()
         val data = mapOf(
             "id" to habit.id,
@@ -137,6 +156,7 @@ class HabitCloudDataSource @Inject constructor(
 
     suspend fun pushCheckIn(checkIn: HabitCheckInEntity) {
         val uid = userIdOrNull() ?: return
+        ensureLocalOwner(uid)
         syncProfile()
         // A deterministic document ID makes setting the same habit/date idempotent.
         val documentId = "${checkIn.habitId}_${checkIn.epochDay}"
@@ -152,6 +172,7 @@ class HabitCloudDataSource @Inject constructor(
 
     suspend fun deleteCheckIn(habitId: String, epochDay: Long) {
         val uid = userIdOrNull() ?: return
+        ensureLocalOwner(uid)
         userDocument(uid).collection("habitCheckIns").document("${habitId}_${epochDay}").delete().await()
     }
 }
