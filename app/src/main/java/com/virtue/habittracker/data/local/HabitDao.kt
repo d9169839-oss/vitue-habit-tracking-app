@@ -10,6 +10,9 @@ interface HabitDao {
     fun observeHabitsForDay(epochDay: Long): Flow<List<HabitEntity>>
     @Query("SELECT * FROM habit_check_ins WHERE epochDay <= :epochDay ORDER BY habitId, epochDay DESC")
     fun observeCheckInsThroughDay(epochDay: Long): Flow<List<HabitCheckInEntity>>
+    @Query("SELECT * FROM habits WHERE id = :habitId LIMIT 1")
+    suspend fun getHabitById(habitId: String): HabitEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHabit(habit: HabitEntity)
 
