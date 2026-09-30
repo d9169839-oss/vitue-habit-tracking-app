@@ -23,6 +23,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -33,6 +34,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import com.virtue.habittracker.R
+import com.virtue.habittracker.presentation.program.ProgramScreen
+import com.virtue.habittracker.presentation.profile.ProfileScreen
 import androidx.compose.ui.offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,7 +63,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
     var description by remember { mutableStateOf("") }
     var formError by remember { mutableStateOf<String?>(null) }
     var showCalendar by remember { mutableStateOf(false) }
-    // The bottom navigation swaps focused screens without mixing History UI into this file.
+    // Keep the selected destination local to the shell; each destination has its own UI file.
     var selectedTab by remember { mutableStateOf(0) }
     // Calendar counts are derived from the selected date’s active habits and check-ins.
     val summary = summarizeHabitDay(date.toEpochDay(), habits)
@@ -113,26 +118,49 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
             }
         }
             }
-            // This screen remains composed off-screen, keeping its StateFlow subscription warm.
+            // Keep destinations composed so returning to a tab does not recreate its screen.
             HistoryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .offset(x = if (selectedTab == 1) 0.dp else 10_000.dp),
                 vm = historyViewModel
             )
+            ProgramScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(x = if (selectedTab == 2) 0.dp else 10_000.dp)
+            )
+            ProfileScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(x = if (selectedTab == 3) 0.dp else 10_000.dp),
+                onSignOut = { authViewModel.signOut(); onSignOut() }
+            )
         }
         NavigationBar {
             NavigationBarItem(
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
-                icon = { Text("⌂") },
-                label = { Text("Today") }
+                icon = { Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
+                label = { Text("Home") }
             )
             NavigationBarItem(
                 selected = selectedTab == 1,
                 onClick = { selectedTab = 1 },
-                icon = { Text("◷") },
+                icon = { Icon(painterResource(R.drawable.ic_history), contentDescription = "History") },
                 label = { Text("History") }
+            )
+            NavigationBarItem(
+                selected = selectedTab == 2,
+                onClick = { selectedTab = 2 },
+                icon = { Icon(painterResource(R.drawable.ic_program), contentDescription = "Program") },
+                label = { Text("Program") }
+            )
+            NavigationBarItem(
+                selected = selectedTab == 3,
+                onClick = { selectedTab = 3 },
+                icon = { Icon(painterResource(R.drawable.ic_profile), contentDescription = "Profile") },
+                label = { Text("Profile") }
             )
         }
     }
