@@ -2,6 +2,7 @@ package com.virtue.habittracker.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.virtue.habittracker.domain.model.AuthOutcome
 import com.virtue.habittracker.domain.model.User
 import com.virtue.habittracker.domain.repository.AuthRepository
@@ -32,8 +33,12 @@ class FirebaseAuthRepository @Inject constructor(
         currentUser()
     }
 
-    override suspend fun register(email: String, password: String): AuthOutcome = safely {
+    override suspend fun register(name: String, email: String, password: String): AuthOutcome = safely {
         firebaseAuth.createUserWithEmailAndPassword(email, password).await()
+        // Firebase Authentication stores the display name; the profile document mirrors it.
+        firebaseAuth.currentUser?.updateProfile(
+            UserProfileChangeRequest.Builder().setDisplayName(name).build()
+        )?.await()
         runCatching { habitCloudDataSource.syncProfile() }
         currentUser()
     }
