@@ -43,6 +43,12 @@ class HabitCloudDataSource @Inject constructor(
         preferences.edit().putString("uid", uid).apply()
     }
 
+    /** Clear a previous account's local cache before exposing data; this method is local-only. */
+    suspend fun prepareLocalCacheForCurrentUser() {
+        val uid = userIdOrNull() ?: return
+        ensureLocalOwner(uid)
+    }
+
     /** Called once after authentication, not for every habit mutation. */
     suspend fun prepareForCurrentUser() {
         val uid = userIdOrNull() ?: return
