@@ -8,6 +8,9 @@ import com.virtue.habittracker.data.local.HabitDao
 import com.virtue.habittracker.data.local.HabitCheckInEntity
 import com.virtue.habittracker.data.local.HabitEntity
 import com.virtue.habittracker.data.local.SyncOperationEntity
+import com.virtue.habittracker.data.local.ProgramDao
+import com.virtue.habittracker.data.local.ProgramEnrollmentEntity
+import com.virtue.habittracker.data.local.ProgramActivityEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
@@ -24,7 +27,8 @@ class HabitCloudDataSource @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val dao: HabitDao
+    private val dao: HabitDao,
+    private val programDao: ProgramDao
 ) {
     private fun userIdOrNull(): String? = auth.currentUser?.uid
     private fun userDocument(uid: String) = firestore.collection("users").document(uid)
@@ -39,6 +43,8 @@ class HabitCloudDataSource @Inject constructor(
             dao.deleteAllSyncOperations()
             dao.deleteAllCheckIns()
             dao.deleteAllHabits()
+            programDao.deleteAllActivities()
+            programDao.deleteAllEnrollments()
         }
         preferences.edit().putString("uid", uid).apply()
     }
@@ -121,6 +127,49 @@ class HabitCloudDataSource @Inject constructor(
                                 hasWrites = true
                                 operationsToAcknowledge += operation
                             }
+                        }
+                        "PROGRAM_ENROLLMENT" -> {
+                            val ref = userRef.collection("programEnrollments").document(operation.entityId)
+                            val enrollment = programDao.getEnrollment(operation.entityId)
+                            if (operation.operationType == "DELETE" || enrollment == null) {
+                                batch.set(ref, mapOf("id" to operation.entityId, "deleted" to true,
+                                    "updatedAtMillis" to System.currentTimeMillis()), SetOptions.merge())
+                            } else {
+                                batch.set(ref, mapOf(
+                                    "id" to enrollment.id, "templateId" to enrollment.templateId,
+                                    "templateVersion" to enrollment.templateVersion, "titleSnapshot" to enrollment.titleSnapshot,
+                                    "category" to enrollment.category, "durationDays" to enrollment.durationDays,
+                                    "startEpochDay" to enrollment.startEpochDay, "status" to enrollment.status,
+                                    "availableMinutesPerDay" to enrollment.availableMinutesPerDay,
+                                    "availableDaysPerWeek" to enrollment.availableDaysPerWeek,
+                                    "experience" to enrollment.experience, "equipment" to enrollment.equipment,
+                                    "isPremium" to enrollment.isPremium, "createdAtMillis" to enrollment.createdAtMillis,
+                                    "updatedAtMillis" to maxOf(enrollment.updatedAtMillis, System.currentTimeMillis()),
+                                    "deleted" to false
+                                ), SetOptions.merge())
+                            }
+                            hasWrites = true
+                            operationsToAcknowledge += operation
+                        }
+                        "PROGRAM_ACTIVITY" -> {
+                            val ref = userRef.collection("programActivities").document(operation.entityId)
+                            val activity = programDao.getActivity(operation.entityId)
+                            if (activity == null) {
+                                batch.set(ref, mapOf("id" to operation.entityId, "deleted" to true,
+                                    "updatedAtMillis" to System.currentTimeMillis()), SetOptions.merge())
+                            } else {
+                                batch.set(ref, mapOf(
+                                    "id" to activity.id, "enrollmentId" to activity.enrollmentId,
+                                    "dayIndex" to activity.dayIndex, "epochDay" to activity.epochDay,
+                                    "phaseTitle" to activity.phaseTitle, "title" to activity.title,
+                                    "instructions" to activity.instructions, "estimatedMinutes" to activity.estimatedMinutes,
+                                    "status" to activity.status,
+                                    "updatedAtMillis" to maxOf(activity.updatedAtMillis, System.currentTimeMillis()),
+                                    "deleted" to false
+                                ), SetOptions.merge())
+                            }
+                            hasWrites = true
+                            operationsToAcknowledge += operation
                         }
                         "CHECK_IN" -> {
                             val parts = operation.entityId.split("_")
@@ -220,6 +269,63 @@ class HabitCloudDataSource @Inject constructor(
                     updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
                 ))
             }
+        }
+
+        val enrollmentsQuery = userRef.collection("programEnrollments")
+        val activitiesQuery = userRef.collection("programActivities")
+        val enrollmentsSnapshot = if (lastSyncMillis == 0L) enrollmentsQuery.get().await()
+            else enrollmentsQuery.whereGreaterThan("updatedAtMillis", lastSyncMillis).get().await()
+        val activitiesSnapshot = if (lastSyncMillis == 0L) activitiesQuery.get().await()
+            else activitiesQuery.whereGreaterThan("updatedAtMillis", lastSyncMillis).get().await()
+
+        for (document in enrollmentsSnapshot.documents) {
+            val id = document.getString("id") ?: document.id
+            if (dao.hasPendingSyncOperation("program-enrollment:$id")) continue
+            if (document.getBoolean("deleted") == true) {
+                programDao.deleteActivitiesForEnrollment(id)
+                programDao.deleteEnrollmentRow(id)
+                continue
+            }
+            val title = document.getString("titleSnapshot") ?: continue
+            val templateId = document.getString("templateId") ?: continue
+            val entity = ProgramEnrollmentEntity(
+                id = id, templateId = templateId,
+                templateVersion = (document.getLong("templateVersion") ?: 1L).toInt(),
+                titleSnapshot = title, category = document.getString("category") ?: "FITNESS",
+                durationDays = (document.getLong("durationDays") ?: 30L).toInt(),
+                startEpochDay = document.getLong("startEpochDay") ?: continue,
+                status = document.getString("status") ?: "ACTIVE",
+                availableMinutesPerDay = (document.getLong("availableMinutesPerDay") ?: 15L).toInt(),
+                availableDaysPerWeek = (document.getLong("availableDaysPerWeek") ?: 5L).toInt(),
+                experience = document.getString("experience") ?: "BEGINNER",
+                equipment = document.getString("equipment") ?: "NONE",
+                isPremium = document.getBoolean("isPremium") ?: false,
+                createdAtMillis = document.getLong("createdAtMillis") ?: 0L,
+                updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
+            )
+            programDao.upsertEnrollment(entity)
+        }
+
+        for (document in activitiesSnapshot.documents) {
+            val id = document.getString("id") ?: document.id
+            if (dao.hasPendingSyncOperation("program-activity:$id")) continue
+            if (document.getBoolean("deleted") == true) {
+                programDao.deleteActivityRow(id)
+                continue
+            }
+            val enrollmentId = document.getString("enrollmentId") ?: continue
+            val dayIndex = (document.getLong("dayIndex") ?: continue).toInt()
+            val entity = ProgramActivityEntity(
+                id = id, enrollmentId = enrollmentId, dayIndex = dayIndex,
+                epochDay = document.getLong("epochDay") ?: continue,
+                phaseTitle = document.getString("phaseTitle") ?: "",
+                title = document.getString("title") ?: continue,
+                instructions = document.getString("instructions") ?: "",
+                estimatedMinutes = (document.getLong("estimatedMinutes") ?: 0L).toInt(),
+                status = document.getString("status") ?: "PENDING",
+                updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
+            )
+            programDao.upsertActivity(entity)
         }
 
         // Persist only after both reads and all Room merges have succeeded.
