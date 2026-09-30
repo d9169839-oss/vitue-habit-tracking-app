@@ -10,8 +10,12 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
 
-class RoomHabitRepository @Inject constructor(private val dao: HabitDao) : HabitRepository {
+class RoomHabitRepository @Inject constructor(
+    private val dao: HabitDao,
+    private val cloud: HabitCloudDataSource
+) : HabitRepository {
     override fun observeHabitsForDay(epochDay: Long): Flow<List<HabitDayEntry>> =
         combine(dao.observeHabitsForDay(epochDay), dao.observeCheckInsThroughDay(epochDay)) { habits, checkIns ->
             val recordsByHabit = checkIns.groupBy { it.habitId }
@@ -28,19 +32,19 @@ class RoomHabitRepository @Inject constructor(private val dao: HabitDao) : Habit
         }
 
     override suspend fun createHabit(title: String, description: String, createdEpochDay: Long) {
-        dao.insertHabit(HabitEntity(UUID.randomUUID().toString(), title, description, createdEpochDay))
+        val habit = HabitEntity(UUID.randomUUID().toString(), title, description, createdEpochDay)\n        dao.insertHabit(habit)\n        // Persist locally first; best-effort cloud write keeps creation usable offline.\n        runCatching { cloud.pushHabit(habit) }
     }
 
     override suspend fun setCompletion(habitId: String, epochDay: Long, completed: Boolean) {
-        dao.upsertCheckIn(HabitCheckInEntity(habitId, epochDay, completed, System.currentTimeMillis()))
+        val checkIn = HabitCheckInEntity(habitId, epochDay, completed, System.currentTimeMillis())\n        dao.upsertCheckIn(checkIn)\n        runCatching { cloud.pushCheckIn(checkIn) }
     }
 
     override suspend fun clearCompletion(habitId: String, epochDay: Long) {
-        dao.deleteCheckIn(habitId, epochDay)
+        dao.deleteCheckIn(habitId, epochDay)\n        runCatching { cloud.deleteCheckIn(habitId, epochDay) }
     }
 
     override suspend fun archiveHabit(habitId: String, inactiveFromEpochDay: Long) {
-        dao.archiveHabit(habitId, inactiveFromEpochDay)
+        dao.archiveHabit(habitId, inactiveFromEpochDay)\n        // The archived habit remains stored so its earlier history remains available.\n        dao.getHabitById(habitId)?.let { runCatching { cloud.pushHabit(it) } }
     }
 
     private fun HabitEntity.toDomain() = Habit(id, title, description, createdEpochDay, inactiveFromEpochDay)
