@@ -10,6 +10,13 @@ interface HabitDao {
     fun observeHabitsForDay(epochDay: Long): Flow<List<HabitEntity>>
     @Query("SELECT * FROM habit_check_ins WHERE epochDay <= :epochDay ORDER BY habitId, epochDay DESC")
     fun observeCheckInsThroughDay(epochDay: Long): Flow<List<HabitCheckInEntity>>
+    // Account switching clears the unscoped local cache before another user can see it.
+    @Query("DELETE FROM habit_check_ins")
+    suspend fun deleteAllCheckIns()
+
+    @Query("DELETE FROM habits")
+    suspend fun deleteAllHabits()
+
     // These full-table reads support a simple retry pass for local writes made while offline.
     @Query("SELECT * FROM habits")
     suspend fun getAllHabits(): List<HabitEntity>
