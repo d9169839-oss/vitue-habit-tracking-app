@@ -18,6 +18,7 @@ class HabitSyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result = try {
         // No signed-in user? Keep the durable outbox for the next authenticated session.
+        cloud.syncProfileIfPending()
         cloud.syncPendingChanges()
         cloud.pullChangesSinceLastSync()
         Result.success()
