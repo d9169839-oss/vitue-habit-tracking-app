@@ -40,7 +40,7 @@ fun LoginScreen(state: AuthUiState, vm: AuthViewModel, onRegister: () -> Unit, o
             if (state.isLoading) CircularProgressIndicator() else Text("Sign in")
         }
         TextButton(onClick = onForgot, modifier = Modifier.align(Alignment.End)) { Text("Forgot password?") }
-        GoogleButton(state.isLoading, onGoogle)
+        GoogleButton(state.isLoading, onGoogle, vm::showError)
         Row(verticalAlignment = Alignment.CenterVertically) { Text("New here? "); TextButton(onClick = onRegister) { Text("Create account") } }
     }
 }
@@ -92,11 +92,11 @@ private fun AuthScaffold(
     }
 }
 @Composable
-private fun GoogleButton(loading: Boolean, onGoogle: (String) -> Unit) {
+private fun GoogleButton(loading: Boolean, onGoogle: (String) -> Unit, onError: (String) -> Unit) {
     val context = LocalContext.current
     val client = remember(context) { GoogleCredentialClient(context) }
     val scope = rememberCoroutineScope()
     Spacer(Modifier.height(12.dp))
-    OutlinedButton(onClick = { scope.launch { try { onGoogle(client.getIdToken()) } catch (_: Exception) { /* Credential cancellation/configuration errors do not crash the app. */ } } },
+    OutlinedButton(onClick = { scope.launch { try { onGoogle(client.getIdToken()) } catch (error: Exception) { onError(error.localizedMessage ?: "Google sign-in failed. Check Firebase and OAuth setup.") } } },
         enabled = !loading, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp)) { Text("Continue with Google") }
 }
