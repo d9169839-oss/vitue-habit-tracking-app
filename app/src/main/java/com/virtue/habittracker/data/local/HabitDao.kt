@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.Flow
 interface HabitDao {
     @Query("SELECT * FROM habits WHERE createdEpochDay <= :epochDay AND (inactiveFromEpochDay IS NULL OR :epochDay < inactiveFromEpochDay) ORDER BY createdEpochDay, title")
     fun observeHabitsForDay(epochDay: Long): Flow<List<HabitEntity>>
-    @Query("SELECT * FROM habit_check_ins WHERE epochDay = :epochDay")
-    fun observeCheckInsForDay(epochDay: Long): Flow<List<HabitCheckInEntity>>
+    @Query("SELECT * FROM habit_check_ins WHERE epochDay <= :epochDay ORDER BY habitId, epochDay DESC")
+    fun observeCheckInsThroughDay(epochDay: Long): Flow<List<HabitCheckInEntity>>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHabit(habit: HabitEntity)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
