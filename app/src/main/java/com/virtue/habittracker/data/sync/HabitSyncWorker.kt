@@ -18,7 +18,9 @@ class HabitSyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result = try {
         // No signed-in user? Keep the durable outbox for the next authenticated session.
-        cloud.syncProfileIfPending()
+        // Profile metadata is lower priority than user habit data; a profile error must not
+        // prevent the durable habit outbox from uploading.
+        runCatching { cloud.syncProfileIfPending() }
         cloud.syncPendingChanges()
         cloud.pullChangesSinceLastSync()
         Result.success()
