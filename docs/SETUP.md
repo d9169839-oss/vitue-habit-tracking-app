@@ -17,6 +17,13 @@
 9. In `app/build.gradle.kts`, replace the `GOOGLE_WEB_CLIENT_ID` placeholder with your Web OAuth client ID, keeping the Kotlin/Gradle string quoting, e.g. `buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"123-your-client-id.apps.googleusercontent.com\"")`.
 10. Confirm the OAuth consent screen, Android package name, signing fingerprints, and Web client ID are configured consistently.
 
+## Notifications and habit reminders
+- The app declares `POST_NOTIFICATIONS` and requests it at first launch on Android 13 (API 33) and newer.
+- A WorkManager job checks today's locally cached active habits at 8:00 PM device-local time and sends a reminder if any active habits are not marked completed.
+- Reminders use Room, so the check can run without internet. WorkManager can be delayed by Android battery restrictions and is not an exact-alarm guarantee.
+- If notification permission is denied, the scheduled work remains in place but the app cannot show a notification. Enable notifications for Vitue Habit Tracker in Android Settings to receive them.
+- Android 12 and earlier do not use the Android 13 runtime notification permission prompt.
+
 ## Open and run
 1. Download or clone this repository.
 2. Open the repository root in Android Studio.
