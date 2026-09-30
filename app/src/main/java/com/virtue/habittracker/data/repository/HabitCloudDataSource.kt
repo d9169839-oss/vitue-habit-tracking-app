@@ -31,7 +31,10 @@ class HabitCloudDataSource @Inject constructor(
         val user = auth.currentUser ?: return
         val profile = mapOf(
             "uid" to user.uid,
-            "name" to (user.displayName ?: ""),
+            // Email/password accounts may not have a Firebase display name yet. Use a readable
+            // temporary fallback rather than writing an empty profile name.
+            "name" to (user.displayName?.takeIf(String::isNotBlank)
+                ?: user.email?.substringBefore("@").orEmpty()),
             "email" to (user.email ?: ""),
             "photoUrl" to user.photoUrl?.toString(),
             "updatedAtMillis" to System.currentTimeMillis()
