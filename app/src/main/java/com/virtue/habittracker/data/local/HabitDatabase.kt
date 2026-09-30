@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [HabitEntity::class, HabitCheckInEntity::class, SyncOperationEntity::class, ProgramEnrollmentEntity::class, ProgramActivityEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class HabitDatabase : RoomDatabase() {
@@ -16,6 +16,12 @@ abstract class HabitDatabase : RoomDatabase() {
 
     companion object {
         /** Preserve existing user data while adding the durable offline-sync outbox. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE program_enrollments ADD COLUMN workActivityLevel TEXT NOT NULL DEFAULT 'MIXED'")
+            }
+        }
+
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS program_enrollments (id TEXT NOT NULL PRIMARY KEY, templateId TEXT NOT NULL, templateVersion INTEGER NOT NULL, titleSnapshot TEXT NOT NULL, category TEXT NOT NULL, durationDays INTEGER NOT NULL, startEpochDay INTEGER NOT NULL, status TEXT NOT NULL, availableMinutesPerDay INTEGER NOT NULL, availableDaysPerWeek INTEGER NOT NULL, experience TEXT NOT NULL, equipment TEXT NOT NULL, isPremium INTEGER NOT NULL, createdAtMillis INTEGER NOT NULL, updatedAtMillis INTEGER NOT NULL)")
