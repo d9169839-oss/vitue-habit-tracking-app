@@ -61,8 +61,9 @@ fun ProgramsTab(
     modifier: Modifier,
     visible: Boolean,
     vm: ProgramsViewModel = hiltViewModel(),
-    billingManager: PremiumBillingManager = androidx.hilt.navigation.compose.hiltViewModel<ProgramsBillingViewModel>().manager
+    billingViewModel: ProgramsBillingViewModel = hiltViewModel()
 ) {
+    val billingManager = billingViewModel.manager
     val state by vm.uiState.collectAsStateWithLifecycle()
     val billingMessage by billingManager.message.collectAsState()
     val products by billingManager.products.collectAsState()
@@ -319,8 +320,8 @@ private fun ProgramDifficulty.displayName() = when (this) {
     ProgramDifficulty.INTERMEDIATE -> "Intermediate"
 }
 
-/** Hilt ViewModel host avoids asking Compose to construct a billing singleton as a ViewModel. */
-@androidx.lifecycle.ViewModel
+/** Lifecycle-aware host for observing and invoking the application-scoped billing manager. */
+@dagger.hilt.android.lifecycle.HiltViewModel
 class ProgramsBillingViewModel @javax.inject.Inject constructor(
     val manager: PremiumBillingManager
 ) : androidx.lifecycle.ViewModel()
