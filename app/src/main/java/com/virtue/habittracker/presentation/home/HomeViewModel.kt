@@ -2,6 +2,7 @@ package com.virtue.habittracker.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.virtue.habittracker.domain.model.HabitDayEntry
+import com.virtue.habittracker.domain.usecase.ArchiveHabitUseCase
 import com.virtue.habittracker.domain.usecase.CreateHabitUseCase
 import com.virtue.habittracker.domain.usecase.ObserveHabitsForDayUseCase
 import com.virtue.habittracker.domain.usecase.SetHabitCompletionUseCase
@@ -21,7 +22,8 @@ import kotlinx.coroutines.launch
 class HomeViewModel @Inject constructor(
     observeHabitsForDay: ObserveHabitsForDayUseCase,
     private val createHabit: CreateHabitUseCase,
-    private val setHabitCompletion: SetHabitCompletionUseCase
+    private val setHabitCompletion: SetHabitCompletionUseCase,
+    private val archiveHabitUseCase: ArchiveHabitUseCase
 ) : ViewModel() {
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate = _selectedDate.asStateFlow()
@@ -37,6 +39,10 @@ class HomeViewModel @Inject constructor(
                 .onFailure { onError(it.message ?: "Could not create habit.") }
         }
     }
+    fun archiveHabit(entry: HabitDayEntry) {
+        viewModelScope.launch { archiveHabitUseCase(entry.habit.id, LocalDate.now().toEpochDay()) }
+    }
+
     fun toggleCompletion(entry: HabitDayEntry) {
         viewModelScope.launch {
             val completed = entry.status != com.virtue.habittracker.domain.model.HabitDayStatus.COMPLETED
