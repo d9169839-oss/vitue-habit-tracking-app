@@ -53,6 +53,7 @@ class FirebaseAuthRepository @Inject constructor(
     override suspend fun signInWithGoogle(idToken: String): AuthOutcome = safely {
         firebaseAuth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
         runCatching { habitCloudDataSource.prepareForCurrentUser() }
+        syncScheduler.enqueueSync()
         currentUser()
     }
 
