@@ -23,7 +23,8 @@ class HomeViewModel @Inject constructor(
     observeHabitsForDay: ObserveHabitsForDayUseCase,
     private val createHabit: CreateHabitUseCase,
     private val setHabitCompletion: SetHabitCompletionUseCase,
-    private val archiveHabitUseCase: ArchiveHabitUseCase
+    private val archiveHabitUseCase: ArchiveHabitUseCase,
+    private val clearHabitCheckInUseCase: com.virtue.habittracker.domain.usecase.ClearHabitCheckInUseCase
 ) : ViewModel() {
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate = _selectedDate.asStateFlow()
@@ -39,6 +40,10 @@ class HomeViewModel @Inject constructor(
                 .onFailure { onError(it.message ?: "Could not create habit.") }
         }
     }
+    fun clearCompletion(entry: HabitDayEntry) {
+        viewModelScope.launch { clearHabitCheckInUseCase(entry.habit.id, selectedDate.value.toEpochDay()) }
+    }
+
     fun archiveHabit(entry: HabitDayEntry) {
         viewModelScope.launch { archiveHabitUseCase(entry.habit.id, LocalDate.now().toEpochDay()) }
     }
