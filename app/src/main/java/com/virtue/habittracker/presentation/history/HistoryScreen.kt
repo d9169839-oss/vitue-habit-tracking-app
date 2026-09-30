@@ -45,7 +45,7 @@ private enum class HistoryFilter { ALL, ACTIVE, INACTIVE }
 
 /** History is a read-only snapshot for the selected date. */
 @Composable
-fun HistoryScreen(vm: HistoryViewModel = hiltViewModel()) {
+fun HistoryScreen(modifier: Modifier = Modifier, vm: HistoryViewModel = hiltViewModel()) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
     var showCalendar by remember { mutableStateOf(false) }
@@ -65,7 +65,7 @@ fun HistoryScreen(vm: HistoryViewModel = hiltViewModel()) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+        modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
