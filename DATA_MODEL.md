@@ -32,6 +32,8 @@ from `LocalDate` at the UI boundary.
 
 ## 4. Calendar/history summaries
 
+The History tab is a date-specific snapshot. It lists every habit created on or before the selected date, including archived habits. A habit is visually dimmed when the selected date is on or after its `inactiveFromEpochDay`; choosing a date before its archive boundary correctly shows it as active then. Status counts and completion rate use only habits active on the selected date, while the total and inactive counts provide context. The All/Active/Inactive filters only change presentation, not the stored data.
+
 The active habit list for a date is derived from the habit creation/archive boundaries. Counts are
 calculated from that list and its check-ins:
 
