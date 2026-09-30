@@ -17,6 +17,7 @@ data class ProgramEnrollmentEntity(
     val availableMinutesPerDay: Int,
     val availableDaysPerWeek: Int,
     val experience: String,
+    val workActivityLevel: String,
     val equipment: String,
     val isPremium: Boolean,
     val createdAtMillis: Long,
