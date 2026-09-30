@@ -79,7 +79,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(habits, key = { it.habit.id }) { entry -> HabitCard(entry, isFuture = date.isAfter(LocalDate.now()), canArchive = date == LocalDate.now(), onToggle = { vm.toggleCompletion(entry) }, onArchive = { vm.archiveHabit(entry) }) }
+                items(habits, key = { it.habit.id }) { entry -> HabitCard(entry, isFuture = date.isAfter(LocalDate.now()), canArchive = date == LocalDate.now(), onToggle = { vm.toggleCompletion(entry) }, onArchive = { vm.archiveHabit(entry) }, onClear = { vm.clearCompletion(entry) }) }
             }
         }
     }
@@ -109,7 +109,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
 }
 
 @Composable
-private fun HabitCard(entry: HabitDayEntry, isFuture: Boolean, canArchive: Boolean, onToggle: () -> Unit, onArchive: () -> Unit) {
+private fun HabitCard(entry: HabitDayEntry, isFuture: Boolean, canArchive: Boolean, onToggle: () -> Unit, onArchive: () -> Unit, onClear: () -> Unit) {
     val statusText = when (entry.status) {
         HabitDayStatus.UNRECORDED -> "Not recorded"
         HabitDayStatus.COMPLETED -> "Completed"
@@ -125,6 +125,7 @@ private fun HabitCard(entry: HabitDayEntry, isFuture: Boolean, canArchive: Boole
             }
             Column {
                 FilledTonalButton(onClick = onToggle, enabled = !isFuture) { Text(if (entry.status == HabitDayStatus.COMPLETED) "Undo" else "Done") }
+                if (entry.status != HabitDayStatus.UNRECORDED) TextButton(onClick = onClear, enabled = !isFuture) { Text("Clear record") }
                 TextButton(onClick = onArchive, enabled = canArchive) { Text("Archive") }
             }
         }
