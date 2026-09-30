@@ -49,11 +49,22 @@ class HabitCloudDataSource @Inject constructor(
         ensureLocalOwner(uid)
     }
 
-    /** Called once after authentication, not for every habit mutation. */
+    /**
+     * Authentication must not wait for Firestore. Prepare the local owner and mark the profile
+     * for background refresh; WorkManager will perform the network work when connectivity exists.
+     */
     suspend fun prepareForCurrentUser() {
         val uid = userIdOrNull() ?: return
         ensureLocalOwner(uid)
+        syncPreferences(uid).edit().putBoolean("profileSyncPending", true).apply()
+    }
+
+    suspend fun syncProfileIfPending() {
+        val uid = userIdOrNull() ?: return
+        val preferences = syncPreferences(uid)
+        if (!preferences.getBoolean("profileSyncPending", false)) return
         syncProfile()
+        preferences.edit().putBoolean("profileSyncPending", false).apply()
     }
 
     /** Profile metadata is intentionally independent from habit writes. */
