@@ -20,6 +20,8 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -38,6 +40,7 @@ import com.virtue.habittracker.domain.model.HabitDayEntry
 import com.virtue.habittracker.domain.model.HabitDayStatus
 import com.virtue.habittracker.domain.model.summarizeHabitDay
 import com.virtue.habittracker.presentation.auth.AuthViewModel
+import com.virtue.habittracker.presentation.history.HistoryScreen
 import java.time.LocalDate
 import java.time.Instant
 import java.time.ZoneOffset
@@ -52,9 +55,13 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
     var description by remember { mutableStateOf("") }
     var formError by remember { mutableStateOf<String?>(null) }
     var showCalendar by remember { mutableStateOf(false) }
+    // The bottom navigation swaps focused screens without mixing History UI into this file.
+    var selectedTab by remember { mutableStateOf(0) }
     // Calendar counts are derived from the selected date’s active habits and check-ins.
     val summary = summarizeHabitDay(date.toEpochDay(), habits)
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize()) {
+        if (selectedTab == 0) {
+            Column(Modifier.weight(1f).fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text("VITUE", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -91,6 +98,25 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(habits, key = { it.habit.id }) { entry -> HabitCard(entry, isFuture = date.isAfter(LocalDate.now()), canArchive = date == LocalDate.now(), onToggle = { vm.toggleCompletion(entry) }, onArchive = { vm.archiveHabit(entry) }, onClear = { vm.clearCompletion(entry) }) }
             }
+        }
+            }
+        } else {
+            // History has its own ViewModel and screen file to keep this file focused.
+            HistoryScreen(modifier = Modifier.weight(1f).fillMaxWidth())
+        }
+        NavigationBar {
+            NavigationBarItem(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                icon = { Text("⌂") },
+                label = { Text("Today") }
+            )
+            NavigationBarItem(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                icon = { Text("◷") },
+                label = { Text("History") }
+            )
         }
     }
     if (showCalendar) {
