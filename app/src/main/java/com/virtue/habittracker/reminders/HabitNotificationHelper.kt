@@ -6,13 +6,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import.content.pm.PackageManager
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.virtue.habittracker.MainActivity
-import com.virtue.habittracker.R
 
 /** Keeps Android notification-channel and notification-building details out of the worker. */
 object HabitNotificationHelper {
