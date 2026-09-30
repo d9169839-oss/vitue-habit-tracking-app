@@ -9,7 +9,11 @@ Native Android habit tracker built with Kotlin, Jetpack Compose, MVVM, Clean Arc
 - Restored Firebase session routing when the app launches
 - Room-backed habit creation and daily check-ins with local-first Firestore cloud backup
 - User-scoped Firestore profile, habit, and check-in documents (passwords remain in Firebase Authentication)
-- Retry pass that uploads local records after the device reconnects
+- Durable Room outbox for habit/check-in changes, including deletion tombstones
+- Network-constrained WorkManager sync with exponential retry and a six-hour periodic safety sync
+- Initial cloud import followed by incremental pulls, throttled to at most once every 15 minutes
+- Coalesced pending edits so repeated taps update one queued entity instead of creating duplicate cloud writes
+- Deferred profile metadata sync so login and habit actions do not wait for Firestore
 - Derived daily history summaries for active/completed/not-completed/unrecorded counts
 - Dedicated History tab with calendar-based date selection
 - Date-specific history includes habits created by that date, with archived/inactive habits dimmed
@@ -29,4 +33,4 @@ Follow [docs/SETUP.md](docs/SETUP.md). Add your own `app/google-services.json`, 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the companion [enterprise architecture learning repository](https://github.com/d9169839-oss/android-enterprise_architecture).
 
 ## Remaining work
-The History tab is a date-specific snapshot: it shows habits created by the selected date and their check-in status for that day. Archived habits remain visible but dimmed when inactive on that date. The current Firestore sync is an initial best-effort implementation, not a durable multi-device conflict-resolution system. Richer analytics, habit editing, and production-grade sync remain follow-up milestones. The project has not been built on a local Android SDK in this environment; run Gradle sync and tests locally and share any errors for correction.
+The History tab is a date-specific snapshot: it shows habits created by the selected date and their check-in status for that day. Archived habits remain visible but dimmed when inactive on that date. The sync outbox and incremental sync are implemented, but cross-device conflict resolution, pagination for very large histories, and explicit user-facing last-sync/error status remain follow-up milestones. The project has not been built on a local Android SDK in this environment; run Gradle sync and tests locally and share any errors for correction. The project has not been built on a local Android SDK in this environment; run Gradle sync and tests locally and share any errors for correction.
