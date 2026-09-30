@@ -43,6 +43,13 @@ class HabitCloudDataSource @Inject constructor(
         preferences.edit().putString("uid", uid).apply()
     }
 
+    /** Prepare an account's local cache before the signed-in user can work with habits. */
+    suspend fun prepareForCurrentUser() {
+        val uid = userIdOrNull() ?: return
+        ensureLocalOwner(uid)
+        syncProfile()
+    }
+
     /** Upload the current user's profile basics; Firebase Authentication owns credentials. */
     suspend fun syncProfile() {
         val user = auth.currentUser ?: return
