@@ -1,4 +1,10 @@
 package com.virtue.habittracker.di
+import android.content.Context
+import androidx.room.Room
+import com.virtue.habittracker.data.local.HabitDao
+import com.virtue.habittracker.data.local.HabitDatabase
+import com.virtue.habittracker.data.repository.RoomHabitRepository
+import com.virtue.habittracker.domain.repository.HabitRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.virtue.habittracker.data.repository.FirebaseAuthRepository
 import com.virtue.habittracker.domain.repository.AuthRepository
@@ -12,6 +18,11 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object FirebaseProviders {
     @Provides @Singleton
+    fun provideHabitDatabase(@dagger.hilt.android.qualifiers.ApplicationContext context: Context): HabitDatabase =
+        Room.databaseBuilder(context, HabitDatabase::class.java, "vitue_habits.db").build()
+    @Provides
+    fun provideHabitDao(database: HabitDatabase): HabitDao = database.habitDao()
+    @Provides @Singleton
     fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
 }
 @Module
@@ -19,4 +30,6 @@ object FirebaseProviders {
 abstract class RepositoryBindings {
     @Binds @Singleton
     abstract fun bindAuthRepository(implementation: FirebaseAuthRepository): AuthRepository
+    @Binds @Singleton
+    abstract fun bindHabitRepository(implementation: RoomHabitRepository): HabitRepository
 }
