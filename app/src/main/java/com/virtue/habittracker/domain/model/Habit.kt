@@ -7,4 +7,4 @@ data class Habit(
     val inactiveFromEpochDay: Long?
 )
 enum class HabitDayStatus { UNRECORDED, COMPLETED, NOT_COMPLETED }
-data class HabitDayEntry(val habit: Habit, val status: HabitDayStatus)
+data class HabitDayEntry(val habit: Habit, val status: HabitDayStatus, val currentStreak: Int = 0)
