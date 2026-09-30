@@ -21,7 +21,7 @@ import com.virtue.habittracker.presentation.auth.ForgotPasswordScreen
 import com.virtue.habittracker.presentation.auth.LoginScreen
 import com.virtue.habittracker.presentation.auth.RegisterScreen
 import com.virtue.habittracker.presentation.auth.SessionState
-import com.virtue.habittracker.presentation.home.HomeScreen
+import com.virtue.habittracker.presentation.App
 
 private object Routes { const val SPLASH = "session_check"; const val LOGIN = "login"; const val REGISTER = "register"; const val FORGOT = "forgot"; const val HOME = "home" }
 
@@ -66,7 +66,7 @@ fun AppNavigation() {
                 ForgotPasswordScreen(state, vm) { navController.popBackStack() }
             }
             composable(Routes.HOME) {
-                HomeScreen(onSignOut = { navController.navigate(Routes.LOGIN) { popUpTo(Routes.HOME) { inclusive = true }; launchSingleTop = true } })
+                App(onSignOut = { navController.navigate(Routes.LOGIN) { popUpTo(Routes.HOME) { inclusive = true }; launchSingleTop = true } })
             }
         }
     }
