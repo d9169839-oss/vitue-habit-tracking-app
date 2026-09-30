@@ -11,10 +11,14 @@ Native Android habit tracker built with Kotlin, Jetpack Compose, MVVM, Clean Arc
 - User-scoped Firestore profile, habit, and check-in documents (passwords remain in Firebase Authentication)
 - Retry pass that uploads local records after the device reconnects
 - Derived daily history summaries for active/completed/not-completed/unrecorded counts
-- Dedicated History tab with calendar-based date selection\n- Date-specific history includes habits created by that date, with archived/inactive habits dimmed\n- Summary counts for completed, not completed, unrecorded, active, and inactive habits\n- All/Active/Inactive history filters
+- Dedicated History tab with calendar-based date selection
+- Date-specific history includes habits created by that date, with archived/inactive habits dimmed
+- Summary counts for completed, not completed, unrecorded, active, and inactive habits
+- All/Active/Inactive history filters
 - Three daily states: unrecorded, completed, and not completed
 - Habit active/inactive lifecycle that preserves historical visibility after archiving
 - Consecutive-day streak calculation as of the selected date
+- Android notification permission request and a WorkManager daily habit reminder (8:00 PM local time)
 - Dark purple Compose theme
 - Registration validation unit tests
 
@@ -25,4 +29,4 @@ Follow [docs/SETUP.md](docs/SETUP.md). Add your own `app/google-services.json`, 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the companion [enterprise architecture learning repository](https://github.com/d9169839-oss/android-enterprise_architecture).
 
 ## Remaining work
-The History tab is a date-specific snapshot: it shows habits created by the selected date and their check-in status for that day. Archived habits remain visible but dimmed when inactive on that date. The current Firestore sync is an initial best-effort implementation, not a durable multi-device conflict-resolution system. Richer analytics, habit editing, and production-grade sync remain follow-up milestones. The project has not been built on a local Android SDK in this environment; run Gradle sync and tests locally and share any errors for correction. The project has not been built on a local Android SDK in this environment; run Gradle sync and tests locally and share any errors for correction.
+The History tab is a date-specific snapshot: it shows habits created by the selected date and their check-in status for that day. Archived habits remain visible but dimmed when inactive on that date. The current Firestore sync is an initial best-effort implementation, not a durable multi-device conflict-resolution system. Richer analytics, habit editing, and production-grade sync remain follow-up milestones. The project has not been built on a local Android SDK in this environment; run Gradle sync and tests locally and share any errors for correction.
