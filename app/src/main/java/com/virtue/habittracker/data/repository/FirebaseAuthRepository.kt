@@ -1,4 +1,5 @@
 package com.virtue.habittracker.data.repository
+
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.virtue.habittracker.domain.model.AuthOutcome
@@ -14,6 +15,7 @@ class FirebaseAuthRepository @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val habitCloudDataSource: HabitCloudDataSource
 ) : AuthRepository {
+
     override val authState: Flow<User?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { auth ->
             val current = auth.currentUser
@@ -22,29 +24,44 @@ class FirebaseAuthRepository @Inject constructor(
         firebaseAuth.addAuthStateListener(listener)
         awaitClose { firebaseAuth.removeAuthStateListener(listener) }
     }
+
     override suspend fun signIn(email: String, password: String): AuthOutcome = safely {
         firebaseAuth.signInWithEmailAndPassword(email, password).await()
+        // Profile writes are best-effort; an unavailable network must not invalidate login.
+        runCatching { habitCloudDataSource.syncProfile() }
         currentUser()
     }
+
     override suspend fun register(email: String, password: String): AuthOutcome = safely {
         firebaseAuth.createUserWithEmailAndPassword(email, password).await()
+        runCatching { habitCloudDataSource.syncProfile() }
         currentUser()
     }
+
     override suspend fun signInWithGoogle(idToken: String): AuthOutcome = safely {
         firebaseAuth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
+        runCatching { habitCloudDataSource.syncProfile() }
         currentUser()
     }
+
     override suspend fun sendPasswordReset(email: String): Result<Unit> = runCatching {
         firebaseAuth.sendPasswordResetEmail(email).await()
     }
+
     override suspend fun signOut() = firebaseAuth.signOut()
+
     private fun currentUser(): AuthOutcome {
-        val user = firebaseAuth.currentUser ?: return AuthOutcome.Failure("No authenticated session was found.")
+        val user = firebaseAuth.currentUser
+            ?: return AuthOutcome.Failure("No authenticated session was found.")
         return AuthOutcome.Success(User(user.uid, user.email, user.displayName))
     }
+
     private suspend fun safely(block: suspend () -> AuthOutcome): AuthOutcome = try {
         block()
     } catch (error: Exception) {
-        AuthOutcome.Failure(error.localizedMessage?.takeIf(String::isNotBlank) ?: "Authentication failed. Please try again.")
+        AuthOutcome.Failure(
+            error.localizedMessage?.takeIf(String::isNotBlank)
+                ?: "Authentication failed. Please try again."
+        )
     }
 }
