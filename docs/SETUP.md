@@ -7,15 +7,22 @@
 
 ## Firebase setup
 1. Create a project in the Firebase console.
-2. Add an Android app with package name `com.virtue.habittracker`.
+2. Register an Android app with package name `com.virtue.habittracker`.
 3. Download `google-services.json` into the `app/` directory. This file is ignored by Git and must not be committed.
-4. Enable **Email/Password** in Firebase Authentication.
-5. Enable **Google** in Firebase Authentication and configure your app SHA-1/SHA-256 fingerprints.
-6. Set the Web OAuth client ID in `GOOGLE_WEB_CLIENT_ID` in `app/build.gradle.kts`; the placeholder intentionally requires replacement.
-7. Confirm the OAuth consent screen and package/SHA fingerprints are correct.
+4. In Firebase Authentication, enable **Email/Password**.
+5. Enable **Google** in Firebase Authentication.
+6. Configure your Android app's SHA-1 and SHA-256 fingerprints in Firebase project settings.
+7. In `app/build.gradle.kts`, replace the `GOOGLE_WEB_CLIENT_ID` placeholder with your Web OAuth client ID, keeping the Kotlin/Gradle string quoting, e.g. `buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"123-your-client-id.apps.googleusercontent.com\"")`.
+8. Confirm the OAuth consent screen, Android package name, signing fingerprints, and Web client ID are configured consistently.
 
-## Build
-Open the repository root in Android Studio, let Gradle sync, install SDK Platform 36 if prompted, and run the `app` configuration.
+## Open and run
+1. Download or clone this repository.
+2. Open the repository root in Android Studio.
+3. Allow Gradle sync to finish and install SDK Platform 36 if prompted.
+4. Add `app/google-services.json` and set the OAuth client ID before running authentication flows.
+5. Run the `app` configuration on an emulator/device with internet access.
 
 ## Important
-Firebase credentials and signing keys are not committed. The scaffold has not yet been built against an Android SDK in this environment; perform a Gradle sync/build locally and share any errors for correction.
+- Never commit Firebase service-account credentials, signing keys, local SDK paths, or private configuration.
+- Google sign-in cannot succeed while the placeholder Web client ID remains.
+- This scaffold has not yet been built against an Android SDK in this environment. If Gradle sync or compilation reports errors, copy the first error and stack trace so it can be fixed directly.
