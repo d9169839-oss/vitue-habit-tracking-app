@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
@@ -25,6 +26,33 @@ class HistoryViewModel @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     val entries = selectedDate
         .flatMapLatest { observeHistoryForDay(it.toEpochDay()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * A real seven-day series derived from the same persisted history as the daily History screen.
+     * Each point excludes unrecorded entries from its completion-rate denominator.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val weeklyProgress = selectedDate
+        .flatMapLatest { selected ->
+            val dates = (6 downTo 0).map { selected.minusDays(it.toLong()) }
+            combine(dates.map { date -> observeHistoryForDay(date.toEpochDay()) }) { dailyEntries ->
+                dates.mapIndexed { index, day ->
+                    val dayEntries = dailyEntries[index]
+                    val active = dayEntries.filter { it.isActiveOnDate }
+                    val completed = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.COMPLETED }
+                    val notCompleted = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.NOT_COMPLETED }
+                    val recorded = completed + notCompleted
+                    DailyProgressPoint(
+                        date = day,
+                        completedCount = completed,
+                        notCompletedCount = notCompleted,
+                        unrecordedCount = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.UNRECORDED },
+                        completionRatePercent = if (recorded == 0) 0 else completed * 100 / recorded
+                    )
+                }
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun selectDate(date: LocalDate) {
@@ -46,3 +74,13 @@ class HistoryViewModel @Inject constructor(
         _selectedDate.value = LocalDate.now()
     }
 }
+
+
+/** One truthful, date-specific point for the recent consistency chart. */
+data class DailyProgressPoint(
+    val date: LocalDate,
+    val completedCount: Int,
+    val notCompletedCount: Int,
+    val unrecordedCount: Int,
+    val completionRatePercent: Int
+)
