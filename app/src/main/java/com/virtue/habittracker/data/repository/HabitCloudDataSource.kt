@@ -314,6 +314,8 @@ class HabitCloudDataSource @Inject constructor(
                 continue
             }
             val enrollmentId = document.getString("enrollmentId") ?: continue
+            // Ignore orphan activity documents after an enrollment tombstone was applied.
+            if (programDao.getEnrollment(enrollmentId) == null) continue
             val dayIndex = (document.getLong("dayIndex") ?: continue).toInt()
             val entity = ProgramActivityEntity(
                 id = id, enrollmentId = enrollmentId, dayIndex = dayIndex,
