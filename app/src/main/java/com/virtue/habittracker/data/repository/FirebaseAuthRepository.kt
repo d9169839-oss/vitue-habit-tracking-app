@@ -36,9 +36,12 @@ class FirebaseAuthRepository @Inject constructor(
     override suspend fun register(name: String, email: String, password: String): AuthOutcome = safely {
         firebaseAuth.createUserWithEmailAndPassword(email, password).await()
         // Firebase Authentication stores the display name; the profile document mirrors it.
-        firebaseAuth.currentUser?.updateProfile(
-            UserProfileChangeRequest.Builder().setDisplayName(name).build()
-        )?.await()
+        // Profile metadata is best-effort after account creation; it must not undo successful auth.
+        runCatching {
+            firebaseAuth.currentUser?.updateProfile(
+                UserProfileChangeRequest.Builder().setDisplayName(name).build()
+            )?.await()
+        }
         runCatching { habitCloudDataSource.prepareForCurrentUser() }
         currentUser()
     }
