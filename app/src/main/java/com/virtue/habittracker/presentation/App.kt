@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.draw.alpha
@@ -551,6 +552,7 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
 private fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOpenHistory: () -> Unit) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
+    val weeklyProgress by vm.weeklyProgress.collectAsStateWithLifecycle()
     val activeEntries = entries.filter { it.isActiveOnDate }
     val completed = activeEntries.count { it.status == HabitDayStatus.COMPLETED }
     val notCompleted = activeEntries.count { it.status == HabitDayStatus.NOT_COMPLETED }
@@ -591,6 +593,41 @@ private fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMod
                     OutlinedButton(onClick = vm::previousDay, modifier = Modifier.weight(1f)) { Text("Previous") }
                     OutlinedButton(onClick = vm::goToToday, modifier = Modifier.weight(1f)) { Text("Today") }
                     OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now()), modifier = Modifier.weight(1f)) { Text("Next") }
+                }
+            }
+        }
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF211B30))) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Consistency · 7 days", color = Color(0xFFF8F5FF), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Tap a day to inspect its saved history.", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
+                if (weeklyProgress.isEmpty()) {
+                    Text("Your recent progress will appear here as records are saved.", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
+                } else {
+                    Row(Modifier.fillMaxWidth().height(132.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.Bottom) {
+                        weeklyProgress.forEach { point ->
+                            Column(
+                                Modifier.weight(1f).fillMaxWidth().clickable {
+                                    vm.selectDate(point.date)
+                                    onOpenHistory()
+                                },
+                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Bottom
+                            ) {
+                                Text("${point.completionRatePercent}%", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelSmall)
+                                Spacer(Modifier.height(4.dp))
+                                Box(
+                                    Modifier.fillMaxWidth(0.72f)
+                                        .height((point.completionRatePercent.coerceIn(0, 100) * 0.82f + 5f).dp)
+                                        .background(
+                                            if (point.date == date) Color(0xFFC4B5FD) else Color(0xFFA78BFA),
+                                            RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp)
+                                        )
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(point.date.format(DateTimeFormatter.ofPattern("EE")), color = Color(0xFFAAA2BB), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
                 }
             }
         }
