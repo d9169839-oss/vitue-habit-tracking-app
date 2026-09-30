@@ -164,6 +164,11 @@ class HabitCloudDataSource @Inject constructor(
         ensureLocalOwner(uid)
         val preferences = syncPreferences(uid)
         val lastSyncMillis = preferences.getLong("lastSuccessfulPullMillis", 0L)
+        // Local edits can enqueue frequent uploads. Avoid paying for two cloud queries on every tap.
+        // Cross-device changes are refreshed at most every 15 minutes, plus the initial full pull.
+        if (lastSyncMillis != 0L &&
+            System.currentTimeMillis() - lastSyncMillis < MIN_PULL_INTERVAL_MILLIS
+        ) return
         val userRef = userDocument(uid)
 
         val habitsQuery = userRef.collection("habits")
@@ -208,5 +213,8 @@ class HabitCloudDataSource @Inject constructor(
 
         // Persist only after both reads and all Room merges have succeeded.
         preferences.edit().putLong("lastSuccessfulPullMillis", System.currentTimeMillis()).apply()
+    }
+    private companion object {
+        const val MIN_PULL_INTERVAL_MILLIS = 15 * 60 * 1000L
     }
 }
