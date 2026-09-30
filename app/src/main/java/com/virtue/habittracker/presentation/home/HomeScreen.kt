@@ -41,13 +41,14 @@ import com.virtue.habittracker.domain.model.HabitDayStatus
 import com.virtue.habittracker.domain.model.summarizeHabitDay
 import com.virtue.habittracker.presentation.auth.AuthViewModel
 import com.virtue.habittracker.presentation.history.HistoryScreen
+import com.virtue.habittracker.presentation.history.HistoryViewModel
 import java.time.LocalDate
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authViewModel: AuthViewModel = hiltViewModel()) {
+fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authViewModel: AuthViewModel = hiltViewModel(), historyViewModel: HistoryViewModel = hiltViewModel()) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val habits by vm.habits.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -102,7 +103,7 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
             }
         } else {
             // History has its own ViewModel and screen file to keep this file focused.
-            HistoryScreen(modifier = Modifier.weight(1f).fillMaxWidth())
+            HistoryScreen(modifier = Modifier.weight(1f).fillMaxWidth(), vm = historyViewModel)
         }
         NavigationBar {
             NavigationBarItem(
@@ -123,7 +124,13 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
         DatePickerDialog(onDismissRequest = { showCalendar = false }, confirmButton = {
             TextButton(onClick = {
-                pickerState.selectedDateMillis?.let { millis -> vm.selectDate(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()) }
+                pickerState.selectedDateMillis?.let { millis ->
+                    val selected = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                    vm.selectDate(selected)
+                    historyViewModel.selectDate(selected)
+                    // Choosing a date is a request to review that date, so open the History tab.
+                    selectedTab = 1
+                }
                 showCalendar = false
             }) { Text("View date") }
         }, dismissButton = { TextButton(onClick = { showCalendar = false }) { Text("Cancel") } }) {
