@@ -437,7 +437,7 @@ private fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMode
     val notDone = active.count { it.status == HabitDayStatus.NOT_COMPLETED }
     val unrecorded = active.count { it.status == HabitDayStatus.UNRECORDED }
     val inactiveCount = entries.count { !it.isActiveOnDate }
-    val rate = if (active.isEmpty()) 0 else (completed * 100f / active.size).toInt()
+    val recorded = completed + notDone\n    val rate = if (recorded == 0) 0 else (completed * 100f / recorded).toInt()
     val visibleEntries = when (filter) {
         HistoryFilter.ALL -> entries
         HistoryFilter.ACTIVE -> entries.filter { it.isActiveOnDate }
@@ -465,9 +465,9 @@ private fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMode
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SummaryTile("Completed", completed.toString(), Modifier.weight(1f))
-            SummaryTile("Not done", notDone.toString(), Modifier.weight(1f))
-            SummaryTile("Unrecorded", unrecorded.toString(), Modifier.weight(1f))
+            SummaryTile("Completed", completed.toString(), Color(0xFF34D399), Modifier.weight(1f), "✓")
+            SummaryTile("Not done", notDone.toString(), Color(0xFFFB7185), Modifier.weight(1f), "×")
+            SummaryTile("Unrecorded", unrecorded.toString(), Color(0xFF9891A8), Modifier.weight(1f), "○")
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
@@ -506,10 +506,11 @@ private fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMode
 }
 
 @Composable
-private fun SummaryTile(label: String, count: String, modifier: Modifier = Modifier) {
+private fun SummaryTile(label: String, count: String, accent: Color, modifier: Modifier = Modifier, symbol: String) {
     Card(modifier, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(count, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(symbol, color = accent, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(count, color = accent, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -524,11 +525,17 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
         HabitDayStatus.UNRECORDED -> "Not recorded"
     }
     val color = when (entry.status) {
-        HabitDayStatus.COMPLETED -> MaterialTheme.colorScheme.secondary
-        HabitDayStatus.NOT_COMPLETED -> MaterialTheme.colorScheme.error
-        HabitDayStatus.UNRECORDED -> MaterialTheme.colorScheme.onSurfaceVariant
+        HabitDayStatus.COMPLETED -> Color(0xFF34D399)
+        HabitDayStatus.NOT_COMPLETED -> Color(0xFFFB7185)
+        HabitDayStatus.UNRECORDED -> Color(0xFF9891A8)
     }
-    Card(Modifier.fillMaxWidth().alpha(if (active) 1f else 0.48f), shape = RoundedCornerShape(18.dp),
+    val symbol = when (entry.status) {
+        HabitDayStatus.COMPLETED -> "✓"
+        HabitDayStatus.NOT_COMPLETED -> "×"
+        HabitDayStatus.UNRECORDED -> "○"
+    }
+    Card(Modifier.fillMaxWidth().alpha(if (active) 1f else 0.62f), shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.35f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -538,7 +545,10 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
                 if (entry.currentStreak > 0) Text("${entry.currentStreak}-day streak at this date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
             Surface(shape = RoundedCornerShape(50), color = color.copy(alpha = 0.14f)) {
-                Text(label, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium, color = color)
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(symbol, color = color, fontWeight = FontWeight.Bold)
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = color)
+                }
             }
         }
     }
