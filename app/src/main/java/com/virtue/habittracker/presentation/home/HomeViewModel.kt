@@ -33,7 +33,7 @@ class HomeViewModel @Inject constructor(
     fun nextDay() { _selectedDate.update { current -> if (current.isBefore(LocalDate.now())) current.plusDays(1) else current } }
     fun addHabit(title: String, description: String, onError: (String) -> Unit) {
         viewModelScope.launch {
-            createHabit(title, description, selectedDate.value.toEpochDay())
+            createHabit(title, description, LocalDate.now().toEpochDay())
                 .onFailure { onError(it.message ?: "Could not create habit.") }
         }
     }
