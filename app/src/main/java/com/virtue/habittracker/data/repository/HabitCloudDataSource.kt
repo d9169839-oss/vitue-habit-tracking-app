@@ -142,7 +142,7 @@ class HabitCloudDataSource @Inject constructor(
                                     "startEpochDay" to enrollment.startEpochDay, "status" to enrollment.status,
                                     "availableMinutesPerDay" to enrollment.availableMinutesPerDay,
                                     "availableDaysPerWeek" to enrollment.availableDaysPerWeek,
-                                    "experience" to enrollment.experience, "equipment" to enrollment.equipment,
+                                    "experience" to enrollment.experience, "workActivityLevel" to enrollment.workActivityLevel, "equipment" to enrollment.equipment,
                                     "isPremium" to enrollment.isPremium, "createdAtMillis" to enrollment.createdAtMillis,
                                     "updatedAtMillis" to maxOf(enrollment.updatedAtMillis, System.currentTimeMillis()),
                                     "deleted" to false
@@ -298,6 +298,7 @@ class HabitCloudDataSource @Inject constructor(
                 availableMinutesPerDay = (document.getLong("availableMinutesPerDay") ?: 15L).toInt(),
                 availableDaysPerWeek = (document.getLong("availableDaysPerWeek") ?: 5L).toInt(),
                 experience = document.getString("experience") ?: "BEGINNER",
+                workActivityLevel = document.getString("workActivityLevel") ?: "MIXED",
                 equipment = document.getString("equipment") ?: "NONE",
                 isPremium = document.getBoolean("isPremium") ?: false,
                 createdAtMillis = document.getLong("createdAtMillis") ?: 0L,
