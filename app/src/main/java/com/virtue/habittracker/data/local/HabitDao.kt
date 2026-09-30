@@ -16,6 +16,13 @@ interface HabitDao {
     @Query("SELECT * FROM habits WHERE createdEpochDay <= :epochDay ORDER BY createdEpochDay DESC, title")
     fun observeAllHabitsCreatedByDay(epochDay: Long): Flow<List<HabitEntity>>
 
+    // WorkManager reads the local cache so reminders can still work offline.
+    @Query("SELECT * FROM habits WHERE createdEpochDay <= :epochDay AND (inactiveFromEpochDay IS NULL OR :epochDay < inactiveFromEpochDay) ORDER BY createdEpochDay, title")
+    suspend fun getActiveHabitsForDay(epochDay: Long): List<HabitEntity>
+
+    @Query("SELECT * FROM habit_check_ins WHERE epochDay = :epochDay")
+    suspend fun getCheckInsForDay(epochDay: Long): List<HabitCheckInEntity>
+
     @Query("SELECT * FROM habit_check_ins WHERE epochDay <= :epochDay ORDER BY habitId, epochDay DESC")
     fun observeCheckInsThroughDay(epochDay: Long): Flow<List<HabitCheckInEntity>>
 
