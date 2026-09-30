@@ -1,6 +1,7 @@
 package com.virtue.habittracker.presentation.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -61,8 +63,18 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
     // Calendar counts are derived from the selected date’s active habits and check-ins.
     val summary = summarizeHabitDay(date.toEpochDay(), habits)
     Column(Modifier.fillMaxSize()) {
-        if (selectedTab == 0) {
-            Column(Modifier.weight(1f).fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Keep both tabs composed and collecting their state while hidden. This warms their
+        // Room/Flow streams before a tap, so navigation switches visibility instead of creating
+        // a screen and starting its data pipeline on the user's tap.
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .offset(x = if (selectedTab == 0) 0.dp else 10_000.dp)
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text("VITUE", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -101,9 +113,13 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
             }
         }
             }
-        } else {
-            // History has its own ViewModel and screen file to keep this file focused.
-            HistoryScreen(modifier = Modifier.weight(1f).fillMaxWidth(), vm = historyViewModel)
+            // This screen remains composed off-screen, keeping its StateFlow subscription warm.
+            HistoryScreen(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(x = if (selectedTab == 1) 0.dp else 10_000.dp),
+                vm = historyViewModel
+            )
         }
         NavigationBar {
             NavigationBarItem(
