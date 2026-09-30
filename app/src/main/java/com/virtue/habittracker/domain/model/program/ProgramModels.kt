@@ -5,6 +5,7 @@ enum class ProgramDifficulty { BEGINNER, INTERMEDIATE }
 enum class ProgramStatus { ACTIVE, PAUSED, COMPLETED, ENDED }
 enum class ProgramActivityStatus { PENDING, COMPLETED, SKIPPED }
 enum class ProgramExperience { BEGINNER, SOME_EXPERIENCE, EXPERIENCED }
+enum class WorkActivityLevel { MOSTLY_SEATED, MIXED, PHYSICALLY_ACTIVE }
 enum class ProgramEquipment { NONE, HOME_BASIC, GYM }
 
 data class ProgramPhaseTemplate(
@@ -37,6 +38,7 @@ data class ProgramPreferences(
     val availableMinutesPerDay: Int = 20,
     val availableDaysPerWeek: Int = 5,
     val experience: ProgramExperience = ProgramExperience.BEGINNER,
+    val workActivityLevel: WorkActivityLevel = WorkActivityLevel.MIXED,
     val equipment: ProgramEquipment = ProgramEquipment.NONE
 )
 
