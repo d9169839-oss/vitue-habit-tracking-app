@@ -5,6 +5,7 @@ import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramTemplate
 import com.virtue.habittracker.domain.model.program.ScheduledProgramActivity
 import com.virtue.habittracker.domain.model.program.ProgramActivityStatus
+import com.virtue.habittracker.domain.model.program.WorkActivityLevel
 import java.util.UUID
 
 /** Pure deterministic schedule builder: no Android, Room, Firebase, or network dependency. */
@@ -16,7 +17,9 @@ class ProgramPersonalizationEngine {
         preferences: ProgramPreferences
     ): List<ScheduledProgramActivity> {
         val availableMinutes = preferences.availableMinutesPerDay.coerceIn(5, 90)
-        val daysPerWeek = preferences.availableDaysPerWeek.coerceIn(1, 7)
+        // Physically demanding work already adds load; preserve recovery by capping planned sessions.
+        val requestedDays = preferences.availableDaysPerWeek.coerceIn(1, 7)
+        val daysPerWeek = if (preferences.workActivityLevel == WorkActivityLevel.PHYSICALLY_ACTIVE) minOf(requestedDays, 4) else requestedDays
         return (1..template.durationDays).map { day ->
             val phase = template.phases.lastOrNull { day in it.startDay..it.endDay }
                 ?: template.phases.last()
