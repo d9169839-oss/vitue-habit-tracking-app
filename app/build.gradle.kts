@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.firebase.auth)
     // Firestore provides per-user cloud persistence and offline write queuing.
     implementation(libs.firebase.firestore)
+    implementation(libs.play.billing)
     implementation(libs.coroutines.play.services)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services)
