@@ -22,6 +22,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,6 +39,8 @@ import androidx.compose.ui.offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,6 +53,7 @@ import com.virtue.habittracker.domain.model.program.ProgramEquipment
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
 import com.virtue.habittracker.domain.model.program.WorkActivityLevel
+import com.virtue.habittracker.domain.service.BmiCalculator
 import com.virtue.habittracker.domain.model.program.ProgramStatus
 import java.time.LocalDate
 
@@ -77,6 +81,9 @@ fun ProgramsTab(
     var equipment by remember { mutableStateOf(ProgramEquipment.NONE) }
     var experience by remember { mutableStateOf(com.virtue.habittracker.domain.model.program.ProgramExperience.BEGINNER) }
     var workActivityLevel by remember { mutableStateOf(WorkActivityLevel.MIXED) }
+    var ageYears by remember { mutableStateOf("") }
+    var heightCm by remember { mutableStateOf("") }
+    var weightKg by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) { billingManager.connect() }
 
@@ -218,7 +225,38 @@ fun ProgramsTab(
                             }
                         }
                     }
-                    Text("Height and weight are not required for these starter plans. We do not use BMI alone to prescribe exercise or promise weight changes.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    if (selectedTemplate.category == ProgramCategory.FITNESS) {
+                        Text("Optional adult BMI screening", fontWeight = FontWeight.Bold)
+                        Text("Only enter these if you want an informational estimate. Values are not saved or uploaded, and BMI does not determine your exercise plan.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        OutlinedTextField(
+                            value = ageYears, onValueChange = { ageYears = it.filter(Char::isDigit).take(3) },
+                            label = { Text("Age in years (18+ for BMI)") }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = heightCm, onValueChange = { heightCm = it.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
+                                label = { Text("Height (cm)") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = weightKg, onValueChange = { weightKg = it.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
+                                label = { Text("Weight (kg)") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        val bmi = BmiCalculator.calculateAdultBmi(ageYears.toIntOrNull(), heightCm.toDoubleOrNull(), weightKg.toDoubleOrNull())
+                        if (bmi != null) {
+                            Text("Estimated adult BMI: ${String.format(java.util.Locale.US, "%.1f", bmi)}", color = ProgramLavender, fontWeight = FontWeight.SemiBold)
+                            Text("BMI is a screening measure, not a diagnosis or body-composition measure. It is not used here to set calorie targets or exercise intensity.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        } else if (ageYears.isNotBlank() || heightCm.isNotBlank() || weightKg.isNotBlank()) {
+                            Text("Enter a valid adult age, height, and weight to calculate an estimate. BMI is not calculated for people under 18.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Text("Height and weight are optional. These values are not included in your saved program profile.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
