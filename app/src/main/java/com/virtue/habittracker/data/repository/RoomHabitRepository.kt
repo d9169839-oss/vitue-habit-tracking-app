@@ -11,14 +11,19 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 
 class RoomHabitRepository @Inject constructor(
     private val dao: HabitDao,
     private val cloud: HabitCloudDataSource
 ) : HabitRepository {
 
-    override fun observeHabitsForDay(epochDay: Long): Flow<List<HabitDayEntry>> =
+    override fun observeHabitsForDay(epochDay: Long): Flow<List<HabitDayEntry>> = channelFlow {
+        // Launch cloud restoration alongside Room observation. Local data can render immediately
+        // instead of waiting for a network request to finish.
+        launch { runCatching { cloud.pullMissingRecords() } }
+
         combine(
             dao.observeHabitsForDay(epochDay),
             dao.observeCheckInsThroughDay(epochDay)
@@ -40,11 +45,8 @@ class RoomHabitRepository @Inject constructor(
                 }
                 HabitDayEntry(entity.toDomain(), status, streak)
             }
-        }.onStart {
-            // Room renders the screen and remains usable offline. On first collection,
-            // fetch records from Firestore so a newly installed device can restore history.
-            runCatching { cloud.pullMissingRecords() }
-        }
+        }.collect { entries -> send(entries) }
+    }
 
     override suspend fun createHabit(title: String, description: String, createdEpochDay: Long) {
         val habit = HabitEntity(UUID.randomUUID().toString(), title, description, createdEpochDay)
