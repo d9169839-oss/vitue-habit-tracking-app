@@ -3,6 +3,7 @@ package com.virtue.habittracker.data.repository
 import com.virtue.habittracker.data.local.HabitCheckInEntity
 import com.virtue.habittracker.data.local.HabitDao
 import com.virtue.habittracker.data.local.HabitEntity
+import com.virtue.habittracker.data.sync.HabitSyncScheduler
 import com.virtue.habittracker.domain.model.Habit
 import com.virtue.habittracker.domain.model.HabitDayEntry
 import com.virtue.habittracker.domain.model.HabitDayStatus
@@ -14,9 +15,14 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
+/**
+ * Local-first repository. User actions write only to Room and its durable outbox.
+ * Firestore is handled separately by a network-constrained WorkManager worker.
+ */
 class RoomHabitRepository @Inject constructor(
     private val dao: HabitDao,
-    private val cloud: HabitCloudDataSource
+    private val cloud: HabitCloudDataSource,
+    private val syncScheduler: HabitSyncScheduler
 ) : HabitRepository {
 
     override fun observeHabitsForDay(epochDay: Long): Flow<List<HabitDayEntry>> =
@@ -26,12 +32,13 @@ class RoomHabitRepository @Inject constructor(
         observeEntries(epochDay, includeInactive = true)
 
     /**
-     * Room remains the fast source for the UI. Cloud restoration runs in parallel, so the
-     * screen can render cached history immediately while Firestore fills any missing records.
+     * Account ownership is checked locally before exposing Room data. No Firestore request is
+     * required to render Home or History; a background sync is merely scheduled afterward.
      */
     private fun observeEntries(epochDay: Long, includeInactive: Boolean): Flow<List<HabitDayEntry>> =
         channelFlow {
-            launch { runCatching { cloud.pullMissingRecords() } }
+            runCatching { cloud.prepareLocalCacheForCurrentUser() }
+            syncScheduler.enqueueSync()
 
             val habitsFlow = if (includeInactive) {
                 dao.observeAllHabitsCreatedByDay(epochDay)
@@ -39,56 +46,58 @@ class RoomHabitRepository @Inject constructor(
                 dao.observeHabitsForDay(epochDay)
             }
 
-            combine(habitsFlow, dao.observeCheckInsThroughDay(epochDay)) { habits, checkIns ->
-                val recordsByHabit = checkIns.groupBy { it.habitId }
-                habits.map { entity ->
-                    val recordsByDay = recordsByHabit[entity.id].orEmpty().associateBy { it.epochDay }
-                    val status = recordsByDay[epochDay]?.let {
-                        if (it.completed) HabitDayStatus.COMPLETED else HabitDayStatus.NOT_COMPLETED
-                    } ?: HabitDayStatus.UNRECORDED
+            launch {
+                combine(habitsFlow, dao.observeCheckInsThroughDay(epochDay)) { habits, checkIns ->
+                    val recordsByHabit = checkIns.groupBy { it.habitId }
+                    habits.map { entity ->
+                        val recordsByDay = recordsByHabit[entity.id].orEmpty().associateBy { it.epochDay }
+                        val status = recordsByDay[epochDay]?.let {
+                            if (it.completed) HabitDayStatus.COMPLETED else HabitDayStatus.NOT_COMPLETED
+                        } ?: HabitDayStatus.UNRECORDED
 
-                    // A streak is derived from consecutive completed dates, not a stored counter.
-                    var streak = 0
-                    var day = epochDay
-                    while (recordsByDay[day]?.completed == true) {
-                        streak++
-                        day--
+                        // A streak is derived from consecutive completed dates, not a stored counter.
+                        var streak = 0
+                        var day = epochDay
+                        while (recordsByDay[day]?.completed == true) {
+                            streak++
+                            day--
+                        }
+
+                        val activeOnDate = entity.inactiveFromEpochDay == null ||
+                            epochDay < entity.inactiveFromEpochDay
+                        HabitDayEntry(
+                            habit = entity.toDomain(),
+                            status = status,
+                            currentStreak = streak,
+                            isActiveOnDate = activeOnDate
+                        )
                     }
-
-                    val activeOnDate = entity.inactiveFromEpochDay == null ||
-                        epochDay < entity.inactiveFromEpochDay
-                    HabitDayEntry(
-                        habit = entity.toDomain(),
-                        status = status,
-                        currentStreak = streak,
-                        isActiveOnDate = activeOnDate
-                    )
-                }
-            }.collect { send(it) }
+                }.collect { send(it) }
+            }
         }
 
     override suspend fun createHabit(title: String, description: String, createdEpochDay: Long) {
         val habit = HabitEntity(UUID.randomUUID().toString(), title, description, createdEpochDay)
-        dao.insertHabit(habit)
-        // Save locally first; an offline failure must not lose the user's action.
-        runCatching { cloud.pushHabit(habit) }
+        // Habit + outbox row are one Room transaction. Network is not involved in this action.
+        dao.saveHabitAndQueue(habit)
+        syncScheduler.enqueueSync()
     }
 
     override suspend fun setCompletion(habitId: String, epochDay: Long, completed: Boolean) {
         val checkIn = HabitCheckInEntity(habitId, epochDay, completed, System.currentTimeMillis())
-        dao.upsertCheckIn(checkIn)
-        runCatching { cloud.pushCheckIn(checkIn) }
+        dao.saveCheckInAndQueue(checkIn)
+        syncScheduler.enqueueSync()
     }
 
     override suspend fun clearCompletion(habitId: String, epochDay: Long) {
-        dao.deleteCheckIn(habitId, epochDay)
-        runCatching { cloud.deleteCheckIn(habitId, epochDay) }
+        // The durable DELETE operation becomes a cloud tombstone during sync.
+        dao.clearCheckInAndQueue(habitId, epochDay)
+        syncScheduler.enqueueSync()
     }
 
     override suspend fun archiveHabit(habitId: String, inactiveFromEpochDay: Long) {
-        dao.archiveHabit(habitId, inactiveFromEpochDay)
-        // Archiving changes future active lists but keeps the old habit and check-ins for history.
-        dao.getHabitById(habitId)?.let { runCatching { cloud.pushHabit(it) } }
+        dao.archiveHabitAndQueue(habitId, inactiveFromEpochDay)
+        syncScheduler.enqueueSync()
     }
 
     private fun HabitEntity.toDomain() =
