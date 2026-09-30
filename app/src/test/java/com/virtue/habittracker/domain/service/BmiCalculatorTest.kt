@@ -7,7 +7,7 @@ import org.junit.Test
 class BmiCalculatorTest {
     @Test
     fun calculatesAdultScreeningValue() {
-        assertEquals(22.86, BmiCalculator.calculateAdultBmi(30, 170.0, 66.0)!!, 0.02)
+        assertEquals(22.84, BmiCalculator.calculateAdultBmi(30, 170.0, 66.0)!!, 0.02)
     }
 
     @Test
