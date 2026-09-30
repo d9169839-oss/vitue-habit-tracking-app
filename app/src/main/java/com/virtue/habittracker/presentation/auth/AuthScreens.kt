@@ -46,7 +46,7 @@ fun LoginScreen(state: AuthUiState, vm: AuthViewModel, onRegister: () -> Unit, o
 }
 @Composable
 fun RegisterScreen(state: AuthUiState, vm: AuthViewModel, onBack: () -> Unit, onGoogle: (String) -> Unit) {
-    AuthScaffold("Start with one promise", "Create your Vitue account.", state, vm::onEmailChanged, vm::onPasswordChanged, vm::onConfirmPasswordChanged) {
+    AuthScaffold("Start with one promise", "Create your Vitue account.", state, vm::onEmailChanged, vm::onPasswordChanged, vm::onConfirmPasswordChanged, name = vm::onNameChanged) {
         Button(onClick = vm::register, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth().height(52.dp)) {
             if (state.isLoading) CircularProgressIndicator() else Text("Create account")
         }
@@ -67,6 +67,7 @@ fun ForgotPasswordScreen(state: AuthUiState, vm: AuthViewModel, onBack: () -> Un
 private fun AuthScaffold(
     title: String, subtitle: String, state: AuthUiState, email: (String) -> Unit,
     password: ((String) -> Unit)? = null, confirmPassword: ((String) -> Unit)? = null,
+    name: ((String) -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 36.dp), verticalArrangement = Arrangement.Center) {
@@ -76,6 +77,10 @@ private fun AuthScaffold(
         Spacer(Modifier.height(8.dp))
         Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(28.dp))
+        if (name != null) {
+            OutlinedTextField(value = state.name, onValueChange = name, label = { Text("Full name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+        }
         OutlinedTextField(value = state.email, onValueChange = email, label = { Text("Email") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, modifier = Modifier.fillMaxWidth())
         if (password != null) {
             Spacer(Modifier.height(12.dp))
