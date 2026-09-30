@@ -15,6 +15,68 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 
+      // Program documents are isolated by authenticated UID. The client writes a compact
+      // tombstone for deletions, or a validated snapshot for active records.
+      match /programEnrollments/{enrollmentId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId
+          && request.resource.data.id == enrollmentId
+          && request.resource.data.updatedAtMillis is int
+          && (
+            request.resource.data.deleted == true
+            || (
+              request.resource.data.templateId is string
+              && request.resource.data.templateVersion is int
+              && request.resource.data.titleSnapshot is string
+              && request.resource.data.titleSnapshot.size() > 0
+              && request.resource.data.titleSnapshot.size() <= 160
+              && request.resource.data.category in ['FITNESS', 'SELF_GROOMING', 'MINDFULNESS']
+              && request.resource.data.durationDays in [14, 30, 60, 90]
+              && request.resource.data.startEpochDay is int
+              && request.resource.data.status in ['ACTIVE', 'PAUSED', 'COMPLETED', 'ENDED']
+              && request.resource.data.availableMinutesPerDay is int
+              && request.resource.data.availableMinutesPerDay >= 5
+              && request.resource.data.availableMinutesPerDay <= 90
+              && request.resource.data.availableDaysPerWeek is int
+              && request.resource.data.availableDaysPerWeek >= 1
+              && request.resource.data.availableDaysPerWeek <= 7
+              && request.resource.data.experience in ['BEGINNER', 'SOME_EXPERIENCE', 'EXPERIENCED']
+              && request.resource.data.workActivityLevel in ['MOSTLY_SEATED', 'MIXED', 'PHYSICALLY_ACTIVE']
+              && request.resource.data.equipment in ['NONE', 'HOME_BASIC', 'GYM']
+              && request.resource.data.isPremium is bool
+              && request.resource.data.createdAtMillis is int
+            )
+          );
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /programActivities/{activityId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId
+          && request.resource.data.id == activityId
+          && request.resource.data.updatedAtMillis is int
+          && (
+            request.resource.data.deleted == true
+            || (
+              request.resource.data.enrollmentId is string
+              && request.resource.data.dayIndex is int
+              && request.resource.data.dayIndex >= 1
+              && request.resource.data.dayIndex <= 90
+              && request.resource.data.epochDay is int
+              && request.resource.data.phaseTitle is string
+              && request.resource.data.title is string
+              && request.resource.data.title.size() <= 160
+              && request.resource.data.instructions is string
+              && request.resource.data.instructions.size() <= 4000
+              && request.resource.data.estimatedMinutes is int
+              && request.resource.data.estimatedMinutes >= 0
+              && request.resource.data.estimatedMinutes <= 90
+              && request.resource.data.status in ['PENDING', 'COMPLETED', 'SKIPPED']
+            )
+          );
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
       // Optional future optimization. The app currently derives summaries from check-ins.
       match /dailySummaries/{dateKey} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
