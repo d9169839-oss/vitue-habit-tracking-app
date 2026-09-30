@@ -7,7 +7,10 @@ Native Android habit tracker built with Kotlin, Jetpack Compose, MVVM, Clean Arc
 - Google ID-token sign-in using Android Credential Manager and Firebase
 - Password reset and sign-out
 - Restored Firebase session routing when the app launches
-- Room-backed habit creation and daily check-ins
+- Room-backed habit creation and daily check-ins with local-first Firestore cloud backup
+- User-scoped Firestore profile, habit, and check-in documents (passwords remain in Firebase Authentication)
+- Retry pass that uploads local records after the device reconnects
+- Derived daily history summaries for active/completed/not-completed/unrecorded counts
 - Calendar/date navigation for historical habit review
 - Three daily states: unrecorded, completed, and not completed
 - Habit active/inactive lifecycle that preserves historical visibility after archiving
