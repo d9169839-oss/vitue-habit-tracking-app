@@ -75,6 +75,46 @@ class HabitCloudDataSource @Inject constructor(
             )
         }
         if (checkIns.isNotEmpty()) dao.insertCheckInsIfMissing(checkIns)
+
+        // Retry local-only records as well. This covers writes made while the device was offline.
+        pushLocalRecords(uid)
+    }
+
+    private suspend fun pushLocalRecords(uid: String) {
+        val userRef = userDocument(uid)
+        val habits = dao.getAllHabits()
+        val checkIns = dao.getAllCheckIns()
+
+        // Firestore batches have a write limit. Keep each batch comfortably below that limit.
+        val habitChunks = habits.chunked(350)
+        val checkInChunks = checkIns.chunked(350)
+        habitChunks.forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { habit ->
+                batch.set(userRef.collection("habits").document(habit.id), mapOf(
+                    "id" to habit.id,
+                    "title" to habit.title,
+                    "description" to habit.description,
+                    "createdEpochDay" to habit.createdEpochDay,
+                    "inactiveFromEpochDay" to habit.inactiveFromEpochDay,
+                    "updatedAtMillis" to System.currentTimeMillis()
+                ), com.google.firebase.firestore.SetOptions.merge())
+            }
+            batch.commit().await()
+        }
+        checkInChunks.forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { checkIn ->
+                batch.set(userRef.collection("habitCheckIns")
+                    .document("${checkIn.habitId}_${checkIn.epochDay}"), mapOf(
+                        "habitId" to checkIn.habitId,
+                        "epochDay" to checkIn.epochDay,
+                        "completed" to checkIn.completed,
+                        "updatedAtMillis" to checkIn.updatedAtMillis
+                    ), com.google.firebase.firestore.SetOptions.merge())
+            }
+            batch.commit().await()
+        }
     }
 
     suspend fun pushHabit(habit: HabitEntity) {
