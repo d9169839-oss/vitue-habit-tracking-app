@@ -29,6 +29,7 @@ class AuthViewModel @Inject constructor(
     private val _events = MutableSharedFlow<AuthEvent>()
     val events = _events.asSharedFlow()
     fun showError(message: String) = _uiState.update { it.copy(errorMessage = message) }
+    fun onNameChanged(value: String) = _uiState.update { it.copy(name = value, errorMessage = null) }
     fun onEmailChanged(value: String) = _uiState.update { it.copy(email = value, errorMessage = null) }
     fun onPasswordChanged(value: String) = _uiState.update { it.copy(password = value, errorMessage = null) }
     fun onConfirmPasswordChanged(value: String) = _uiState.update { it.copy(confirmPassword = value, errorMessage = null) }
@@ -38,7 +39,7 @@ class AuthViewModel @Inject constructor(
             _uiState.update { it.copy(errorMessage = "Passwords do not match.") }
             return
         }
-        execute { registerUseCase(_uiState.value.email, _uiState.value.password) }
+        execute { registerUseCase(_uiState.value.name, _uiState.value.email, _uiState.value.password) }
     }
     fun signInWithGoogle(idToken: String) = execute { googleSignInUseCase(idToken) }
     fun signOut() { viewModelScope.launch { signOutUseCase() } }
