@@ -25,7 +25,7 @@ A check-in records whether one habit was completed on one calendar day. Its logi
 `{habitId}_{epochDay}`. The value `completed = false` means explicitly marked “not completed”.
 A missing check-in means “unrecorded”, which is different from an explicit failure.
 
-Firestore document: `users/{uid}/habitCheckIns/{habitId}_{epochDay}`.
+Firestore document: `users/{uid}/habitCheckIns/{habitId}_{epochDay}`. A cleared check-in remains as a tombstone with `deleted = true` and `updatedAtMillis`; clients remove it from Room when they pull the tombstone.
 
 Epoch days use `LocalDate.toEpochDay()`, avoiding timezone-dependent date keys. Convert to and
 from `LocalDate` at the UI boundary.
@@ -50,13 +50,13 @@ but it must be rebuildable from habits and check-ins.
 
 ## 5. Local-first persistence and sync
 
-Room is the fast UI source. User actions write to Room first, then attempt a Firestore write.
-When a day stream is first observed, the app pulls cloud records that are missing locally and
-retries uploading local records. This is a starter sync strategy, not a complete multi-device
-conflict-resolution engine: when two devices edit the same record concurrently, local-first
-merge semantics may retain stale values. Before production, add a durable sync outbox, explicit
-sync status, version/updated-at conflict rules, account-switch isolation tests, and pagination for
-large histories.
+Room is the immediate source of truth. A habit action is committed locally together with a durable `sync_operations` outbox row in the same Room transaction; the UI observes Room and does not wait for Firestore. The queue uses a stable key per habit or habit/day, so rapid edits coalesce to the latest pending operation. A queued row is removed only after the corresponding cloud batch succeeds and only if that queue revision has not changed while uploading.
+
+WorkManager runs only when Android reports network connectivity. It uploads queued records in batches of at most 350 writes, retries failures with exponential backoff, and retains pending work across app closure/process death. A six-hour periodic job provides a safety sync. Profile metadata sync is deferred to background work and does not block authentication.
+
+The first pull imports the user's cloud history. Later pulls query `updatedAtMillis` changes since the account's last successful pull cursor; pulls are throttled to at most once every 15 minutes, reducing empty query reads after frequent local edits. Local check-in deletions are represented by Firestore tombstones (`deleted = true`) so other devices can receive deletions rather than accidentally resurrecting a cleared record. The cache owner is checked before local data is exposed; switching Firebase UID clears the previous account's local habits, check-ins, and outbox.
+
+This is a durable local-first sync foundation, but it is not yet a full multi-device conflict-resolution engine. Concurrent edits to the same habit/day still need an explicit policy (for example, server version/updated-at conflict resolution), and large histories need pagination. `updatedAtMillis` relies on device clocks, so clock skew is another limitation to address before production.
 
 ## 6. Security
 
