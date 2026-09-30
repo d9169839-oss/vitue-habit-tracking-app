@@ -21,21 +21,30 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 
 @Singleton
 class RoomProgramRepository @Inject constructor(
     private val dao: ProgramDao,
+    private val cloud: HabitCloudDataSource,
     private val syncScheduler: HabitSyncScheduler,
     private val personalizationEngine: ProgramPersonalizationEngine
 ) : ProgramRepository {
 
-    override fun observePrograms(): Flow<List<ProgramProgress>> =
-        combine(dao.observeEnrollments(), dao.observeActivities()) { enrollments, activities ->
-            val activitiesByEnrollment = activities.groupBy { it.enrollmentId }
-            enrollments.map { entity ->
-                ProgramProgress(entity.toDomain(), activitiesByEnrollment[entity.id].orEmpty().map { it.toDomain() })
-            }
+    override fun observePrograms(): Flow<List<ProgramProgress>> = channelFlow {
+        // Clear another account's local cache before exposing program data, then sync in background.
+        runCatching { cloud.prepareLocalCacheForCurrentUser() }
+        syncScheduler.enqueueSync()
+        launch {
+            combine(dao.observeEnrollments(), dao.observeActivities()) { enrollments, activities ->
+                val activitiesByEnrollment = activities.groupBy { it.enrollmentId }
+                enrollments.map { entity ->
+                    ProgramProgress(entity.toDomain(), activitiesByEnrollment[entity.id].orEmpty().map { it.toDomain() })
+                }
+            }.collect { send(it) }
         }
+    }
 
     override suspend fun startProgram(templateId: String, startEpochDay: Long, preferences: ProgramPreferences): String {
         val template = ProgramCatalog.find(templateId) ?: error("Program template not found.")
