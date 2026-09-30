@@ -122,6 +122,7 @@ private fun HabitCard(entry: HabitDayEntry, isFuture: Boolean, canArchive: Boole
                 if (entry.habit.description.isNotBlank()) Text(entry.habit.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 Text(statusText, color = if (entry.status == HabitDayStatus.COMPLETED) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
+                if (entry.currentStreak > 0) Text("🔥 ${entry.currentStreak}-day streak", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
             }
             Column {
                 FilledTonalButton(onClick = onToggle, enabled = !isFuture) { Text(if (entry.status == HabitDayStatus.COMPLETED) "Undo" else "Done") }
