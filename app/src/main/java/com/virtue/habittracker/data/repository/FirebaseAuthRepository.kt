@@ -10,7 +10,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
-class FirebaseAuthRepository @Inject constructor(private val firebaseAuth: FirebaseAuth) : AuthRepository {
+class FirebaseAuthRepository @Inject constructor(
+    private val firebaseAuth: FirebaseAuth,
+    private val habitCloudDataSource: HabitCloudDataSource
+) : AuthRepository {
     override val authState: Flow<User?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { auth ->
             val current = auth.currentUser
