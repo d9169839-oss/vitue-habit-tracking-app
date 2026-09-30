@@ -53,6 +53,9 @@ class HabitCloudDataSource @Inject constructor(
     /** Upload the current user's profile basics; Firebase Authentication owns credentials. */
     suspend fun syncProfile() {
         val user = auth.currentUser ?: return
+        val now = System.currentTimeMillis()
+        // Keep the first creation time stable across later sign-ins.
+        val existing = userDocument(user.uid).get().await()
         val profile = mapOf(
             "uid" to user.uid,
             // Email/password accounts may not have a Firebase display name yet. Use a readable
@@ -61,7 +64,8 @@ class HabitCloudDataSource @Inject constructor(
                 ?: user.email?.substringBefore("@").orEmpty()),
             "email" to (user.email ?: ""),
             "photoUrl" to user.photoUrl?.toString(),
-            "updatedAtMillis" to System.currentTimeMillis()
+            "createdAtMillis" to (existing.getLong("createdAtMillis") ?: now),
+            "updatedAtMillis" to now
         )
         userDocument(user.uid).set(profile, com.google.firebase.firestore.SetOptions.merge()).await()
     }
