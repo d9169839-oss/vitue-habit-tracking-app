@@ -228,7 +228,9 @@ private fun HomeTab(
     var description by remember { mutableStateOf("") }
     var formError by remember { mutableStateOf<String?>(null) }
     var showCalendar by remember { mutableStateOf(false) }
-    val summary = summarizeHabitDay(date.toEpochDay(), habits)\n    val recordedCount = summary.completedCount + summary.notCompletedCount\n    val recordedCompletionRate = if (recordedCount == 0) 0 else summary.completedCount * 100 / recordedCount
+    val summary = summarizeHabitDay(date.toEpochDay(), habits)
+    val recordedCount = summary.completedCount + summary.notCompletedCount
+    val recordedCompletionRate = if (recordedCount == 0) 0 else summary.completedCount * 100 / recordedCount
 
     Column(
         modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
@@ -436,7 +438,8 @@ private fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMode
     val notDone = active.count { it.status == HabitDayStatus.NOT_COMPLETED }
     val unrecorded = active.count { it.status == HabitDayStatus.UNRECORDED }
     val inactiveCount = entries.count { !it.isActiveOnDate }
-    val recorded = completed + notDone\n    val rate = if (recorded == 0) 0 else (completed * 100f / recorded).toInt()
+    val recorded = completed + notDone
+    val rate = if (recorded == 0) 0 else (completed * 100f / recorded).toInt()
     val visibleEntries = when (filter) {
         HistoryFilter.ALL -> entries
         HistoryFilter.ACTIVE -> entries.filter { it.isActiveOnDate }
