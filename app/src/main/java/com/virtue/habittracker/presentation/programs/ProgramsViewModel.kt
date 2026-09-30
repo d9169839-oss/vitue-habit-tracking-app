@@ -11,6 +11,9 @@ import com.virtue.habittracker.domain.model.program.ProgramStatus
 import com.virtue.habittracker.domain.repository.ProgramRepository
 import com.virtue.habittracker.domain.repository.PremiumEntitlementProvider
 import com.virtue.habittracker.domain.usecase.program.StartProgramUseCase
+import com.virtue.habittracker.domain.usecase.program.SetProgramActivityStatusUseCase
+import com.virtue.habittracker.domain.usecase.program.SetProgramStatusUseCase
+import com.virtue.habittracker.domain.usecase.program.DeleteProgramUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +36,9 @@ data class ProgramsUiState(
 class ProgramsViewModel @Inject constructor(
     private val repository: ProgramRepository,
     private val startProgramUseCase: StartProgramUseCase,
+    private val setActivityStatusUseCase: SetProgramActivityStatusUseCase,
+    private val setProgramStatusUseCase: SetProgramStatusUseCase,
+    private val deleteProgramUseCase: DeleteProgramUseCase,
     private val entitlementProvider: PremiumEntitlementProvider
 ) : ViewModel() {
     private val selectedCategory = MutableStateFlow<ProgramCategory?>(null)
@@ -65,21 +71,21 @@ class ProgramsViewModel @Inject constructor(
 
     fun setActivityStatus(activityId: String, status: ProgramActivityStatus) {
         viewModelScope.launch {
-            runCatching { repository.setActivityStatus(activityId, status) }
+            runCatching { setActivityStatusUseCase(activityId, status) }
                 .onFailure { message.value = "Progress was not saved. Please try again." }
         }
     }
 
     fun setEnrollmentStatus(enrollmentId: String, status: ProgramStatus) {
         viewModelScope.launch {
-            runCatching { repository.setEnrollmentStatus(enrollmentId, status) }
+            runCatching { setProgramStatusUseCase(enrollmentId, status) }
                 .onFailure { message.value = "Could not update the program status." }
         }
     }
 
     fun deleteEnrollment(enrollmentId: String) {
         viewModelScope.launch {
-            runCatching { repository.deleteEnrollment(enrollmentId) }
+            runCatching { deleteProgramUseCase(enrollmentId) }
                 .onFailure { message.value = "Could not remove this program." }
         }
     }
