@@ -130,7 +130,8 @@ fun App(
             ProgressTab(
                 modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROGRESS) 1f else 0f),
                 visible = selectedTab == AppTab.PROGRESS,
-                vm = historyViewModel
+                vm = historyViewModel,
+                onOpenHistory = { selectedTab = AppTab.HISTORY }
             )
             ProfileTab(
                 modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
@@ -487,8 +488,8 @@ private fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMode
                 }
             }
         } else {
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(visibleEntries, key = { it.habit.id }) { entry -> HistoryHabitCard(entry) }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                visibleEntries.forEach { entry -> HistoryHabitCard(entry) }
             }
         }
     }
