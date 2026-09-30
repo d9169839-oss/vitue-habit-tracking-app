@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -227,7 +228,7 @@ private fun HomeTab(
     val summary = summarizeHabitDay(date.toEpochDay(), habits)
 
     Column(
-        modifier.background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
+        modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -358,7 +359,7 @@ private fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMode
         HistoryFilter.INACTIVE -> entries.filter { !it.isActiveOnDate }
     }
 
-    Column(modifier.background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 20.dp),
+    Column(modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("YOUR JOURNEY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -460,7 +461,7 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
 
 @Composable
 private fun ProgramTab(modifier: Modifier, visible: Boolean) {
-    Column(modifier.background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
+    Column(modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("YOUR ROUTINE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -478,7 +479,7 @@ private fun ProgramTab(modifier: Modifier, visible: Boolean) {
 
 @Composable
 private fun ProfileTab(modifier: Modifier, visible: Boolean, onSignOut: () -> Unit) {
-    Column(modifier.background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
+    Column(modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("ACCOUNT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
