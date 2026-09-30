@@ -36,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.virtue.habittracker.domain.model.HabitDayEntry
 import com.virtue.habittracker.domain.model.HabitDayStatus
+import com.virtue.habittracker.domain.model.summarizeHabitDay
 import com.virtue.habittracker.presentation.auth.AuthViewModel
 import java.time.LocalDate
 import java.time.Instant
@@ -51,7 +52,8 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
     var description by remember { mutableStateOf("") }
     var formError by remember { mutableStateOf<String?>(null) }
     var showCalendar by remember { mutableStateOf(false) }
-    val completedCount = habits.count { it.status == HabitDayStatus.COMPLETED }
+    // Calendar counts are derived from the selected date’s active habits and check-ins.
+    val summary = summarizeHabitDay(date.toEpochDay(), habits)
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
@@ -69,7 +71,8 @@ fun HomeScreen(onSignOut: () -> Unit, vm: HomeViewModel = hiltViewModel(), authV
                     OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now())) { Text("Next →") }
                     TextButton(onClick = { showCalendar = true }) { Text("Calendar") }
                 }
-                Text("$completedCount of ${habits.size} habits completed", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${summary.completedCount} completed · ${summary.notCompletedCount} not completed · ${summary.unrecordedCount} unrecorded", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${summary.completionRatePercent}% completion rate", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
