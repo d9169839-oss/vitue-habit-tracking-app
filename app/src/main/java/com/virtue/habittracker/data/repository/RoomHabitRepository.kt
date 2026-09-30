@@ -13,13 +13,17 @@ import kotlinx.coroutines.flow.combine
 
 class RoomHabitRepository @Inject constructor(private val dao: HabitDao) : HabitRepository {
     override fun observeHabitsForDay(epochDay: Long): Flow<List<HabitDayEntry>> =
-        combine(dao.observeHabitsForDay(epochDay), dao.observeCheckInsForDay(epochDay)) { habits, checkIns ->
-            val statusByHabit = checkIns.associateBy { it.habitId }
+        combine(dao.observeHabitsForDay(epochDay), dao.observeCheckInsThroughDay(epochDay)) { habits, checkIns ->
+            val recordsByHabit = checkIns.groupBy { it.habitId }
             habits.map { entity ->
-                val status = statusByHabit[entity.id]?.let {
+                val recordsByDay = recordsByHabit[entity.id].orEmpty().associateBy { it.epochDay }
+                val status = recordsByDay[epochDay]?.let {
                     if (it.completed) HabitDayStatus.COMPLETED else HabitDayStatus.NOT_COMPLETED
                 } ?: HabitDayStatus.UNRECORDED
-                HabitDayEntry(entity.toDomain(), status)
+                var streak = 0
+                var day = epochDay
+                while (recordsByDay[day]?.completed == true) { streak++; day-- }
+                HabitDayEntry(entity.toDomain(), status, streak)
             }
         }
 
