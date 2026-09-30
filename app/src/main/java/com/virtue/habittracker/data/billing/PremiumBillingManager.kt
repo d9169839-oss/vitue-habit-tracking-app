@@ -34,7 +34,9 @@ class PremiumBillingManager @Inject constructor(
         private val PRODUCT_IDS = listOf(MONTHLY_PRODUCT_ID, YEARLY_PRODUCT_ID)
     }
 
-    private val _isPremium = MutableStateFlow(false)
+    private val preferences = context.getSharedPreferences("vitue_premium_entitlement", Context.MODE_PRIVATE)
+    // Cached state supports offline UX only; a trusted backend must be the authorization source.
+    private val _isPremium = MutableStateFlow(preferences.getBoolean("premiumCached", false))
     val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
     override val premiumEntitlement: StateFlow<Boolean> get() = isPremium
     override fun refreshEntitlement() = refreshPurchases()
@@ -139,6 +141,7 @@ class PremiumBillingManager @Inject constructor(
             it.purchaseState == Purchase.PurchaseState.PURCHASED && it.products.any(PRODUCT_IDS::contains)
         }
         _isPremium.value = owned.isNotEmpty()
+        preferences.edit().putBoolean("premiumCached", owned.isNotEmpty()).apply()
         owned.filter { !it.isAcknowledged }.forEach { purchase ->
             val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build()
             client.acknowledgePurchase(params) { result ->
