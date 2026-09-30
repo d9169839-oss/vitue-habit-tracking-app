@@ -49,6 +49,7 @@ import com.virtue.habittracker.domain.model.program.ProgramDifficulty
 import com.virtue.habittracker.domain.model.program.ProgramEquipment
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
+import com.virtue.habittracker.domain.model.program.WorkActivityLevel
 import com.virtue.habittracker.domain.model.program.ProgramStatus
 import java.time.LocalDate
 
@@ -75,6 +76,7 @@ fun ProgramsTab(
     var availableDays by remember { mutableStateOf(5) }
     var equipment by remember { mutableStateOf(ProgramEquipment.NONE) }
     var experience by remember { mutableStateOf(com.virtue.habittracker.domain.model.program.ProgramExperience.BEGINNER) }
+    var workActivityLevel by remember { mutableStateOf(WorkActivityLevel.MIXED) }
 
     LaunchedEffect(Unit) { billingManager.connect() }
 
@@ -200,7 +202,16 @@ fun ProgramsTab(
                         }
                     }
                     if (selectedTemplate.category == ProgramCategory.FITNESS) {
-                        Text("Equipment")
+                        Text("Nature of your daily work")
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(WorkActivityLevel.MOSTLY_SEATED to "Mostly seated", WorkActivityLevel.MIXED to "Mixed", WorkActivityLevel.PHYSICALLY_ACTIVE to "Physically active").forEach { (value, label) ->
+                            FilterChip(selected = workActivityLevel == value, onClick = { workActivityLevel = value }, label = { Text(label) })
+                        }
+                    }
+                    if (workActivityLevel == WorkActivityLevel.PHYSICALLY_ACTIVE) {
+                        Text("Because your work is physically active, this plan allows more recovery and may schedule up to four planned activity days per week.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text("Equipment")
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(ProgramEquipment.NONE to "No equipment", ProgramEquipment.HOME_BASIC to "Home", ProgramEquipment.GYM to "Gym").forEach { (value, label) ->
                                 FilterChip(selected = equipment == value, onClick = { equipment = value }, label = { Text(label) })
@@ -221,7 +232,7 @@ fun ProgramsTab(
                             vm.startProgram(
                                 selectedTemplate.id,
                                 LocalDate.now().toEpochDay(),
-                                ProgramPreferences(availableMinutes, availableDays, experience, equipment)
+                                ProgramPreferences(availableMinutes, availableDays, experience, workActivityLevel, equipment)
                             )
                             selectedTemplateId = null
                         }
