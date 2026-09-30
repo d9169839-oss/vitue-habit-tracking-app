@@ -31,6 +31,10 @@ class RoomHabitRepository @Inject constructor(private val dao: HabitDao) : Habit
         dao.upsertCheckIn(HabitCheckInEntity(habitId, epochDay, completed, System.currentTimeMillis()))
     }
 
+    override suspend fun clearCompletion(habitId: String, epochDay: Long) {
+        dao.deleteCheckIn(habitId, epochDay)
+    }
+
     override suspend fun archiveHabit(habitId: String, inactiveFromEpochDay: Long) {
         dao.archiveHabit(habitId, inactiveFromEpochDay)
     }
