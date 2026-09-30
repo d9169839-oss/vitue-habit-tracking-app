@@ -66,7 +66,7 @@ document to the authenticated UID. The rules file in the repository does not dep
 
 ## 5. Programs
 
-Room database version 3 adds `program_enrollments` and `program_activities`. A program enrollment stores a snapshot of the chosen template version, title, duration, start epoch day, status, and personalization settings. Each scheduled day is stored as an activity row with a stable ID, day index, date, phase, instructions, estimated time, status, and update timestamp.
+Room database version 4 adds `program_enrollments` and `program_activities` (version 3) and a `workActivityLevel` preference (version 4). A program enrollment stores a snapshot of the chosen template version, title, duration, start epoch day, status, and personalization settings. Each scheduled day is stored as an activity row with a stable ID, day index, date, phase, instructions, estimated time, status, and update timestamp.
 
 Program mutations and corresponding `PROGRAM_ENROLLMENT` / `PROGRAM_ACTIVITY` outbox operations are committed in the same Room transaction. The existing WorkManager worker uploads the outbox to:
 
@@ -75,6 +75,6 @@ Program mutations and corresponding `PROGRAM_ENROLLMENT` / `PROGRAM_ACTIVITY` ou
 
 Cloud deletion is represented by a `deleted = true` tombstone. Pulling cloud data skips local entities with pending writes and ignores activity documents whose enrollment is absent. Account-owner changes clear the previous account's local program tables together with the habit cache.
 
-Catalog templates are bundled and versioned. The active enrollment retains the title, template version, schedule, and instructions so later catalog edits do not silently rewrite an existing plan. Optional body measurements are not collected by the initial implementation.
+Catalog templates are bundled and versioned. The active enrollment retains the title, template version, schedule, and instructions so later catalog edits do not silently rewrite an existing plan. Optional adult BMI can be calculated on-device in the personalization dialog; height/weight values are not stored in Room or uploaded. BMI is informational only and does not determine exercise intensity or calorie targets.
 
 Before multi-device production, test clock skew and concurrent edits. The existing sync cursor is based on client-side `updatedAtMillis`, so it is not a conflict-free synchronization protocol. Firestore security rules must validate the new subcollections and enforce that a signed-in user can only access their own UID path.
