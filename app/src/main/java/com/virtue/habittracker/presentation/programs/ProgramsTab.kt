@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -80,6 +81,7 @@ fun ProgramsTab(
     val selectedTemplate = vm.catalog.firstOrNull { it.id == selectedTemplateId }
     Column(
         modifier = modifier.alpha(if (visible) 1f else 0f)
+            .offset(x = if (visible) 0.dp else 10_000.dp)
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 22.dp),
