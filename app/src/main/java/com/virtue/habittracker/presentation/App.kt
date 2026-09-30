@@ -61,13 +61,14 @@ import com.virtue.habittracker.domain.model.summarizeHabitDay
 import com.virtue.habittracker.presentation.auth.AuthViewModel
 import com.virtue.habittracker.presentation.history.HistoryViewModel
 import com.virtue.habittracker.presentation.home.HomeViewModel
+import com.virtue.habittracker.presentation.programs.ProgramsTab
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-private enum class AppTab { HOME, PROGRESS, HISTORY, PROFILE }
+private enum class AppTab { HOME, PROGRAMS, HISTORY, PROFILE }
 private enum class HistoryFilter { ALL, ACTIVE, INACTIVE }
 
 /**
@@ -128,11 +129,9 @@ fun App(
                 visible = selectedTab == AppTab.HISTORY,
                 vm = historyViewModel
             )
-            ProgressTab(
-                modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROGRESS) 1f else 0f),
-                visible = selectedTab == AppTab.PROGRESS,
-                vm = historyViewModel,
-                onOpenHistory = { selectedTab = AppTab.HISTORY }
+            ProgramsTab(
+                modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
+                visible = selectedTab == AppTab.PROGRAMS
             )
             ProfileTab(
                 modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
@@ -145,9 +144,9 @@ fun App(
             NavigationBarItem(selected = selectedTab == AppTab.HOME, onClick = { selectedTab = AppTab.HOME },
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
                 label = { Text("Home") })
-            NavigationBarItem(selected = selectedTab == AppTab.PROGRESS, onClick = { selectedTab = AppTab.PROGRESS },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_progress), contentDescription = "Progress") },
-                label = { Text("Progress") })
+            NavigationBarItem(selected = selectedTab == AppTab.PROGRAMS, onClick = { selectedTab = AppTab.PROGRAMS },
+                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_progress), contentDescription = "Programs") },
+                label = { Text("Programs") })
             NavigationBarItem(selected = selectedTab == AppTab.HISTORY, onClick = { selectedTab = AppTab.HISTORY },
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_history), contentDescription = "History") },
                 label = { Text("History") })
