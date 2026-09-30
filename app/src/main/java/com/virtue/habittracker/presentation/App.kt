@@ -227,7 +227,7 @@ private fun HomeTab(
     var description by remember { mutableStateOf("") }
     var formError by remember { mutableStateOf<String?>(null) }
     var showCalendar by remember { mutableStateOf(false) }
-    val summary = summarizeHabitDay(date.toEpochDay(), habits)
+    val summary = summarizeHabitDay(date.toEpochDay(), habits)\n    val recordedCount = summary.completedCount + summary.notCompletedCount\n    val recordedCompletionRate = if (recordedCount == 0) 0 else summary.completedCount * 100 / recordedCount
 
     Column(
         modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
@@ -249,8 +249,18 @@ private fun HomeTab(
                     OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now())) { Text("Next →") }
                     TextButton(onClick = { showCalendar = true }) { Text("Calendar") }
                 }
-                Text("${summary.completedCount} completed · ${summary.notCompletedCount} not completed · ${summary.unrecordedCount} unrecorded", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${summary.completionRatePercent}% completion rate", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusSummaryCard("Completed", summary.completedCount, Color(0xFF34D399), Modifier.weight(1f), "✓")
+                    StatusSummaryCard("Not done", summary.notCompletedCount, Color(0xFFFB7185), Modifier.weight(1f), "×")
+                    StatusSummaryCard("Unrecorded", summary.unrecordedCount, Color(0xFF9891A8), Modifier.weight(1f), "○")
+                }
+                Text("$recordedCompletionRate% of recorded habits completed", style = MaterialTheme.typography.labelMedium, color = Color(0xFFC4B5FD))
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = recordedCompletionRate / 100f,
+                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                    color = Color(0xFFA78BFA),
+                    trackColor = Color(0xFF393047)
+                )
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -268,9 +278,15 @@ private fun HomeTab(
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 habits.forEach { entry ->
-                    HabitCard(entry, date.isAfter(LocalDate.now()), date == LocalDate.now(),
-                        onToggle = { vm.toggleCompletion(entry) }, onArchive = { vm.archiveHabit(entry) },
-                        onClear = { vm.clearCompletion(entry) })
+                    HabitCard(
+                        entry = entry,
+                        isFuture = date.isAfter(LocalDate.now()),
+                        canArchive = date == LocalDate.now(),
+                        onToggle = { vm.toggleCompletion(entry) },
+                        onMarkNotCompleted = { vm.markNotCompleted(entry) },
+                        onArchive = { vm.archiveHabit(entry) },
+                        onClear = { vm.clearCompletion(entry) }
+                    )
                 }
             }
         }
@@ -319,25 +335,90 @@ private fun HomeTab(
 }
 
 @Composable
-private fun HabitCard(entry: HabitDayEntry, isFuture: Boolean, canArchive: Boolean, onToggle: () -> Unit, onArchive: () -> Unit, onClear: () -> Unit) {
+private fun HabitCard(
+    entry: HabitDayEntry,
+    isFuture: Boolean,
+    canArchive: Boolean,
+    onToggle: () -> Unit,
+    onMarkNotCompleted: () -> Unit,
+    onArchive: () -> Unit,
+    onClear: () -> Unit
+) {
     val statusText = when (entry.status) {
         HabitDayStatus.UNRECORDED -> "Not recorded"
         HabitDayStatus.COMPLETED -> "Completed"
         HabitDayStatus.NOT_COMPLETED -> "Not completed"
     }
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f)) {
-                Text(entry.habit.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                if (entry.habit.description.isNotBlank()) Text(entry.habit.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(6.dp))
-                Text(statusText, color = if (entry.status == HabitDayStatus.COMPLETED) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
-                if (entry.currentStreak > 0) Text("🔥 ${entry.currentStreak}-day streak", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+    val statusColor = when (entry.status) {
+        HabitDayStatus.COMPLETED -> Color(0xFF34D399)
+        HabitDayStatus.NOT_COMPLETED -> Color(0xFFFB7185)
+        HabitDayStatus.UNRECORDED -> Color(0xFF9891A8)
+    }
+    val statusSymbol = when (entry.status) {
+        HabitDayStatus.COMPLETED -> "✓"
+        HabitDayStatus.NOT_COMPLETED -> "×"
+        HabitDayStatus.UNRECORDED -> "○"
+    }
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF211B30)),
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF393047))
+    ) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(
+                Modifier.background(Color(0xFF302643), RoundedCornerShape(14.dp)).padding(13.dp),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Text(
+                    when {
+                        entry.habit.title.contains("read", true) -> "Aa"
+                        entry.habit.title.contains("workout", true) || entry.habit.title.contains("exercise", true) -> "↗"
+                        entry.habit.title.contains("water", true) -> "◒"
+                        entry.habit.title.contains("meditat", true) -> "✦"
+                        else -> "◆"
+                    },
+                    color = Color(0xFFC4B5FD),
+                    fontWeight = FontWeight.Bold
+                )
             }
-            Column {
-                FilledTonalButton(onClick = onToggle, enabled = !isFuture) { Text(if (entry.status == HabitDayStatus.COMPLETED) "Undo" else "Done") }
-                if (entry.status != HabitDayStatus.UNRECORDED) TextButton(onClick = onClear, enabled = !isFuture) { Text("Clear record") }
-                TextButton(onClick = onArchive, enabled = canArchive) { Text("Archive") }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(entry.habit.title, style = MaterialTheme.typography.titleMedium, color = Color(0xFFF8F5FF), fontWeight = FontWeight.SemiBold)
+                if (entry.habit.description.isNotBlank()) {
+                    Text(entry.habit.description, style = MaterialTheme.typography.bodySmall, color = Color(0xFFAAA2BB))
+                }
+                Surface(shape = RoundedCornerShape(50), color = statusColor.copy(alpha = 0.14f)) {
+                    Row(
+                        Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Text(statusSymbol, color = statusColor, fontWeight = FontWeight.Bold)
+                        Text(statusText, color = statusColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                if (entry.currentStreak > 0) {
+                    Text("${entry.currentStreak}-day streak", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelSmall)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilledTonalButton(
+                        onClick = onToggle,
+                        enabled = !isFuture,
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text(if (entry.status == HabitDayStatus.COMPLETED) "Undo" else "Complete") }
+                    OutlinedButton(
+                        onClick = onMarkNotCompleted,
+                        enabled = !isFuture && entry.status != HabitDayStatus.NOT_COMPLETED,
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text("Not done") }
+                }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    if (entry.status != HabitDayStatus.UNRECORDED) {
+                        TextButton(onClick = onClear, enabled = !isFuture) { Text("Clear record") }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onArchive, enabled = canArchive) { Text("Archive") }
+                }
             }
         }
     }
@@ -466,7 +547,7 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
  * added once the repository exposes a complete historical aggregation; this screen never fakes data.
  */
 @Composable
-private fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
+private fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOpenHistory: () -> Unit) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
     val activeEntries = entries.filter { it.isActiveOnDate }
@@ -556,8 +637,8 @@ private fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewMod
                 }
             }
         }
-        TextButton(onClick = { /* History tab shares this selected date through the same ViewModel. */ }) {
-            Text("Selected date is shared with History")
+        Button(onClick = onOpenHistory, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+            Text("Open daily history for this date")
         }
         Text("Unrecorded habits are not counted as failures. This view summarizes saved records for the selected day.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     }
