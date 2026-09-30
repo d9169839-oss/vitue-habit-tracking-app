@@ -3,19 +3,21 @@ package com.virtue.habittracker.data.repository
 import android.content.Context
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.virtue.habittracker.data.local.HabitDao
 import com.virtue.habittracker.data.local.HabitCheckInEntity
 import com.virtue.habittracker.data.local.HabitEntity
+import com.virtue.habittracker.data.local.SyncOperationEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
 
 /**
- * Coordinates the cloud copy of habit data.
+ * Cloud boundary for Vitue's local-first sync.
  *
- * Room remains the fast, local source used by the UI. Firestore documents are scoped
- * below users/{uid}, so one signed-in user can never accidentally share another user's data.
- * Passwords are intentionally never copied into the profile document.
+ * Normal habit actions never call Firestore. Room mutations and outbox entries commit first;
+ * WorkManager later uploads only queued entities. Cloud reads happen on initial sync and then
+ * only for documents changed since this account's last successful pull.
  */
 @Singleton
 class HabitCloudDataSource @Inject constructor(
@@ -25,41 +27,37 @@ class HabitCloudDataSource @Inject constructor(
     private val dao: HabitDao
 ) {
     private fun userIdOrNull(): String? = auth.currentUser?.uid
-
     private fun userDocument(uid: String) = firestore.collection("users").document(uid)
+    private fun syncPreferences(uid: String) =
+        context.getSharedPreferences("habit_sync_state_$uid", Context.MODE_PRIVATE)
 
-    /**
-     * Current Room entities do not yet have a userId column. Remember the cache owner and
-     * clear it before a different account uses it, so one person's habits are not shown
-     * or uploaded under another account.
-     */
     private suspend fun ensureLocalOwner(uid: String) {
         val preferences = context.getSharedPreferences("habit_cache_owner", Context.MODE_PRIVATE)
         val previousUid = preferences.getString("uid", null)
         if (previousUid != null && previousUid != uid) {
+            // Never expose one account's cache or queued operations to another account.
+            dao.deleteAllSyncOperations()
             dao.deleteAllCheckIns()
             dao.deleteAllHabits()
         }
         preferences.edit().putString("uid", uid).apply()
     }
 
-    /** Prepare an account's local cache before the signed-in user can work with habits. */
+    /** Called once after authentication, not for every habit mutation. */
     suspend fun prepareForCurrentUser() {
         val uid = userIdOrNull() ?: return
         ensureLocalOwner(uid)
         syncProfile()
     }
 
-    /** Upload the current user's profile basics; Firebase Authentication owns credentials. */
+    /** Profile metadata is intentionally independent from habit writes. */
     suspend fun syncProfile() {
         val user = auth.currentUser ?: return
+        val ref = userDocument(user.uid)
+        val existing = ref.get().await()
         val now = System.currentTimeMillis()
-        // Keep the first creation time stable across later sign-ins.
-        val existing = userDocument(user.uid).get().await()
         val profile = mapOf(
             "uid" to user.uid,
-            // Email/password accounts may not have a Firebase display name yet. Use a readable
-            // temporary fallback rather than writing an empty profile name.
             "name" to (user.displayName?.takeIf(String::isNotBlank)
                 ?: user.email?.substringBefore("@").orEmpty()),
             "email" to (user.email ?: ""),
@@ -67,123 +65,147 @@ class HabitCloudDataSource @Inject constructor(
             "createdAtMillis" to (existing.getLong("createdAtMillis") ?: now),
             "updatedAtMillis" to now
         )
-        userDocument(user.uid).set(profile, com.google.firebase.firestore.SetOptions.merge()).await()
+        ref.set(profile, SetOptions.merge()).await()
     }
 
     /**
-     * Download records missing locally. IGNORE semantics intentionally avoid overwriting
-     * offline/local records with older cloud data. A later sync-queue can add version-based
-     * conflict resolution for edits made on multiple devices.
+     * Upload only dirty entities. A queued row is deleted only if its revision is unchanged
+     * after Firestore confirms the corresponding batch, so edits made during upload stay queued.
      */
-    suspend fun pullMissingRecords() {
+    suspend fun syncPendingChanges() {
         val uid = userIdOrNull() ?: return
         ensureLocalOwner(uid)
-        syncProfile()
+        val userRef = userDocument(uid)
+        while (true) {
+            val pending = dao.getPendingSyncOperations()
+            if (pending.isEmpty()) return
 
-        val habitsSnapshot = userDocument(uid).collection("habits").get().await()
-        val habits = habitsSnapshot.documents.mapNotNull { document ->
+            // Stay comfortably below Firestore's 500-write batch limit.
+            pending.chunked(350).forEach { chunk ->
+                val batch = firestore.batch()
+                val operationsToAcknowledge = mutableListOf<SyncOperationEntity>()
+
+                for (operation in chunk) {
+                    when (operation.entityType) {
+                        "HABIT" -> {
+                            val habit = dao.getHabitById(operation.entityId)
+                            if (habit == null) {
+                                operationsToAcknowledge += operation
+                            } else {
+                                batch.set(userRef.collection("habits").document(habit.id), mapOf(
+                                    "id" to habit.id,
+                                    "title" to habit.title,
+                                    "description" to habit.description,
+                                    "createdEpochDay" to habit.createdEpochDay,
+                                    "inactiveFromEpochDay" to habit.inactiveFromEpochDay,
+                                    "updatedAtMillis" to System.currentTimeMillis()
+                                ), SetOptions.merge())
+                                operationsToAcknowledge += operation
+                            }
+                        }
+                        "CHECK_IN" -> {
+                            val parts = operation.entityId.split("_")
+                            val epochDay = parts.lastOrNull()?.toLongOrNull()
+                            val habitId = if (epochDay == null) null
+                                else operation.entityId.removeSuffix("_$epochDay")
+                            if (habitId == null || epochDay == null) {
+                                operationsToAcknowledge += operation
+                            } else {
+                                val ref = userRef.collection("habitCheckIns").document(operation.entityId)
+                                val local = dao.getCheckIn(habitId, epochDay)
+                                if (operation.operationType == "DELETE" || local == null) {
+                                    // Keep a tombstone so other devices learn about the deletion.
+                                    batch.set(ref, mapOf(
+                                        "habitId" to habitId,
+                                        "epochDay" to epochDay,
+                                        "deleted" to true,
+                                        "updatedAtMillis" to System.currentTimeMillis()
+                                    ), SetOptions.merge())
+                                } else {
+                                    batch.set(ref, mapOf(
+                                        "habitId" to habitId,
+                                        "epochDay" to epochDay,
+                                        "completed" to local.completed,
+                                        "deleted" to false,
+                                        "updatedAtMillis" to maxOf(local.updatedAtMillis, System.currentTimeMillis())
+                                    ), SetOptions.merge())
+                                }
+                                operationsToAcknowledge += operation
+                            }
+                        }
+                    }
+                }
+
+                // Firestore rejects an empty batch; malformed/deleted local operations still
+                // need acknowledgement, while all actual writes commit as one atomic batch.
+                if (operationsToAcknowledge.any { op ->
+                        (op.entityType == "HABIT" && dao.getHabitById(op.entityId) != null) ||
+                            (op.entityType == "CHECK_IN" && run {
+                                val epoch = op.entityId.substringAfterLast("_").toLongOrNull()
+                                epoch != null
+                            })
+                    }) {
+                    batch.commit().await()
+                }
+                operationsToAcknowledge.forEach { op ->
+                    dao.deleteSyncOperationIfUnchanged(op.operationKey, op.queuedAtMillis)
+                }
+            }
+        }
+    }
+
+    /**
+     * Initial sync downloads the account once. Later syncs query only changed documents.
+     * The cursor advances only after both collections have been read and merged successfully.
+     */
+    suspend fun pullChangesSinceLastSync() {
+        val uid = userIdOrNull() ?: return
+        ensureLocalOwner(uid)
+        val preferences = syncPreferences(uid)
+        val lastSyncMillis = preferences.getLong("lastSuccessfulPullMillis", 0L)
+        val userRef = userDocument(uid)
+
+        val habitsQuery = userRef.collection("habits")
+        val checkInsQuery = userRef.collection("habitCheckIns")
+        val habitsSnapshot = if (lastSyncMillis == 0L) habitsQuery.get().await()
+            else habitsQuery.whereGreaterThan("updatedAtMillis", lastSyncMillis).get().await()
+        val checkInsSnapshot = if (lastSyncMillis == 0L) checkInsQuery.get().await()
+            else checkInsQuery.whereGreaterThan("updatedAtMillis", lastSyncMillis).get().await()
+
+        for (document in habitsSnapshot.documents) {
             val id = document.getString("id") ?: document.id
-            val title = document.getString("title") ?: return@mapNotNull null
-            HabitEntity(
+            if (dao.hasPendingSyncOperation("habit:$id")) continue
+            val title = document.getString("title") ?: continue
+            val created = document.getLong("createdEpochDay") ?: continue
+            dao.upsertHabitFromCloud(HabitEntity(
                 id = id,
                 title = title,
                 description = document.getString("description").orEmpty(),
-                createdEpochDay = document.getLong("createdEpochDay") ?: return@mapNotNull null,
+                createdEpochDay = created,
                 inactiveFromEpochDay = document.getLong("inactiveFromEpochDay")
-            )
+            ))
         }
-        if (habits.isNotEmpty()) dao.insertHabitsIfMissing(habits)
 
-        val checkInsSnapshot = userDocument(uid).collection("habitCheckIns").get().await()
-        val checkIns = checkInsSnapshot.documents.mapNotNull { document ->
-            val habitId = document.getString("habitId") ?: return@mapNotNull null
-            val epochDay = document.getLong("epochDay") ?: return@mapNotNull null
-            val completed = document.getBoolean("completed") ?: return@mapNotNull null
-            HabitCheckInEntity(
-                habitId = habitId,
-                epochDay = epochDay,
-                completed = completed,
-                updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
-            )
-        }
-        if (checkIns.isNotEmpty()) dao.insertCheckInsIfMissing(checkIns)
+        for (document in checkInsSnapshot.documents) {
+            val habitId = document.getString("habitId") ?: continue
+            val epochDay = document.getLong("epochDay") ?: continue
+            val key = "checkin:${habitId}_${epochDay}"
+            if (dao.hasPendingSyncOperation(key)) continue
 
-        // Retry local-only records as well. This covers writes made while the device was offline.
-        pushLocalRecords(uid)
-    }
-
-    private suspend fun pushLocalRecords(uid: String) {
-        val userRef = userDocument(uid)
-        val habits = dao.getAllHabits()
-        val checkIns = dao.getAllCheckIns()
-
-        // Firestore batches have a write limit. Keep each batch comfortably below that limit.
-        val habitChunks = habits.chunked(350)
-        val checkInChunks = checkIns.chunked(350)
-        habitChunks.forEach { chunk ->
-            val batch = firestore.batch()
-            chunk.forEach { habit ->
-                batch.set(userRef.collection("habits").document(habit.id), mapOf(
-                    "id" to habit.id,
-                    "title" to habit.title,
-                    "description" to habit.description,
-                    "createdEpochDay" to habit.createdEpochDay,
-                    "inactiveFromEpochDay" to habit.inactiveFromEpochDay,
-                    "updatedAtMillis" to System.currentTimeMillis()
-                ), com.google.firebase.firestore.SetOptions.merge())
+            if (document.getBoolean("deleted") == true) {
+                dao.deleteCheckIn(habitId, epochDay)
+            } else {
+                val completed = document.getBoolean("completed") ?: continue
+                dao.upsertCheckInFromCloud(HabitCheckInEntity(
+                    habitId = habitId,
+                    epochDay = epochDay,
+                    completed = completed,
+                    updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
+                ))
             }
-            batch.commit().await()
         }
-        checkInChunks.forEach { chunk ->
-            val batch = firestore.batch()
-            chunk.forEach { checkIn ->
-                batch.set(userRef.collection("habitCheckIns")
-                    .document("${checkIn.habitId}_${checkIn.epochDay}"), mapOf(
-                        "habitId" to checkIn.habitId,
-                        "epochDay" to checkIn.epochDay,
-                        "completed" to checkIn.completed,
-                        "updatedAtMillis" to checkIn.updatedAtMillis
-                    ), com.google.firebase.firestore.SetOptions.merge())
-            }
-            batch.commit().await()
-        }
-    }
 
-    suspend fun pushHabit(habit: HabitEntity) {
-        val uid = userIdOrNull() ?: return // Allow local-first use while signed out.
-        ensureLocalOwner(uid)
-        syncProfile()
-        val data = mapOf(
-            "id" to habit.id,
-            "title" to habit.title,
-            "description" to habit.description,
-            "createdEpochDay" to habit.createdEpochDay,
-            "inactiveFromEpochDay" to habit.inactiveFromEpochDay,
-            "updatedAtMillis" to System.currentTimeMillis()
-        )
-        userDocument(uid).collection("habits").document(habit.id)
-            .set(data, com.google.firebase.firestore.SetOptions.merge()).await()
-    }
-
-    suspend fun pushCheckIn(checkIn: HabitCheckInEntity) {
-        val uid = userIdOrNull() ?: return
-        ensureLocalOwner(uid)
-        syncProfile()
-        // A deterministic document ID makes setting the same habit/date idempotent.
-        val documentId = "${checkIn.habitId}_${checkIn.epochDay}"
-        val data = mapOf(
-            "habitId" to checkIn.habitId,
-            "epochDay" to checkIn.epochDay,
-            "completed" to checkIn.completed,
-            "updatedAtMillis" to checkIn.updatedAtMillis
-        )
-        userDocument(uid).collection("habitCheckIns").document(documentId)
-            .set(data, com.google.firebase.firestore.SetOptions.merge()).await()
-    }
-
-    suspend fun deleteCheckIn(habitId: String, epochDay: Long) {
-        val uid = userIdOrNull() ?: return
-        ensureLocalOwner(uid)
-        userDocument(uid).collection("habitCheckIns").document("${habitId}_${epochDay}").delete().await()
+        // Persist only after both reads and all Room merges have succeeded.
+        preferences.edit().putLong("lastSuccessfulPullMillis", System.currentTimeMillis()).apply()
     }
 }
