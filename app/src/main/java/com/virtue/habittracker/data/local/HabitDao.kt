@@ -12,6 +12,13 @@ interface HabitDao {
     fun observeCheckInsThroughDay(epochDay: Long): Flow<List<HabitCheckInEntity>>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHabit(habit: HabitEntity)
+
+    // Merge cloud records into Room without deleting local-only/offline changes.
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertHabitsIfMissing(habits: List<HabitEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCheckInsIfMissing(checkIns: List<HabitCheckInEntity>)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertCheckIn(checkIn: HabitCheckInEntity)
     @Query("DELETE FROM habit_check_ins WHERE habitId = :habitId AND epochDay = :epochDay")
