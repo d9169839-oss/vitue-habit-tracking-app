@@ -14,6 +14,8 @@ interface HabitDao {
     suspend fun insertHabit(habit: HabitEntity)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertCheckIn(checkIn: HabitCheckInEntity)
+    @Query("DELETE FROM habit_check_ins WHERE habitId = :habitId AND epochDay = :epochDay")
+    suspend fun deleteCheckIn(habitId: String, epochDay: Long)
     @Query("UPDATE habits SET inactiveFromEpochDay = :inactiveFromEpochDay WHERE id = :habitId AND (inactiveFromEpochDay IS NULL OR inactiveFromEpochDay > :inactiveFromEpochDay)")
     suspend fun archiveHabit(habitId: String, inactiveFromEpochDay: Long)
 }
