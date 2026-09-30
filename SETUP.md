@@ -17,6 +17,14 @@
 9. In `app/build.gradle.kts`, replace the `GOOGLE_WEB_CLIENT_ID` placeholder with your Web OAuth client ID, keeping the Kotlin/Gradle string quoting, e.g. `buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"123-your-client-id.apps.googleusercontent.com\"")`.
 10. Confirm the OAuth consent screen, Android package name, signing fingerprints, and Web client ID are configured consistently.
 
+## Programs and Google Play Premium
+
+1. In Google Play Console, create subscription products whose IDs match `vitue_premium_monthly` and/or `vitue_premium_yearly`, or change the constants in `PremiumBillingManager.kt` to your actual product IDs.
+2. Configure base plans/offers, subscription prices, tax/payment settings, license testers, and an internal testing track. Purchases usually cannot be fully tested by sideloading an unlisted build without the appropriate Play testing setup.
+3. Before public release, add a trusted backend endpoint that validates each purchase token with Google Play Developer API and binds the verified entitlement to the authenticated Firebase UID. The current client billing manager handles product lookup, checkout, acknowledgement, and restore, but client-side purchase state alone must not be the final authorization boundary.
+4. Review all fitness and weight-management content with a qualified professional before release. The starter catalog is general-wellness guidance and does not provide medical care or promise body/weight outcomes.
+5. Optional adult BMI is calculated on-device only and is not persisted. Do not add height/weight to analytics or cloud sync without a separate, explicit product/privacy decision.
+
 ## Notifications and habit reminders
 - The app declares `POST_NOTIFICATIONS` and requests it at first launch on Android 13 (API 33) and newer.
 - A WorkManager job checks today's locally cached active habits at 8:00 PM device-local time and sends a reminder if any active habits are not marked completed.
