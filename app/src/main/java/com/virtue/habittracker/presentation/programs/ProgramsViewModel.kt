@@ -14,6 +14,10 @@ import com.virtue.habittracker.domain.usecase.program.StartProgramUseCase
 import com.virtue.habittracker.domain.usecase.program.SetProgramActivityStatusUseCase
 import com.virtue.habittracker.domain.usecase.program.SetProgramStatusUseCase
 import com.virtue.habittracker.domain.usecase.program.DeleteProgramUseCase
+import com.virtue.habittracker.domain.usecase.program.ReplanProgramUseCase
+import com.virtue.habittracker.domain.service.ProgramPersonalizationEngine
+import com.virtue.habittracker.domain.model.program.ProgramTemplate
+import com.virtue.habittracker.domain.model.program.ScheduledProgramActivity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +43,8 @@ class ProgramsViewModel @Inject constructor(
     private val setActivityStatusUseCase: SetProgramActivityStatusUseCase,
     private val setProgramStatusUseCase: SetProgramStatusUseCase,
     private val deleteProgramUseCase: DeleteProgramUseCase,
+    private val replanProgramUseCase: ReplanProgramUseCase,
+    private val personalizationEngine: ProgramPersonalizationEngine,
     private val entitlementProvider: PremiumEntitlementProvider
 ) : ViewModel() {
     private val selectedCategory = MutableStateFlow<ProgramCategory?>(null)
@@ -89,4 +95,25 @@ class ProgramsViewModel @Inject constructor(
                 .onFailure { message.value = "Could not remove this program." }
         }
     }
+
+    fun replanProgram(enrollmentId: String, preferences: ProgramPreferences) {
+        viewModelScope.launch {
+            isStarting.value = true
+            message.value = null
+            runCatching { replanProgramUseCase(enrollmentId, preferences) }
+                .onFailure { message.value = it.message ?: "Could not update the plan." }
+            isStarting.value = false
+        }
+    }
+
+    fun previewSchedule(
+        template: ProgramTemplate,
+        startEpochDay: Long,
+        preferences: ProgramPreferences
+    ): List<ScheduledProgramActivity> = personalizationEngine.buildSchedule(
+        template = template,
+        enrollmentId = "preview-" + template.id,
+        startEpochDay = startEpochDay,
+        preferences = preferences
+    )
 }
