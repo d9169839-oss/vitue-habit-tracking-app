@@ -11,5 +11,6 @@ interface ProgramRepository {
     suspend fun startProgram(templateId: String, startEpochDay: Long, preferences: ProgramPreferences): String
     suspend fun setActivityStatus(activityId: String, status: com.virtue.habittracker.domain.model.program.ProgramActivityStatus)
     suspend fun setEnrollmentStatus(enrollmentId: String, status: ProgramStatus)
+    suspend fun replanProgram(enrollmentId: String, preferences: ProgramPreferences)
     suspend fun deleteEnrollment(enrollmentId: String)
 }
