@@ -83,6 +83,7 @@ fun App(
     historyViewModel: HistoryViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(AppTab.HOME) }
+    var programsFullScreen by remember { mutableStateOf(false) }
     val isOnline = rememberInternetConnectivity()
     var showOnlineBanner by remember { mutableStateOf(false) }
     var hasBeenOffline by remember { mutableStateOf(!isOnline) }
@@ -131,7 +132,8 @@ fun App(
             )
             ProgramsTab(
                 modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
-                visible = selectedTab == AppTab.PROGRAMS
+                visible = selectedTab == AppTab.PROGRAMS,
+                onFullScreenChange = { programsFullScreen = it }
             )
             ProfileTab(
                 modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
@@ -140,7 +142,7 @@ fun App(
             )
         }
 
-        NavigationBar {
+        if (!programsFullScreen) NavigationBar {
             NavigationBarItem(selected = selectedTab == AppTab.HOME, onClick = { selectedTab = AppTab.HOME },
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
                 label = { Text("Home") })
