@@ -6,16 +6,18 @@ This document defines the production-oriented implementation for the Programs ta
 
 ## Implementation status (2026-09-30)
 
-The first implementation has been committed in the repository:
+The production-oriented Phase 1 implementation is committed in the repository:
 - The Programs bottom tab replaces the old Progress tab; Home, History, and Profile remain.
 - Bundled catalog: beginner movement, home strength, everyday stamina, sustainable wellness habits, grooming, skincare, mindfulness, and gratitude/reflection.
 - Deterministic schedule generation creates a day-by-day snapshot, respecting the chosen time budget and number of available days per week.
 - Room schema version 4 stores enrollments and scheduled activities. Migrations 2→3 add program tables and 3→4 add the daily-work activity preference without deleting existing habit data. The personalization screen asks about work activity, available time, days/week, experience, and equipment. Optional adult BMI is calculated on-device only; values are not saved or uploaded and do not set exercise intensity or calorie targets.
 - Program enrollment and activity changes are enqueued transactionally and uploaded/pulled by the existing network-constrained WorkManager sync worker.
-- Hilt-backed ViewModel/use cases manage catalog filtering, start/pause/resume, completion/skip, progress, and deletion.
+- Hilt-backed ViewModel/use cases manage catalog filtering, start/pause/resume, completion/skip, progress, deletion, and durable schedule revisions.
+- Programs now use a dedicated full-screen flow: catalog → detail → personalization → plan review → active program. Android back navigation returns through the flow, and the bottom navigation is hidden while a program flow screen is open.
+- Active programs expose an "Adjust remaining schedule" flow. Replanning atomically updates the Room enrollment and future schedule while preserving completed/skipped history and queueing the revised rows for cloud sync.
 - Google Play Billing client loads subscription products, starts checkout, and restores owned subscriptions.
 
-This is an initial implementation, not a release certification. Android compilation/tests have not yet been verified. The product IDs `vitue_premium_monthly` and `vitue_premium_yearly` are placeholders. Before production, configure real Play Console product IDs, validate purchase tokens on a trusted backend, and derive durable entitlements from server-verified state. Fitness content is conservative starter content and still needs qualified review. Firestore rules must explicitly protect the new `programEnrollments` and `programActivities` subcollections.
+This is an initial implementation, not a release certification. Android compilation has been verified by running the project build locally; the remaining release work is integration/device validation. The product IDs `vitue_premium_monthly` and `vitue_premium_yearly` are placeholders. Before production, configure real Play Console product IDs, validate purchase tokens on a trusted backend, and derive durable entitlements from server-verified state. Fitness content is conservative starter content and still needs qualified review. Firestore rules must explicitly protect the new `programEnrollments` and `programActivities` subcollections.
 
 The first release should combine **curated, versioned templates** with **deterministic personalization rules**. Do not ask an AI model to invent a complete health or spiritual plan without reviewed constraints. AI can be added later to explain or rephrase a reviewed plan, but it must not bypass safety rules.
 
