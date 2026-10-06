@@ -141,7 +141,10 @@ fun ProgramsTab(
                 )
             }
             ProgramRoute.REVIEW, ProgramRoute.ADJUST_REVIEW -> selectedTemplate?.let { template ->
-                val preview = vm.previewSchedule(template, draftStartEpochDay, draftPreferences)
+                val generatedPreview = vm.previewSchedule(template, draftStartEpochDay, draftPreferences)
+                val preview = if (route == ProgramRoute.ADJUST_REVIEW) {
+                    generatedPreview.filter { it.epochDay >= LocalDate.now().toEpochDay() }.take(7)
+                } else generatedPreview.take(7)
                 ProgramReviewScreen(
                     template = template,
                     preferences = draftPreferences,
