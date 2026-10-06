@@ -87,6 +87,39 @@ class RoomProgramRepository @Inject constructor(
         syncScheduler.enqueueSync()
     }
 
+    override suspend fun replanProgram(enrollmentId: String, preferences: ProgramPreferences) {
+        val current = dao.getEnrollment(enrollmentId) ?: error("Program not found.")
+        val template = ProgramCatalog.find(current.templateId) ?: error("This program is no longer available.")
+        val currentActivities = dao.getActivitiesForEnrollment(enrollmentId)
+        val now = System.currentTimeMillis()
+        val updatedEnrollment = current.copy(
+            availableMinutesPerDay = preferences.availableMinutesPerDay.coerceIn(5, 90),
+            availableDaysPerWeek = preferences.availableDaysPerWeek.coerceIn(1, 7),
+            experience = preferences.experience.name,
+            workActivityLevel = preferences.workActivityLevel.name,
+            equipment = preferences.equipment.name,
+            updatedAtMillis = now
+        )
+        val regenerated = personalizationEngine.buildSchedule(
+            template = template,
+            enrollmentId = enrollmentId,
+            startEpochDay = current.startEpochDay,
+            preferences = preferences,
+            createdAtMillis = now
+        )
+        val existingById = currentActivities.associateBy { it.id }
+        val today = java.time.LocalDate.now().toEpochDay()
+        val revised = regenerated.map { generated ->
+            val existing = existingById[generated.id]
+            if (existing != null && existing.epochDay <= today && existing.status != ProgramActivityStatus.PENDING.name) {
+                existing
+            } else {
+                generated.toEntity()
+            }
+        }
+        dao.replanEnrollmentAndQueue(updatedEnrollment, revised)
+        syncScheduler.enqueueSync()
+    }
     override suspend fun deleteEnrollment(enrollmentId: String) {
         dao.deleteEnrollmentAndQueue(enrollmentId)
         syncScheduler.enqueueSync()
