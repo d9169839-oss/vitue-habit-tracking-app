@@ -2,6 +2,7 @@ package com.virtue.habittracker.domain.usecase.program
 
 import com.virtue.habittracker.domain.model.program.ProgramActivityStatus
 import com.virtue.habittracker.domain.model.program.ProgramStatus
+import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.repository.ProgramRepository
 import javax.inject.Inject
 
@@ -17,4 +18,9 @@ class SetProgramStatusUseCase @Inject constructor(private val repository: Progra
 
 class DeleteProgramUseCase @Inject constructor(private val repository: ProgramRepository) {
     suspend operator fun invoke(enrollmentId: String) = repository.deleteEnrollment(enrollmentId)
+}
+
+class ReplanProgramUseCase @Inject constructor(private val repository: ProgramRepository) {
+    suspend operator fun invoke(enrollmentId: String, preferences: ProgramPreferences) =
+        repository.replanProgram(enrollmentId, preferences)
 }
