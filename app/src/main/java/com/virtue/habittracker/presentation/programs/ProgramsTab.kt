@@ -1,29 +1,25 @@
 package com.virtue.habittracker.presentation.programs
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,69 +29,202 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.billingclient.api.ProductDetails
 import com.virtue.habittracker.data.billing.PremiumBillingManager
-import com.virtue.habittracker.domain.model.program.ProgramActivityStatus
 import com.virtue.habittracker.domain.model.program.ProgramCategory
-import com.virtue.habittracker.domain.model.program.ProgramDifficulty
 import com.virtue.habittracker.domain.model.program.ProgramEquipment
+import com.virtue.habittracker.domain.model.program.ProgramExperience
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
-import com.virtue.habittracker.domain.model.program.WorkActivityLevel
-import com.virtue.habittracker.domain.service.BmiCalculator
 import com.virtue.habittracker.domain.model.program.ProgramStatus
+import com.virtue.habittracker.domain.model.program.WorkActivityLevel
 import java.time.LocalDate
 
-private val ProgramViolet = Color(0xFFA78BFA)
-private val ProgramLavender = Color(0xFFC4B5FD)
-private val ProgramCard = Color(0xFF211B30)
-private val ProgramMuted = Color(0xFFAAA2BB)
+private enum class ProgramRoute { CATALOG, DETAIL, PERSONALIZE, REVIEW, ACTIVE, ADJUST_PERSONALIZE, ADJUST_REVIEW }
 
 @Composable
 fun ProgramsTab(
     modifier: Modifier,
     visible: Boolean,
+    onFullScreenChange: (Boolean) -> Unit,
     vm: ProgramsViewModel = hiltViewModel(),
     billingViewModel: ProgramsBillingViewModel = hiltViewModel()
 ) {
-    val billingManager = billingViewModel.manager
     val state by vm.uiState.collectAsStateWithLifecycle()
-    val billingMessage by billingManager.message.collectAsState()
-    val products by billingManager.products.collectAsState()
+    val manager = billingViewModel.manager
+    val products by manager.products.collectAsState()
+    val billingMessage by manager.message.collectAsState()
     val context = LocalContext.current
+    var route by remember { mutableStateOf(ProgramRoute.CATALOG) }
     var selectedTemplateId by remember { mutableStateOf<String?>(null) }
+    var selectedEnrollmentId by remember { mutableStateOf<String?>(null) }
+    var draftPreferences by remember { mutableStateOf(ProgramPreferences()) }
+    var draftStartEpochDay by remember { mutableStateOf(LocalDate.now().toEpochDay()) }
     var showPremiumDialog by remember { mutableStateOf(false) }
-    var availableMinutes by remember { mutableStateOf(20) }
-    var availableDays by remember { mutableStateOf(5) }
-    var equipment by remember { mutableStateOf(ProgramEquipment.NONE) }
-    var experience by remember { mutableStateOf(com.virtue.habittracker.domain.model.program.ProgramExperience.BEGINNER) }
-    var workActivityLevel by remember { mutableStateOf(WorkActivityLevel.MIXED) }
-    var ageYears by remember { mutableStateOf("") }
-    var heightCm by remember { mutableStateOf("") }
-    var weightKg by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) { billingManager.connect() }
-    LaunchedEffect(state.isPremium) { if (state.isPremium) showPremiumDialog = false }
 
     val selectedTemplate = vm.catalog.firstOrNull { it.id == selectedTemplateId }
+    val selectedProgress = state.programs.firstOrNull { it.enrollment.id == selectedEnrollmentId }
+
+    LaunchedEffect(Unit) { manager.connect() }
+    LaunchedEffect(route) { onFullScreenChange(route != ProgramRoute.CATALOG) }
+
+    BackHandler(enabled = route != ProgramRoute.CATALOG) {
+        route = when (route) {
+            ProgramRoute.DETAIL -> ProgramRoute.CATALOG
+            ProgramRoute.PERSONALIZE -> ProgramRoute.DETAIL
+            ProgramRoute.REVIEW -> ProgramRoute.PERSONALIZE
+            ProgramRoute.ACTIVE -> ProgramRoute.CATALOG
+            ProgramRoute.ADJUST_PERSONALIZE -> ProgramRoute.ACTIVE
+            ProgramRoute.ADJUST_REVIEW -> ProgramRoute.ADJUST_PERSONALIZE
+            ProgramRoute.CATALOG -> ProgramRoute.CATALOG
+        }
+    }
+
     Column(
-        modifier = modifier.alpha(if (visible) 1f else 0f)
-            .offset(x = if (visible) 0.dp else 10_000.dp)
+        modifier.fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 22.dp),
+            .then(if (visible) Modifier else Modifier.padding(start = 10_000.dp))
+    ) {
+        when (route) {
+            ProgramRoute.CATALOG -> ProgramCatalogScreen(
+                state = state,
+                onCategory = vm::selectCategory,
+                onOpenTemplate = { template ->
+                    selectedTemplateId = template.id
+                    route = ProgramRoute.DETAIL
+                },
+                onOpenProgram = { progress ->
+                    selectedEnrollmentId = progress.enrollment.id
+                    route = ProgramRoute.ACTIVE
+                },
+                onPremium = { showPremiumDialog = true }
+            )
+            ProgramRoute.DETAIL -> selectedTemplate?.let { template ->
+                ProgramDetailScreen(
+                    template = template,
+                    isPremium = state.isPremium,
+                    onBack = { route = ProgramRoute.CATALOG },
+                    onPersonalize = {
+                        draftPreferences = ProgramPreferences(
+                            availableMinutesPerDay = template.defaultMinutesPerDay.coerceIn(5, 90),
+                            availableDaysPerWeek = 5,
+                            experience = ProgramExperience.BEGINNER,
+                            workActivityLevel = WorkActivityLevel.MIXED,
+                            equipment = template.equipment
+                        )
+                        draftStartEpochDay = LocalDate.now().toEpochDay()
+                        route = ProgramRoute.PERSONALIZE
+                    },
+                    onPremium = { showPremiumDialog = true }
+                )
+            }
+            ProgramRoute.PERSONALIZE, ProgramRoute.ADJUST_PERSONALIZE -> selectedTemplate?.let { template ->
+                ProgramPersonalizationScreen(
+                    template = template,
+                    initialPreferences = draftPreferences,
+                    initialStartEpochDay = draftStartEpochDay,
+                    isAdjusting = route == ProgramRoute.ADJUST_PERSONALIZE,
+                    onBack = {
+                        route = if (route == ProgramRoute.ADJUST_PERSONALIZE) ProgramRoute.ACTIVE else ProgramRoute.DETAIL
+                    },
+                    onContinue = { preferences, startEpochDay, _ ->
+                        draftPreferences = preferences
+                        draftStartEpochDay = startEpochDay
+                        route = if (route == ProgramRoute.ADJUST_PERSONALIZE) ProgramRoute.ADJUST_REVIEW else ProgramRoute.REVIEW
+                    }
+                )
+            }
+            ProgramRoute.REVIEW, ProgramRoute.ADJUST_REVIEW -> selectedTemplate?.let { template ->
+                val preview = vm.previewSchedule(template, draftStartEpochDay, draftPreferences)
+                ProgramReviewScreen(
+                    template = template,
+                    preferences = draftPreferences,
+                    startEpochDay = draftStartEpochDay,
+                    previewActivities = preview,
+                    isAdjusting = route == ProgramRoute.ADJUST_REVIEW,
+                    isSaving = state.isStarting,
+                    onBack = {
+                        route = if (route == ProgramRoute.ADJUST_REVIEW) ProgramRoute.ADJUST_PERSONALIZE else ProgramRoute.PERSONALIZE
+                    },
+                    onConfirm = {
+                        if (route == ProgramRoute.ADJUST_REVIEW && selectedEnrollmentId != null) {
+                            vm.replanProgram(selectedEnrollmentId!!, draftPreferences)
+                            route = ProgramRoute.ACTIVE
+                        } else {
+                            vm.startProgram(template.id, draftStartEpochDay, draftPreferences)
+                            selectedTemplateId = template.id
+                            route = ProgramRoute.CATALOG
+                        }
+                    }
+                )
+            }
+            ProgramRoute.ACTIVE -> selectedProgress?.let { progress ->
+                val template = vm.catalog.firstOrNull { it.id == progress.enrollment.templateId }
+                if (template == null) {
+                    Text("This program is no longer available.", Modifier.padding(20.dp))
+                } else {
+                    ActiveProgramScreen(
+                        progress = progress,
+                        onBack = { route = ProgramRoute.CATALOG },
+                        onAdjust = {
+                            selectedTemplateId = template.id
+                            draftPreferences = progress.enrollment.preferences
+                            draftStartEpochDay = progress.enrollment.startEpochDay
+                            route = ProgramRoute.ADJUST_PERSONALIZE
+                        },
+                        onActivityStatus = vm::setActivityStatus,
+                        onProgramStatus = vm::setEnrollmentStatus,
+                        onDelete = {
+                            vm.deleteEnrollment(progress.enrollment.id)
+                            selectedEnrollmentId = null
+                            route = ProgramRoute.CATALOG
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showPremiumDialog) {
+        PremiumDialog(
+            products = products,
+            message = billingMessage,
+            onDismiss = { showPremiumDialog = false },
+            onRestore = manager::refreshPurchases,
+            onPurchase = { product ->
+                (context as? Activity)?.let { manager.launchPurchase(it, product) }
+            }
+        )
+    }
+
+    state.message?.let { message ->
+        AlertDialog(
+            onDismissRequest = vm::clearMessage,
+            title = { Text("Programs") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = vm::clearMessage) { Text("OK") } }
+        )
+    }
+}
+
+@Composable
+private fun ProgramCatalogScreen(
+    state: ProgramsUiState,
+    onCategory: (ProgramCategory?) -> Unit,
+    onOpenTemplate: (com.virtue.habittracker.domain.model.program.ProgramTemplate) -> Unit,
+    onOpenProgram: (ProgramProgress) -> Unit,
+    onPremium: () -> Unit
+) {
+    val visiblePrograms = state.programs
+    val catalog = ProgramCatalogForUi.all
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -103,282 +232,91 @@ fun ProgramsTab(
             Text("Become who you choose.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text("Small, repeatable actions. A plan that fits your real life.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-
-        Card(colors = CardDefaults.cardColors(containerColor = ProgramCard), shape = RoundedCornerShape(22.dp)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("YOUR NEXT CHAPTER", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                Text("A little progress, repeated.", color = Color(0xFFF8F5FF), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("A little progress, repeated.", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("Choose a guided fitness, grooming, or mindfulness journey. Your plan is saved on this device first and works offline.", color = ProgramMuted)
-                if (!state.isPremium) {
-                    OutlinedButton(onClick = { showPremiumDialog = true }) { Text("Explore Vitue Premium") }
-                } else {
-                    Text("Premium active", color = Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
-                }
+                if (!state.isPremium) OutlinedButton(onClick = onPremium) { Text("Explore Vitue Premium") }
+                else Text("Premium active", color = androidx.compose.ui.graphics.Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
             }
         }
-
-        if (state.programs.isNotEmpty()) {
+        if (visiblePrograms.isNotEmpty()) {
             Text("YOUR PROGRAMS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            state.programs.forEach { progress -> ActiveProgramCard(progress, vm) }
+            visiblePrograms.forEach { progress -> ActiveProgramSummaryCard(progress, onOpenProgram) }
         }
-
         Text("DISCOVER", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = state.selectedCategory == null, onClick = { vm.selectCategory(null) }, label = { Text("All") })
-            FilterChip(selected = state.selectedCategory == ProgramCategory.FITNESS, onClick = { vm.selectCategory(ProgramCategory.FITNESS) }, label = { Text("Fitness") })
-            FilterChip(selected = state.selectedCategory == ProgramCategory.SELF_GROOMING, onClick = { vm.selectCategory(ProgramCategory.SELF_GROOMING) }, label = { Text("Grooming") })
-            FilterChip(selected = state.selectedCategory == ProgramCategory.MINDFULNESS, onClick = { vm.selectCategory(ProgramCategory.MINDFULNESS) }, label = { Text("Mindfulness") })
+            FilterChip(selected = state.selectedCategory == null, onClick = { onCategory(null) }, label = { Text("All") })
+            FilterChip(selected = state.selectedCategory == ProgramCategory.FITNESS, onClick = { onCategory(ProgramCategory.FITNESS) }, label = { Text("Fitness") })
+            FilterChip(selected = state.selectedCategory == ProgramCategory.SELF_GROOMING, onClick = { onCategory(ProgramCategory.SELF_GROOMING) }, label = { Text("Grooming") })
+            FilterChip(selected = state.selectedCategory == ProgramCategory.MINDFULNESS, onClick = { onCategory(ProgramCategory.MINDFULNESS) }, label = { Text("Mindfulness") })
         }
-
-        vm.catalog.filter { state.selectedCategory == null || it.category == state.selectedCategory }.forEach { template ->
-            Card(
-                onClick = {
-                    selectedTemplateId = template.id
-                    availableMinutes = template.defaultMinutesPerDay.coerceIn(5, 90)
-                    availableDays = 5
-                    equipment = template.equipment
-                    experience = com.virtue.habittracker.domain.model.program.ProgramExperience.BEGINNER
-                    workActivityLevel = WorkActivityLevel.MIXED
-                    ageYears = ""
-                    heightCm = ""
-                    weightKg = ""
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = ProgramCard)
-            ) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        catalog.filter { state.selectedCategory == null || it.category == state.selectedCategory }.forEach { template ->
+            Card(onClick = { onOpenTemplate(template) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(template.category.displayName(), color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text(if (template.isPremium) "PREMIUM" else "FREE", color = if (template.isPremium) ProgramLavender else Color(0xFF34D399), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(if (template.isPremium) "PREMIUM" else "FREE", color = if (template.isPremium) ProgramLavender else androidx.compose.ui.graphics.Color(0xFF34D399), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
-                    Text(template.title, color = Color(0xFFF8F5FF), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(template.title, color = androidx.compose.ui.graphics.Color(0xFFF8F5FF), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(template.description, color = ProgramMuted, style = MaterialTheme.typography.bodyMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("${template.durationDays} days", color = ProgramLavender, style = MaterialTheme.typography.labelMedium)
-                        Text("${template.defaultMinutesPerDay} min/day", color = ProgramMuted, style = MaterialTheme.typography.labelMedium)
-                        Text(template.difficulty.displayName(), color = ProgramMuted, style = MaterialTheme.typography.labelMedium)
-                    }
-                    Text("View and personalize →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
+                    Text(template.durationDays.toString() + " days · " + template.defaultMinutesPerDay + " min/day · " + template.difficulty.displayName(), color = ProgramMuted, style = MaterialTheme.typography.labelMedium)
+                    Text("View program details →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
+        Text("Fitness programs are general-wellness guidance, not medical advice. Content should be reviewed by a qualified professional before public release.", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+    }
+}
 
-        state.message?.let { message ->
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF392333))) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(message, Modifier.weight(1f), color = Color(0xFFFFC4CF))
-                    TextButton(onClick = vm::clearMessage) { Text("Dismiss") }
-                }
+private object ProgramCatalogForUi {
+    val all get() = com.virtue.habittracker.domain.model.program.ProgramCatalog.all
+}
+
+@Composable
+private fun ActiveProgramSummaryCard(progress: ProgramProgress, onOpen: (ProgramProgress) -> Unit) {
+    Card(onClick = { onOpen(progress) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(progress.enrollment.titleSnapshot, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(progress.progressPercent.toString() + "%", color = ProgramLavender, fontWeight = FontWeight.Bold)
             }
+            Text(progress.enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+            Text("Open your plan →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
         }
-        Text("Fitness programs are general-wellness guidance, not medical advice. Content must be reviewed by a qualified professional before public release.", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
-    }
-
-    if (selectedTemplate != null) {
-        AlertDialog(
-            onDismissRequest = { selectedTemplateId = null },
-            title = { Text(selectedTemplate.title) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(selectedTemplate.description)
-                    Text("Duration: ${selectedTemplate.durationDays} days · ${selectedTemplate.defaultMinutesPerDay} minutes/day")
-                    Text("Phases", fontWeight = FontWeight.Bold)
-                    selectedTemplate.phases.forEach { phase ->
-                        Text("Days ${phase.startDay}–${phase.endDay}: ${phase.title}", fontWeight = FontWeight.SemiBold)
-                        Text(phase.instructions, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text("Safety note", fontWeight = FontWeight.Bold)
-                    Text(selectedTemplate.safetyNote, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(4.dp))
-                    Text("Personalize your schedule", fontWeight = FontWeight.Bold)
-                    Text("Minutes per day: $availableMinutes")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(10, 15, 20, 30, 45).forEach { mins ->
-                            FilterChip(selected = availableMinutes == mins, onClick = { availableMinutes = mins }, label = { Text("$mins") })
-                        }
-                    }
-                    Text("Days per week: $availableDays")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(3, 4, 5, 6, 7).forEach { days ->
-                            FilterChip(selected = availableDays == days, onClick = { availableDays = days }, label = { Text("$days") })
-                        }
-                    }
-                    Text("Experience")
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(
-                            com.virtue.habittracker.domain.model.program.ProgramExperience.BEGINNER to "New",
-                            com.virtue.habittracker.domain.model.program.ProgramExperience.SOME_EXPERIENCE to "Some",
-                            com.virtue.habittracker.domain.model.program.ProgramExperience.EXPERIENCED to "Experienced"
-                        ).forEach { (value, label) ->
-                            FilterChip(selected = experience == value, onClick = { experience = value }, label = { Text(label) })
-                        }
-                    }
-                    if (selectedTemplate.category == ProgramCategory.FITNESS) {
-                        Text("Nature of your daily work")
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(WorkActivityLevel.MOSTLY_SEATED to "Mostly seated", WorkActivityLevel.MIXED to "Mixed", WorkActivityLevel.PHYSICALLY_ACTIVE to "Physically active").forEach { (value, label) ->
-                            FilterChip(selected = workActivityLevel == value, onClick = { workActivityLevel = value }, label = { Text(label) })
-                        }
-                    }
-                    if (workActivityLevel == WorkActivityLevel.PHYSICALLY_ACTIVE) {
-                        Text("Because your work is physically active, this plan allows more recovery and may schedule up to four planned activity days per week.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Text("Equipment")
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(ProgramEquipment.NONE to "No equipment", ProgramEquipment.HOME_BASIC to "Home", ProgramEquipment.GYM to "Gym").forEach { (value, label) ->
-                                FilterChip(selected = equipment == value, onClick = { equipment = value }, label = { Text(label) })
-                            }
-                        }
-                    }
-                    if (selectedTemplate.category == ProgramCategory.FITNESS) {
-                        Text("Optional adult BMI screening", fontWeight = FontWeight.Bold)
-                        Text("Only enter these if you want an informational estimate. Values are not saved or uploaded, and BMI does not determine your exercise plan.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                        OutlinedTextField(
-                            value = ageYears, onValueChange = { ageYears = it.filter(Char::isDigit).take(3) },
-                            label = { Text("Age in years (18+ for BMI)") }, singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = heightCm, onValueChange = { heightCm = it.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
-                                label = { Text("Height (cm)") }, singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedTextField(
-                                value = weightKg, onValueChange = { weightKg = it.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
-                                label = { Text("Weight (kg)") }, singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        val bmi = BmiCalculator.calculateAdultBmi(ageYears.toIntOrNull(), heightCm.toDoubleOrNull(), weightKg.toDoubleOrNull())
-                        if (bmi != null) {
-                            Text("Estimated adult BMI: ${String.format(java.util.Locale.US, "%.1f", bmi)}", color = ProgramLavender, fontWeight = FontWeight.SemiBold)
-                            Text("BMI is a screening measure, not a diagnosis or body-composition measure. It is not used here to set calorie targets or exercise intensity.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                        } else if (ageYears.isNotBlank() || heightCm.isNotBlank() || weightKg.isNotBlank()) {
-                            Text("Enter a valid adult age, height, and weight to calculate an estimate. BMI is not calculated for people under 18.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Text("Height and weight are optional. These values are not included in your saved program profile.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = {
-                Button(
-                    enabled = !state.isStarting,
-                    onClick = {
-                        if (selectedTemplate.isPremium && !state.isPremium) {
-                            selectedTemplateId = null
-                            showPremiumDialog = true
-                        } else {
-                            vm.startProgram(
-                                selectedTemplate.id,
-                                LocalDate.now().toEpochDay(),
-                                ProgramPreferences(availableMinutes, availableDays, experience, workActivityLevel, equipment)
-                            )
-                            selectedTemplateId = null
-                        }
-                    }
-                ) { Text(if (state.isStarting) "Starting…" else if (selectedTemplate.isPremium && !state.isPremium) "Unlock Premium" else "Start program") }
-            },
-            dismissButton = { TextButton(onClick = { selectedTemplateId = null }) { Text("Cancel") } }
-        )
-    }
-
-    if (showPremiumDialog) {
-        AlertDialog(
-            onDismissRequest = { showPremiumDialog = false },
-            title = { Text("Unlock Vitue Premium") },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Premium includes longer guided programs and additional routines. Purchases are handled by Google Play.")
-                    if (products.isEmpty()) {
-                        Text("Subscription products are loading. Confirm the product IDs in Play Console before testing purchases.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    products.forEach { product ->
-                        val price = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice.orEmpty()
-                        OutlinedButton(
-                            onClick = {
-                                (context as? Activity)?.let { billingManager.launchPurchase(it, product) }
-                                    ?: run { }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("${product.name} · $price") }
-                    }
-                    OutlinedButton(onClick = billingManager::refreshPurchases, modifier = Modifier.fillMaxWidth()) { Text("Restore purchases") }
-                    billingMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    Text("Subscription IDs are placeholders until configured in Google Play Console. Purchase tokens must be verified by a trusted backend before production.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = { TextButton(onClick = { billingManager.refreshProducts() }) { Text("Refresh plans") } },
-            dismissButton = { TextButton(onClick = { showPremiumDialog = false }) { Text("Close") } }
-        )
     }
 }
 
 @Composable
-private fun ActiveProgramCard(progress: ProgramProgress, vm: ProgramsViewModel) {
-    val enrollment = progress.enrollment
-    val today = LocalDate.now().toEpochDay()
-    val dayIndex = (today - enrollment.startEpochDay + 1L).coerceIn(1L, enrollment.durationDays.toLong()).toInt()
-    val currentActivity = progress.activities.firstOrNull { it.dayIndex == dayIndex }
-    Card(colors = CardDefaults.cardColors(containerColor = ProgramCard), shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(enrollment.titleSnapshot, Modifier.weight(1f), color = Color(0xFFF8F5FF), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                Text(enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramLavender, style = MaterialTheme.typography.labelSmall)
-            }
-            Text("Day $dayIndex of ${enrollment.durationDays} · ${progress.completedCount}/${progress.totalCount} activities complete", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
-            LinearProgressIndicator(progress = { progress.progressPercent / 100f }, modifier = Modifier.fillMaxWidth().height(6.dp), color = ProgramViolet, trackColor = Color(0xFF393047))
-            if (enrollment.status == ProgramStatus.ACTIVE && currentActivity != null) {
-                Text("TODAY · ${currentActivity.phaseTitle}", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                Text(currentActivity.title, color = Color(0xFFF8F5FF), fontWeight = FontWeight.SemiBold)
-                Text(currentActivity.instructions, color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
-                if (currentActivity.estimatedMinutes > 0) Text("${currentActivity.estimatedMinutes} minutes", color = ProgramMuted, style = MaterialTheme.typography.labelSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        enabled = currentActivity.status != ProgramActivityStatus.COMPLETED,
-                        onClick = { vm.setActivityStatus(currentActivity.id, ProgramActivityStatus.COMPLETED) }
-                    ) { Text(if (currentActivity.status == ProgramActivityStatus.COMPLETED) "Completed" else "Complete") }
-                    OutlinedButton(
-                        enabled = currentActivity.status == ProgramActivityStatus.PENDING,
-                        onClick = { vm.setActivityStatus(currentActivity.id, ProgramActivityStatus.SKIPPED) }
-                    ) { Text("Skip") }
-                }
-            } else if (enrollment.status == ProgramStatus.PAUSED) {
-                Text("Your plan is paused. Resume whenever you're ready.", color = ProgramMuted)
-            } else if (enrollment.status == ProgramStatus.COMPLETED) {
-                Text("Program completed. Great work showing up for yourself.", color = Color(0xFF34D399))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (enrollment.status == ProgramStatus.ACTIVE) {
-                    OutlinedButton(onClick = { vm.setEnrollmentStatus(enrollment.id, ProgramStatus.PAUSED) }) { Text("Pause") }
-                    if (dayIndex == enrollment.durationDays && progress.completedCount == progress.totalCount) {
-                        Button(onClick = { vm.setEnrollmentStatus(enrollment.id, ProgramStatus.COMPLETED) }) { Text("Finish") }
+private fun PremiumDialog(
+    products: List<ProductDetails>,
+    message: String?,
+    onDismiss: () -> Unit,
+    onRestore: () -> Unit,
+    onPurchase: (ProductDetails) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Unlock Vitue Premium") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Get access to premium guided programs while keeping your existing progress and history.")
+                if (products.isEmpty()) Text("Subscription options will appear when Google Play Billing is connected and your products are available for this tester.", color = ProgramMuted)
+                products.forEach { product ->
+                    val offer = product.subscriptionOfferDetails?.firstOrNull()
+                    val price = offer?.pricingPhases?.pricingPhaseList?.lastOrNull()?.formattedPrice ?: "View price in Google Play"
+                    OutlinedButton(onClick = { onPurchase(product) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(product.name + " · " + price)
                     }
-                } else if (enrollment.status == ProgramStatus.PAUSED) {
-                    Button(onClick = { vm.setEnrollmentStatus(enrollment.id, ProgramStatus.ACTIVE) }) { Text("Resume") }
                 }
-                TextButton(onClick = { vm.deleteEnrollment(enrollment.id) }) { Text("Remove") }
+                if (message != null) Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) { Text("Restore purchase") }
             }
-        }
-    }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Not now") } }
+    )
 }
 
-private fun ProgramCategory.displayName() = when (this) {
-    ProgramCategory.FITNESS -> "FITNESS"
-    ProgramCategory.SELF_GROOMING -> "SELF-GROOMING"
-    ProgramCategory.MINDFULNESS -> "MINDFULNESS"
-}
-private fun ProgramDifficulty.displayName() = when (this) {
-    ProgramDifficulty.BEGINNER -> "Beginner"
-    ProgramDifficulty.INTERMEDIATE -> "Intermediate"
-}
-
-/** Lifecycle-aware host for observing and invoking the application-scoped billing manager. */
 @dagger.hilt.android.lifecycle.HiltViewModel
-class ProgramsBillingViewModel @javax.inject.Inject constructor(
-    val manager: PremiumBillingManager
-) : androidx.lifecycle.ViewModel()
+class ProgramsBillingViewModel @javax.inject.Inject constructor(val manager: PremiumBillingManager) : androidx.lifecycle.ViewModel()
