@@ -142,7 +142,7 @@ internal fun ProgramPersonalizationScreen(
         val picker = rememberDatePickerState(initialSelectedDateMillis = LocalDate.ofEpochDay(startEpochDay).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
-            confirmButton = { TextButton(onClick = { picker.selectedDateMillis?.let { startEpochDay = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay() }; showDatePicker = false }) { Text("Use date") } },
+            confirmButton = { TextButton(onClick = { picker.selectedDateMillis?.let { startEpochDay = maxOf(LocalDate.now().toEpochDay(), Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()) }; showDatePicker = false }) { Text("Use date") } },
             dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
         ) { DatePicker(state = picker) }
     }
@@ -153,5 +153,5 @@ private fun SectionTitle(text: String) { Text(text, color = ProgramLavender, sty
 
 @Composable
 private fun <T> ChoiceRow(choices: List<Pair<T, String>>, selected: T, onSelected: (T) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { choices.forEach { (value, label) -> FilterChip(selected = selected == value, onClick = { onSelected(value) }, label = { Text(label) }) } }
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { choices.forEach { (value, label) -> FilterChip(selected = selected == value, onClick = { onSelected(value) }, label = { Text(label) }) } }
 }
