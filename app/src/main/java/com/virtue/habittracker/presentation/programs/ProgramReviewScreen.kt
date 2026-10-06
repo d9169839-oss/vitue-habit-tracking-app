@@ -56,7 +56,11 @@ internal fun ProgramReviewScreen(
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(template.title, color = ColorWhite, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(if (isAdjusting) "Completed history remains unchanged. Only the remaining schedule is revised." else "Your schedule is generated deterministically from the settings below.", color = ProgramMuted)
-                    Text("Starts " + LocalDate.ofEpochDay(startEpochDay).format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")), color = ProgramLavender)
+                    Text(
+                        if (isAdjusting) "Changes apply from today. Original start: " + LocalDate.ofEpochDay(startEpochDay).format(DateTimeFormatter.ofPattern("d MMM yyyy"))
+                        else "Starts " + LocalDate.ofEpochDay(startEpochDay).format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")),
+                        color = ProgramLavender
+                    )
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
