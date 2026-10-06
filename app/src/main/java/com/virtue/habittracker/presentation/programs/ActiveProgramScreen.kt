@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.virtue.habittracker.domain.model.program.ProgramActivityStatus
 import com.virtue.habittracker.domain.model.program.ProgramProgress
 import com.virtue.habittracker.domain.model.program.ProgramStatus
+import java.time.LocalDate
 
 @Composable
 internal fun ActiveProgramScreen(
@@ -82,7 +83,8 @@ internal fun ActiveProgramScreen(
                 }
             }
             Text("PROGRAM TIMELINE", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            progress.activities.take(21).forEach { activity ->
+            val todayEpochDay = LocalDate.now().toEpochDay()
+            progress.activities.filter { it.epochDay >= todayEpochDay - 2L }.take(21).forEach { activity ->
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
