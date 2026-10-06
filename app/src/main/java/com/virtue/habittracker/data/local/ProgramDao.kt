@@ -71,6 +71,20 @@ interface ProgramDao {
         queue("program-enrollment:${enrollment.id}", "PROGRAM_ENROLLMENT", enrollment.id)
     }
 
+    /**
+     * Applies a schedule revision atomically. The repository preserves completed/skipped history
+     * and supplies regenerated future rows with the same stable IDs.
+     */
+    @Transaction
+    suspend fun replanEnrollmentAndQueue(
+        enrollment: ProgramEnrollmentEntity,
+        activities: List<ProgramActivityEntity>
+    ) {
+        upsertEnrollment(enrollment)
+        upsertActivities(activities)
+        queue("program-enrollment:${enrollment.id}", "PROGRAM_ENROLLMENT", enrollment.id)
+        activities.forEach { queue("program-activity:${it.id}", "PROGRAM_ACTIVITY", it.id) }
+    }
     @Transaction
     suspend fun deleteEnrollmentAndQueue(enrollmentId: String) {
         deleteActivitiesForEnrollment(enrollmentId)
