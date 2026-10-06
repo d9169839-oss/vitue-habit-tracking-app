@@ -21,6 +21,9 @@ interface ProgramDao {
     @Query("SELECT * FROM program_activities WHERE id = :id LIMIT 1")
     suspend fun getActivity(id: String): ProgramActivityEntity?
 
+    @Query("SELECT * FROM program_activities WHERE enrollmentId = :enrollmentId ORDER BY dayIndex")
+    suspend fun getActivitiesForEnrollment(enrollmentId: String): List<ProgramActivityEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertEnrollment(entity: ProgramEnrollmentEntity)
 
