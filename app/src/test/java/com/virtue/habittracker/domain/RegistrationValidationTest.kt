@@ -1,4 +1,5 @@
 package com.virtue.habittracker.domain
+
 import com.virtue.habittracker.domain.model.AuthOutcome
 import com.virtue.habittracker.domain.model.User
 import com.virtue.habittracker.domain.repository.AuthRepository
@@ -9,12 +10,13 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
 class RegistrationValidationTest {
     private class FakeRepository : AuthRepository {
         var registerCalled = false
         override val authState: Flow<User?> = emptyFlow()
         override suspend fun signIn(email: String, password: String) = AuthOutcome.Failure("not called")
-        override suspend fun register(email: String, password: String): AuthOutcome {
+        override suspend fun register(name: String, email: String, password: String): AuthOutcome {
             registerCalled = true
             return AuthOutcome.Success(User("test", email, null))
         }
@@ -22,18 +24,22 @@ class RegistrationValidationTest {
         override suspend fun sendPasswordReset(email: String) = Result.success(Unit)
         override suspend fun signOut() = Unit
     }
+
     private val fake = FakeRepository()
     private val useCase = RegisterUseCase(fake)
+
     @Test fun rejectsInvalidEmail() = runTest {
-        assertTrue(useCase("not-an-email", "abc12345") is AuthOutcome.Failure)
+        assertTrue(useCase("Test User", "not-an-email", "abc12345") is AuthOutcome.Failure)
         assertFalse(fake.registerCalled)
     }
+
     @Test fun rejectsPasswordWithoutNumber() = runTest {
-        assertTrue(useCase("a@example.com", "abcdefgh") is AuthOutcome.Failure)
+        assertTrue(useCase("Test User", "a@example.com", "abcdefgh") is AuthOutcome.Failure)
         assertFalse(fake.registerCalled)
     }
+
     @Test fun acceptsPasswordMatchingCurrentRules() = runTest {
-        assertTrue(useCase("a@example.com", "abc12345") is AuthOutcome.Success)
+        assertTrue(useCase("Test User", "a@example.com", "abc12345") is AuthOutcome.Success)
         assertTrue(fake.registerCalled)
     }
 }

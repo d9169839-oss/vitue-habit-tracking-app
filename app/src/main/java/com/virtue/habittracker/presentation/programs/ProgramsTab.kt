@@ -173,7 +173,7 @@ fun ProgramsTab(
                             route = ProgramRoute.ADJUST_PERSONALIZE
                         },
                         onActivityStatus = vm::setActivityStatus,
-                        onProgramStatus = vm::setEnrollmentStatus,
+                        onProgramStatus = { status -> vm.setEnrollmentStatus(progress.enrollment.id, status) },
                         onDelete = {
                             vm.deleteEnrollment(progress.enrollment.id)
                             selectedEnrollmentId = null

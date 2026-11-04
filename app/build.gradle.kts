@@ -16,7 +16,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"REPLACE_WITH_WEB_CLIENT_ID\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"720151151343-rugitfne5oksl9l2jn4m93s3rmujt7oo.apps.googleusercontent.com\"")
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
@@ -28,6 +28,7 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api")
     }
 }
 dependencies {
