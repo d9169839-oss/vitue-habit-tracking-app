@@ -86,7 +86,7 @@ fun ProgramsTab(
     BackHandler(enabled = route != ProgramRoute.CATALOG) {
         route = when (route) {
             ProgramRoute.DETAIL -> ProgramRoute.CATALOG
-            ProgramRoute.PERSONALIZE -> ProgramRoute.DETAIL
+            ProgramRoute.PERSONALIZE -> ProgramRoute.CATALOG
             ProgramRoute.REVIEW -> ProgramRoute.PERSONALIZE
             ProgramRoute.ACTIVE -> ProgramRoute.CATALOG
             ProgramRoute.ADJUST_PERSONALIZE -> ProgramRoute.ACTIVE
