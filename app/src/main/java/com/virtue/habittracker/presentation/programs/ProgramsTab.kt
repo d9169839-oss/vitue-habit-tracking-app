@@ -5,6 +5,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -255,17 +259,34 @@ private fun ProgramCatalogScreen(
             FilterChip(selected = state.selectedCategory == ProgramCategory.SELF_GROOMING, onClick = { onCategory(ProgramCategory.SELF_GROOMING) }, label = { Text("Grooming") })
             FilterChip(selected = state.selectedCategory == ProgramCategory.MINDFULNESS, onClick = { onCategory(ProgramCategory.MINDFULNESS) }, label = { Text("Mindfulness") })
         }
-        catalog.filter { state.selectedCategory == null || it.category == state.selectedCategory }.forEach { template ->
-            Card(onClick = { onOpenTemplate(template) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(template.category.displayName(), color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text(if (template.isPremium) "PREMIUM" else "FREE", color = if (template.isPremium) ProgramLavender else androidx.compose.ui.graphics.Color(0xFF34D399), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        // Adapt the catalog to available width in dp, not the raw pixel resolution.
+        // 720p and 1080p devices can have different density/scaling, so pixel checks are unreliable.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val columns = when {
+                maxWidth >= 900.dp -> 3
+                maxWidth >= 600.dp -> 2
+                else -> 1
+            }
+            val filteredCatalog = catalog.filter {
+                state.selectedCategory == null || it.category == state.selectedCategory
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                filteredCatalog.chunked(columns).forEach { rowTemplates ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        rowTemplates.forEach { template ->
+                            ProgramTemplateCard(
+                                template = template,
+                                modifier = Modifier.weight(1f),
+                                onClick = { onOpenTemplate(template) }
+                            )
+                        }
+                        repeat(columns - rowTemplates.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
                     }
-                    Text(template.title, color = androidx.compose.ui.graphics.Color(0xFFF8F5FF), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(template.description, color = ProgramMuted, style = MaterialTheme.typography.bodyMedium)
-                    Text(template.durationDays.toString() + " days · " + template.defaultMinutesPerDay + " min/day · " + template.difficulty.displayName(), color = ProgramMuted, style = MaterialTheme.typography.labelMedium)
-                    Text("View program details →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -275,6 +296,54 @@ private fun ProgramCatalogScreen(
 
 private object ProgramCatalogForUi {
     val all get() = com.virtue.habittracker.domain.model.program.ProgramCatalog.all
+}
+
+
+@Composable
+private fun ProgramTemplateCard(
+    template: com.virtue.habittracker.domain.model.program.ProgramTemplate,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = ProgramCard)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    template.category.displayName(),
+                    color = ProgramLavender,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    if (template.isPremium) "PREMIUM" else "FREE",
+                    color = if (template.isPremium) ProgramLavender else androidx.compose.ui.graphics.Color(0xFF34D399),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Text(
+                template.title,
+                color = androidx.compose.ui.graphics.Color(0xFFF8F5FF),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(template.description, color = ProgramMuted, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "${template.durationDays} days · ${template.defaultMinutesPerDay} min/day · ${template.difficulty.displayName()}",
+                color = ProgramMuted,
+                style = MaterialTheme.typography.labelMedium
+            )
+            Text("View program details →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
+        }
+    }
 }
 
 @Composable
