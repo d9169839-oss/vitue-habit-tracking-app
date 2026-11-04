@@ -108,7 +108,61 @@ object ProgramCatalog {
             ProgramEquipment.NONE, "You can stop or choose an eyes-open grounding exercise at any time. This is not mental health treatment.", reflectionPhases),
         ProgramTemplate("gratitude-30", 1, "Gratitude and Reflection", ProgramCategory.MINDFULNESS,
             "Create a gentle daily reflection practice without forcing positive feelings.", 30, ProgramDifficulty.BEGINNER, 5, true,
-            ProgramEquipment.NONE, "Skip any prompt that feels uncomfortable; reflection should be voluntary.", reflectionPhases)
+            ProgramEquipment.NONE, "Skip any prompt that feels uncomfortable; reflection should be voluntary.", reflectionPhases),
+
+        // Built-in template 1: a gentle, equipment-free general-wellness plan.
+        ProgramTemplate(
+            id = "fitness-wellness-60",
+            version = 1,
+            title = "Fitness & General Wellness",
+            category = ProgramCategory.FITNESS,
+            description = "Build a sustainable foundation with comfortable movement, everyday mobility, recovery, hydration awareness, and consistent sleep routines.",
+            durationDays = 60,
+            difficulty = ProgramDifficulty.BEGINNER,
+            defaultMinutesPerDay = 15,
+            isPremium = false,
+            equipment = ProgramEquipment.NONE,
+            safetyNote = "General-wellness guidance only, not medical advice. Begin at a comfortable pace, take easier days, and stop if you experience pain, dizziness, chest discomfort, or unusual breathlessness. Seek qualified advice if you have a health concern or are returning after injury.",
+            phases = phases(
+                60,
+                listOf("Build a baseline", "Create a steady rhythm", "Make it sustainable"),
+                listOf("Comfortable movement check-in", "Movement and mobility", "Recovery and routine review"),
+                listOf(
+                    "Choose 5–10 minutes of comfortable walking or another familiar low-impact activity. Notice how you feel; rest whenever needed.",
+                    "Choose comfortable low-impact movement, add gentle mobility if it feels good, and keep the effort conversational. Include easier days.",
+                    "Combine familiar movement with a short cooldown. Review sleep and hydration habits without strict targets or guilt."
+                ),
+                listOf(10, 15, 15)
+            ),
+            artwork = ProgramArtwork.FITNESS_WELLNESS
+        ),
+
+        // Built-in template 2: non-clinical personal development through small repeatable habits.
+        ProgramTemplate(
+            id = "personal-development-30",
+            version = 1,
+            title = "Personal Development",
+            category = ProgramCategory.PERSONAL_DEVELOPMENT,
+            description = "Build self-awareness, focus, planning, and confidence through small daily actions that fit around work, study, and family life.",
+            durationDays = 30,
+            difficulty = ProgramDifficulty.BEGINNER,
+            defaultMinutesPerDay = 10,
+            isPremium = false,
+            equipment = ProgramEquipment.NONE,
+            safetyNote = "This is an educational habit-building program, not therapy or a guarantee of personal or professional outcomes. Skip prompts that do not suit you and adapt the plan to your circumstances.",
+            phases = phases(
+                30,
+                listOf("Know your starting point", "Practice intentionally", "Reflect and continue"),
+                listOf("Two-minute daily check-in", "Focused work or learning session", "Weekly reflection and next step"),
+                listOf(
+                    "Write one priority for today, one thing that may distract you, and one small action you can realistically complete.",
+                    "Try one focused 10-minute session for a task you choose. Put away one distraction and take a break afterward.",
+                    "Reflect on one thing you learned, one action you are proud of, and one small adjustment for next week. Keep the plan realistic."
+                ),
+                listOf(5, 10, 10)
+            ),
+            artwork = ProgramArtwork.PERSONAL_DEVELOPMENT
+        )
     )
 
     fun find(id: String): ProgramTemplate? = all.firstOrNull { it.id == id }
