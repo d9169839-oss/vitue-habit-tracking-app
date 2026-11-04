@@ -80,7 +80,8 @@ fun ProgramsTab(
     val selectedProgress = state.programs.firstOrNull { it.enrollment.id == selectedEnrollmentId }
 
     LaunchedEffect(Unit) { manager.connect() }
-    LaunchedEffect(route) { onFullScreenChange(route != ProgramRoute.CATALOG) }
+    // Keep app navigation visible while the preview is shown over the catalogue.
+    LaunchedEffect(route) { onFullScreenChange(route != ProgramRoute.CATALOG && route != ProgramRoute.DETAIL) }
 
     BackHandler(enabled = route != ProgramRoute.CATALOG) {
         route = when (route) {
@@ -100,7 +101,7 @@ fun ProgramsTab(
             .then(if (visible) Modifier else Modifier.padding(start = 10_000.dp))
     ) {
         when (route) {
-            ProgramRoute.CATALOG -> ProgramCatalogScreen(
+            ProgramRoute.CATALOG, ProgramRoute.DETAIL -> ProgramCatalogScreen(
                 state = state,
                 onCategory = vm::selectCategory,
                 onOpenTemplate = { template ->
@@ -113,25 +114,7 @@ fun ProgramsTab(
                 },
                 onPremium = { showPremiumDialog = true }
             )
-            ProgramRoute.DETAIL -> selectedTemplate?.let { template ->
-                ProgramDetailScreen(
-                    template = template,
-                    isPremium = state.isPremium,
-                    onBack = { route = ProgramRoute.CATALOG },
-                    onPersonalize = {
-                        draftPreferences = ProgramPreferences(
-                            availableMinutesPerDay = template.defaultMinutesPerDay.coerceIn(5, 90),
-                            availableDaysPerWeek = 5,
-                            experience = ProgramExperience.BEGINNER,
-                            workActivityLevel = WorkActivityLevel.MIXED,
-                            equipment = template.equipment
-                        )
-                        draftStartEpochDay = LocalDate.now().toEpochDay()
-                        route = ProgramRoute.PERSONALIZE
-                    },
-                    onPremium = { showPremiumDialog = true }
-                )
-            }
+            // Preview details are displayed in a modal overlay below.
             ProgramRoute.PERSONALIZE, ProgramRoute.ADJUST_PERSONALIZE -> selectedTemplate?.let { template ->
                 ProgramPersonalizationScreen(
                     template = template,
@@ -139,7 +122,7 @@ fun ProgramsTab(
                     initialStartEpochDay = draftStartEpochDay,
                     isAdjusting = route == ProgramRoute.ADJUST_PERSONALIZE,
                     onBack = {
-                        route = if (route == ProgramRoute.ADJUST_PERSONALIZE) ProgramRoute.ACTIVE else ProgramRoute.DETAIL
+                        route = if (route == ProgramRoute.ADJUST_PERSONALIZE) ProgramRoute.ACTIVE else ProgramRoute.CATALOG
                     },
                     onContinue = { preferences, startEpochDay, _ ->
                         draftPreferences = preferences
@@ -200,6 +183,29 @@ fun ProgramsTab(
                 }
             }
         }
+    }
+
+    // Large preview sheet: the catalogue remains visible behind the dimmed scrim.
+    if (route == ProgramRoute.DETAIL) {
+        selectedTemplate?.let { template ->
+            ProgramDetailScreen(
+                template = template,
+                isPremium = state.isPremium,
+                onBack = { route = ProgramRoute.CATALOG },
+                onPersonalize = {
+                    draftPreferences = ProgramPreferences(
+                        availableMinutesPerDay = template.defaultMinutesPerDay.coerceIn(5, 90),
+                        availableDaysPerWeek = 5,
+                        experience = ProgramExperience.BEGINNER,
+                        workActivityLevel = WorkActivityLevel.MIXED,
+                        equipment = template.equipment
+                    )
+                    draftStartEpochDay = LocalDate.now().toEpochDay()
+                    route = ProgramRoute.PERSONALIZE
+                },
+                onPremium = { showPremiumDialog = true }
+            )
+        } ?: run { route = ProgramRoute.CATALOG }
     }
 
     if (showPremiumDialog) {
