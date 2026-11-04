@@ -1,14 +1,13 @@
 package com.virtue.habittracker.presentation.programs
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -153,6 +152,23 @@ internal fun ProgramPersonalizationScreen(
 private fun SectionTitle(text: String) { Text(text, color = ProgramLavender, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
 
 @Composable
-private fun <T> ChoiceRow(choices: List<Pair<T, String>>, selected: T, onSelected: (T) -> Unit) {
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { choices.forEach { (value, label) -> FilterChip(selected = selected == value, onClick = { onSelected(value) }, label = { Text(label) }) } }
+private fun <T> ChoiceRow(
+    choices: List<Pair<T, String>>,
+    selected: T,
+    onSelected: (T) -> Unit
+) {
+    // FlowRow wraps chips on narrow screens and large font scales; no chip is clipped off-screen.
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        choices.forEach { (value, label) ->
+            FilterChip(
+                selected = selected == value,
+                onClick = { onSelected(value) },
+                label = { Text(label) }
+            )
+        }
+    }
 }
