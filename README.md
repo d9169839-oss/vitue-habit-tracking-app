@@ -34,6 +34,9 @@ Native Android habit tracker built with Kotlin, Jetpack Compose, MVVM, Clean Arc
 ## Configure before running
 Follow [docs/SETUP.md](docs/SETUP.md). Add your own `app/google-services.json`, enable Email/Password and Google sign-in in Firebase, and replace the Google Web OAuth client ID placeholder in `app/build.gradle.kts`. These project-specific values are not committed.
 
+## Responsive UI
+The Programs catalog adapts between one, two, and three columns based on available window width in dp; personalization choices wrap instead of requiring horizontal scrolling. See [docs/ADAPTIVE_UI.md](docs/ADAPTIVE_UI.md) for breakpoints and the device/font-scale QA matrix. Adaptive layout changes have been committed on the `feature/adaptive-ui-program-catalog` branch and need build/device verification before merge.
+
 ## Architecture
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the companion [enterprise architecture learning repository](https://github.com/d9169839-oss/android-enterprise_architecture).
 

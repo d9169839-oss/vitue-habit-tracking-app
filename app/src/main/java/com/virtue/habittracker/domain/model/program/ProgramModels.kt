@@ -1,6 +1,9 @@
 package com.virtue.habittracker.domain.model.program
 
-enum class ProgramCategory { FITNESS, SELF_GROOMING, MINDFULNESS }
+enum class ProgramCategory { FITNESS, SELF_GROOMING, MINDFULNESS, PERSONAL_DEVELOPMENT }
+
+/** Bundled artwork identifiers; drawable resources stay in the presentation layer. */
+enum class ProgramArtwork { DEFAULT, FITNESS_WELLNESS, PERSONAL_DEVELOPMENT }
 enum class ProgramDifficulty { BEGINNER, INTERMEDIATE }
 enum class ProgramStatus { ACTIVE, PAUSED, COMPLETED, ENDED }
 enum class ProgramActivityStatus { PENDING, COMPLETED, SKIPPED }
@@ -31,7 +34,8 @@ data class ProgramTemplate(
     val isPremium: Boolean,
     val equipment: ProgramEquipment,
     val safetyNote: String,
-    val phases: List<ProgramPhaseTemplate>
+    val phases: List<ProgramPhaseTemplate>,
+    val artwork: ProgramArtwork = ProgramArtwork.DEFAULT
 )
 
 data class ProgramPreferences(

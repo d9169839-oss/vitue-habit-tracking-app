@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -46,6 +47,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -115,9 +117,9 @@ fun App(
         }
 
         // Keep destinations composed to reduce tab-switch startup work and preserve UI state.
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             HomeTab(
-                modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.HOME) 1f else 0f),
+                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HOME) 1f else 0f),
                 visible = selectedTab == AppTab.HOME,
                 vm = homeViewModel,
                 authViewModel = authViewModel,
@@ -126,17 +128,17 @@ fun App(
                 onSignOut = onSignOut
             )
             HistoryTab(
-                modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.HISTORY) 1f else 0f),
+                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HISTORY) 1f else 0f),
                 visible = selectedTab == AppTab.HISTORY,
                 vm = historyViewModel
             )
             ProgramsTab(
-                modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
+                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
                 visible = selectedTab == AppTab.PROGRAMS,
                 onFullScreenChange = { programsFullScreen = it }
             )
             ProfileTab(
-                modifier = Modifier.fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
+                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
                 visible = selectedTab == AppTab.PROFILE,
                 onSignOut = { authViewModel.signOut(); onSignOut() }
             )

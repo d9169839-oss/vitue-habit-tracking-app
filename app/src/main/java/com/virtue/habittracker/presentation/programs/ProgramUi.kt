@@ -2,6 +2,8 @@ package com.virtue.habittracker.presentation.programs
 
 import androidx.compose.ui.graphics.Color
 import com.virtue.habittracker.domain.model.program.ProgramCategory
+import com.virtue.habittracker.domain.model.program.ProgramArtwork
+import com.virtue.habittracker.domain.model.program.ProgramTemplate
 import com.virtue.habittracker.domain.model.program.ProgramDifficulty
 import com.virtue.habittracker.domain.model.program.ProgramEquipment
 import com.virtue.habittracker.domain.model.program.ProgramExperience
@@ -16,6 +18,7 @@ internal fun ProgramCategory.displayName(): String = when (this) {
     ProgramCategory.FITNESS -> "FITNESS"
     ProgramCategory.SELF_GROOMING -> "SELF-GROOMING"
     ProgramCategory.MINDFULNESS -> "MINDFULNESS"
+    ProgramCategory.PERSONAL_DEVELOPMENT -> "PERSONAL DEVELOPMENT"
 }
 
 internal fun ProgramDifficulty.displayName(): String = when (this) {
@@ -39,4 +42,17 @@ internal fun WorkActivityLevel.displayName(): String = when (this) {
     WorkActivityLevel.MOSTLY_SEATED -> "Mostly seated"
     WorkActivityLevel.MIXED -> "Mixed"
     WorkActivityLevel.PHYSICALLY_ACTIVE -> "Physically active"
+}
+
+
+/** Maps a domain artwork identifier to a bundled Android drawable at the UI boundary. */
+internal fun ProgramTemplate.artworkResource(): Int = when (artwork) {
+    ProgramArtwork.FITNESS_WELLNESS -> com.virtue.habittracker.R.drawable.program_fitness_wellness
+    ProgramArtwork.PERSONAL_DEVELOPMENT -> com.virtue.habittracker.R.drawable.program_personal_development
+    ProgramArtwork.DEFAULT -> when (category) {
+        ProgramCategory.FITNESS -> com.virtue.habittracker.R.drawable.program_fitness_wellness
+        ProgramCategory.SELF_GROOMING -> com.virtue.habittracker.R.drawable.program_personal_development
+        ProgramCategory.MINDFULNESS -> com.virtue.habittracker.R.drawable.program_personal_development
+        ProgramCategory.PERSONAL_DEVELOPMENT -> com.virtue.habittracker.R.drawable.program_personal_development
+    }
 }
