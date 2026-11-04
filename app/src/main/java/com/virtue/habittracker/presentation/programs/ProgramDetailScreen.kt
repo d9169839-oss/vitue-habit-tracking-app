@@ -7,30 +7,35 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.virtue.habittracker.domain.model.program.ProgramTemplate
 
+/**
+ * Large modal preview for a catalogue program. The catalogue remains visible behind
+ * the dimmed scrim, while the fixed action area keeps the primary action easy to reach.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ProgramDetailScreen(
     template: ProgramTemplate,
@@ -39,61 +44,74 @@ internal fun ProgramDetailScreen(
     onPersonalize: () -> Unit,
     onPremium: () -> Unit
 ) {
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Program details") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-        })
-    }) { padding ->
-        Column(Modifier.padding(padding).padding(horizontal = 18.dp, vertical = 12.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Image(
-                painter = painterResource(template.artworkResource()),
-                contentDescription = "${template.title} program artwork",
-                modifier = Modifier.fillMaxWidth().height(190.dp),
-                contentScale = ContentScale.Crop
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text(template.category.displayName(), color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                Text(template.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text(template.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DetailPill(template.durationDays.toString() + " days", Modifier.weight(1f))
-                DetailPill(template.defaultMinutesPerDay.toString() + " min/day", Modifier.weight(1f))
-                DetailPill(template.difficulty.displayName(), Modifier.weight(1f))
-            }
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("WHAT YOU'LL DO", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                    template.phases.forEach { phase ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Phase " + phase.number + " · Days " + phase.startDay + "–" + phase.endDay, fontWeight = FontWeight.SemiBold)
-                            Text(phase.title)
-                            Text(phase.instructions, color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onBack,
+        sheetState = sheetState,
+        containerColor = ProgramCard,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        scrimColor = Color(0xB8000000),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    ) {
+        Column(Modifier.fillMaxWidth().widthIn(max = 720.dp).heightIn(max = 760.dp)) {
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Image(
+                    painter = painterResource(template.artworkResource()),
+                    contentDescription = "${template.title} program artwork",
+                    modifier = Modifier.fillMaxWidth().height(176.dp),
+                    contentScale = ContentScale.Crop
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(template.category.displayName(), color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text(template.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(template.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DetailPill("${template.durationDays} days", Modifier.weight(1f))
+                    DetailPill("${template.defaultMinutesPerDay} min/day", Modifier.weight(1f))
+                    DetailPill(template.difficulty.displayName(), Modifier.weight(1f))
+                }
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2340))) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("WHAT YOU'LL DO", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        template.phases.forEach { phase ->
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Phase ${phase.number} · Days ${phase.startDay}–${phase.endDay}", fontWeight = FontWeight.SemiBold)
+                                Text(phase.title, color = MaterialTheme.colorScheme.onSurface)
+                                Text(phase.instructions, color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 }
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Safety note", fontWeight = FontWeight.SemiBold)
+                        Text(template.safetyNote, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text("This is general-wellness guidance, not medical care. Stop if an activity causes pain or feels unsafe and seek appropriate professional advice.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Text("Equipment: ${template.equipment.displayName()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (template.isPremium) "Premium program" else "Free starter program", color = if (template.isPremium) ProgramLavender else Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
             }
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Safety note", fontWeight = FontWeight.SemiBold)
-                    Text(template.safetyNote, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    Text("This is general-wellness guidance, not medical care. Stop if an activity causes pain or feels unsafe and seek appropriate professional advice.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (template.isPremium && !isPremium) {
+                    OutlinedButton(onClick = onPremium, modifier = Modifier.fillMaxWidth()) { Text("Explore Vitue Premium") }
+                }
+                Button(onClick = onPersonalize, modifier = Modifier.fillMaxWidth(), enabled = !template.isPremium || isPremium) {
+                    Text(if (template.isPremium && !isPremium) "Premium required" else "Personalize this program")
                 }
             }
-            Text("Equipment: " + template.equipment.displayName())
-            Text(if (template.isPremium) "Premium program" else "Free starter program", color = if (template.isPremium) ProgramLavender else MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-            if (template.isPremium && !isPremium) OutlinedButton(onClick = onPremium, Modifier.fillMaxWidth()) { Text("Explore Premium") }
-            Button(onClick = onPersonalize, modifier = Modifier.fillMaxWidth(), enabled = !template.isPremium || isPremium) {
-                Text(if (template.isPremium && !isPremium) "Premium required" else "Personalize this program")
-            }
-            Spacer(Modifier.height(12.dp))
         }
     }
 }
 
 @Composable
 private fun DetailPill(text: String, modifier: Modifier) {
-    Card(modifier, shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    Card(modifier, shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF332A49))) {
         Text(text, Modifier.padding(horizontal = 10.dp, vertical = 12.dp), style = MaterialTheme.typography.labelMedium)
     }
 }
