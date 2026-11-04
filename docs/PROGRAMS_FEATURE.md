@@ -308,3 +308,43 @@ Prioritize these after responsive UI and release-quality testing. Each should ha
 - **Later:** 90-day gym/strength and user-selected spiritual paths only after appropriate review and user research.
 
 Premium should be based on deeper structure, progress insights and additional reviewed templates—not on withholding basic safety information. Do not gate a user's saved history when a subscription expires.
+
+
+## Built-in templates added for the next catalog revision
+
+These two version-1 templates are bundled and deterministic; their content is original and informed by common patterns visible in public habit/workout repositories, rather than copied code or text.
+
+### 1. Fitness & General Wellness — `fitness-wellness-60`
+- **Category:** Fitness
+- **Duration:** 60 days
+- **Level:** Beginner
+- **Default commitment:** 15 minutes/day
+- **Equipment:** None
+- **Access:** Free starter
+- **Image:** `app/src/main/res/drawable/program_fitness_wellness.xml`
+- **Phase 1 (Days 1–20), Build a baseline:** comfortable movement check-in; begin with familiar low-impact movement and rest as needed.
+- **Phase 2 (Days 21–40), Create a steady rhythm:** movement and mobility; keep effort conversational and include easier days.
+- **Phase 3 (Days 41–60), Make it sustainable:** recovery and routine review; add a cooldown and reflect on sleep/hydration habits without strict targets.
+- **Safety:** general-wellness only; no diagnosis, calorie prescription, weight-loss promise, or intensity prescription based on BMI. Stop for pain, dizziness, chest discomfort, or unusual breathlessness; seek qualified advice where appropriate.
+
+### 2. Personal Development — `personal-development-30`
+- **Category:** Personal Development
+- **Duration:** 30 days
+- **Level:** Beginner
+- **Default commitment:** 10 minutes/day
+- **Equipment:** None
+- **Access:** Free starter
+- **Image:** `app/src/main/res/drawable/program_personal_development.xml`
+- **Phase 1 (Days 1–10), Know your starting point:** a short daily check-in with one priority, one likely distraction, and one achievable action.
+- **Phase 2 (Days 11–20), Practice intentionally:** one self-selected 10-minute focus or learning session, followed by a break.
+- **Phase 3 (Days 21–30), Reflect and continue:** review what was learned, recognize a useful action, and choose one small adjustment for the following week.
+- **Safety and scope:** educational habit-building only; no therapy claims or guaranteed personal/professional outcomes. Prompts are optional and adaptable.
+
+The artwork is bundled Android VectorDrawable XML, so it renders locally/offline, scales cleanly on 720p and 1080p devices, and requires no image-network request or extra image-loading dependency. The domain model stores an artwork identifier; Android resource IDs are mapped only in the presentation layer.
+
+### Public repository references reviewed for product patterns
+- [pgrzel/Habit-Tracker](https://github.com/pgrzel/Habit-Tracker) — Compose, Room, Flow, Clean Architecture, and testing structure.
+- [cr0sz/Workout-Tracker](https://github.com/cr0sz/Workout-Tracker) — workout programs, reusable templates, and structured progression concepts.
+- [shayanmohd/habits-app](https://github.com/shayanmohd/habits-app) — minimalist offline-first habit tracking patterns.
+
+These repositories are references for general product/architecture ideas only. Do not copy source code, visual assets, or wording without checking the relevant license and attribution requirements.
