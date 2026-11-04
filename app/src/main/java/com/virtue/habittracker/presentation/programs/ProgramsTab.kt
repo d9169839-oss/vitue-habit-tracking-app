@@ -2,6 +2,7 @@ package com.virtue.habittracker.presentation.programs
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +36,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -258,6 +262,7 @@ private fun ProgramCatalogScreen(
             FilterChip(selected = state.selectedCategory == ProgramCategory.FITNESS, onClick = { onCategory(ProgramCategory.FITNESS) }, label = { Text("Fitness") })
             FilterChip(selected = state.selectedCategory == ProgramCategory.SELF_GROOMING, onClick = { onCategory(ProgramCategory.SELF_GROOMING) }, label = { Text("Grooming") })
             FilterChip(selected = state.selectedCategory == ProgramCategory.MINDFULNESS, onClick = { onCategory(ProgramCategory.MINDFULNESS) }, label = { Text("Mindfulness") })
+            FilterChip(selected = state.selectedCategory == ProgramCategory.PERSONAL_DEVELOPMENT, onClick = { onCategory(ProgramCategory.PERSONAL_DEVELOPMENT) }, label = { Text("Personal development") })
         }
         // Adapt the catalog to available width in dp, not the raw pixel resolution.
         // 720p and 1080p devices can have different density/scaling, so pixel checks are unreliable.
@@ -311,7 +316,14 @@ private fun ProgramTemplateCard(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = ProgramCard)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Image(
+                painter = painterResource(template.artworkResource()),
+                contentDescription = "${template.title} program artwork",
+                modifier = Modifier.fillMaxWidth().height(132.dp),
+                contentScale = ContentScale.Crop
+            )
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -342,6 +354,7 @@ private fun ProgramTemplateCard(
                 style = MaterialTheme.typography.labelMedium
             )
             Text("View program details →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
+            }
         }
     }
 }
