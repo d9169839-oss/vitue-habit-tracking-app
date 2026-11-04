@@ -262,3 +262,49 @@ Before release: run Gradle unit tests, Android lint, Room migration tests, Fireb
 5. Will a qualified fitness/health reviewer approve exercise and weight-management content before release?
 
 Until these decisions are finalized, use safe defaults: template-driven plans, no guaranteed outcomes, optional measurements, local-first persistence, and no fake premium entitlement in production.
+
+
+## Recommended program roadmap (product proposal)
+
+The bundled catalog currently contains eight templates. Keep the initial experience curated and reviewed rather than shipping dozens of shallow plans. Treat the following as a roadmap; a program is not implemented just because it appears in this proposal.
+
+### Already in the bundled catalog
+- **Beginner Movement Foundations** — 30 days; free.
+- **Home Strength Foundations** — 60 days; premium.
+- **Everyday Stamina** — 60 days; premium.
+- **Sustainable Wellness Habits** — 90 days; premium; no calorie prescriptions or promised weight change.
+- **Everyday Grooming Routine** — 30 days; free.
+- **Simple Skincare Consistency** — 30 days; premium.
+- **Mindfulness Foundations** — 30 days; free.
+- **Gratitude and Reflection** — 30 days; premium.
+
+### Best next programs to add
+Prioritize these after responsive UI and release-quality testing. Each should have a reviewed template, distinct phase content, and real schedule activities—not just a new title over the same generic steps.
+
+1. **Sleep Routine Foundations (30 days):** consistent wind-down, regular wake-time reflection, screen-off cue and bedroom-preparation habits. Avoid diagnosing or treating sleep disorders.
+2. **Digital Balance (14/30 days):** notification review, app-free blocks, intentional phone checks and evening device boundaries. Never shame users for setbacks.
+3. **Focus and Study/Work Sessions (30 days):** task selection, short focus blocks, breaks, planning and end-of-day review. Let users choose study, work or personal projects.
+4. **Confidence and Communication Practice (60 days):** low-pressure listening, clear requests, prepared conversations and reflection; do not promise personality transformation.
+5. **Hair-Care Routine (30 days):** simple consistency and user-selected hair needs; avoid medical claims about hair loss or regrowth.
+6. **Personal Organization and Weekly Reset (30 days):** small decluttering tasks, calendar review, preparing essentials and a sustainable weekly reset.
+7. **Walking and Cardio Consistency (60 days):** a reviewed low-impact progression with easier days and options to substitute comfortable movement.
+8. **Gym Consistency and Strength Foundations (90 days):** only after qualified review; ask about experience/equipment, use technique-first progression, recovery and safe alternatives.
+9. **Purpose, Values and Journaling (60 days):** optional prompts for priorities, values and small weekly actions.
+10. **User-selected spiritual reflection (30/90 days):** optional, explicitly chosen by the user. Never infer a religion or spiritual preference from name, location, language or other profile data.
+
+### Personalization inputs by program category
+
+- **All programs:** preferred goal, duration, minutes/day, days/week, start date, reminders, experience with the routine, and accessibility/preferences.
+- **Fitness:** home/gym/outdoors, equipment, current comfort level and a brief safety screen. Work activity can inform scheduling/recovery, but must not alone prescribe exercise intensity.
+- **Weight-related wellness:** make height/weight optional, adult-only where BMI interpretation is relevant, calculate locally unless the user explicitly consents to another use, and do not prescribe calories or promise weight loss/gain. For medical conditions, injury, pregnancy, eating-disorder concerns or other higher-risk cases, do not generate an intense or weight-loss plan; refer to qualified professional guidance.
+- **Grooming/skincare/hair care:** routine preferences, time budget, sensitivities only if genuinely needed, and a clear skip option. Do not ask for BMI or weight.
+- **Mindfulness/reflection:** preferred duration, prompt style and optional reminder. Avoid treating it as therapy or requiring disclosure of journal contents.
+
+### Suggested release sequence
+
+- **Release 1:** keep the current eight templates; ensure every template has distinct daily activities, accurate duration, reviewed safety notes and good empty/loading states.
+- **Release 1.1:** Sleep Routine Foundations, Digital Balance, Focus and Study/Work Sessions, Personal Organization.
+- **Release 1.2:** Confidence and Communication, Hair-Care Routine, and expanded walking/cardio options after content review.
+- **Later:** 90-day gym/strength and user-selected spiritual paths only after appropriate review and user research.
+
+Premium should be based on deeper structure, progress insights and additional reviewed templates—not on withholding basic safety information. Do not gate a user's saved history when a subscription expires.
