@@ -7,8 +7,8 @@
     <path android:fillColor="#17112A" android:pathData="M0,0h360v180h-360z" />
     <path android:fillColor="#2B2044" android:pathData="M0,130L70,92L145,124L225,66L300,105L360,80L360,180L0,180z" />
     <path android:fillColor="#403060" android:pathData="M0,151L85,120L160,150L250,102L360,132L360,180L0,180z" />
-    <path android:fillColor="#6D4BC3" android:pathData="M266,18a42,42 0,1 0,0.1 0z" />
-    <path android:fillColor="#FDE68A" android:pathData="M266,30a30,30 0,1 0,0.1 0z" />
+    <path android:fillColor="#6D4BC3" android:pathData="M308,60 C308,83.2 289.2,102 266,102 C242.8,102 224,83.2 224,60 C224,36.8 242.8,18 266,18 C289.2,18 308,36.8 308,60 Z" />
+    <path android:fillColor="#FDE68A" android:pathData="M296,60 C296,76.6 282.6,90 266,90 C249.4,90 236,76.6 236,60 C236,43.4 249.4,30 266,30 C282.6,30 296,43.4 296,60 Z" />
     <path android:fillColor="#17112A" android:pathData="M266,30a30,30 0,1 0,0.1 0z" />
     <path android:fillColor="#C4B5FD" android:pathData="M48,64h82v76h-82z" />
     <path android:fillColor="#F8F5FF" android:pathData="M54,70h34v64h-34zM91,70h33v64h-33z" />
