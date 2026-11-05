@@ -37,7 +37,8 @@ Comments explain the intent of important non-obvious behaviour: destinations rem
 ## Validation
 
 - Source-level extraction was prepared from the current `main` file.
-- A Gradle build/test must be run after pulling this branch. Do not treat this document as proof of a successful build.
+- The first CI attempt exposed a pre-existing workflow setup failure: `setup-android` tried to install the retired SDK package `tools`, so compilation never started. The workflow now requests the required API 36 platform and build-tools packages explicitly.
+- A successful Gradle build/test is still required; do not treat this document as proof of a successful build.
 - Suggested local check:
   ```bash
   git checkout main
