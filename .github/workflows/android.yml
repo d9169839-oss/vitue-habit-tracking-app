@@ -27,9 +27,11 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        with:
+          # Install explicit packages. The action's default "tools" package is no longer valid.
+          packages: |
+            platforms;android-36
+            build-tools;36.0.0
 
       # The Google Services Gradle plugin expects a config file even for unit tests.
       # This placeholder is CI-only and contains no real Firebase credentials.
