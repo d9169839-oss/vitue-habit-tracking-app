@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -47,16 +48,31 @@ class AuthViewModel @Inject constructor(
         val email = _uiState.value.email
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null, infoMessage = null) }
-            sendPasswordResetUseCase(email)
-                .onSuccess { _uiState.update { it.copy(isLoading = false, infoMessage = "If an account exists for that email, a reset email has been requested.") } }
-                .onFailure { error -> _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Could not request a password reset.") } }
+            try {
+                sendPasswordResetUseCase(email)
+                    .onSuccess { _uiState.update { it.copy(isLoading = false, infoMessage = "If an account exists for that email, a reset email has been requested.") } }
+                    .onFailure { error -> _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Could not request a password reset.") } }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = error.localizedMessage ?: "Could not request a password reset.") }
+            }
         }
     }
     private fun execute(operation: suspend () -> AuthOutcome) {
         if (_uiState.value.isLoading) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null, infoMessage = null) }
-            when (val outcome = operation()) {
+            // Unexpected infrastructure errors become UI state rather than crashing the screen.
+            val outcome = try {
+                operation()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                AuthOutcome.Failure(error.localizedMessage?.takeIf(String::isNotBlank)
+                    ?: "Authentication failed. Please try again.")
+            }
+            when (outcome) {
                 is AuthOutcome.Success -> {
                     _uiState.update { it.copy(isLoading = false, password = "", confirmPassword = "") }
                     _events.emit(AuthEvent.Authenticated)
