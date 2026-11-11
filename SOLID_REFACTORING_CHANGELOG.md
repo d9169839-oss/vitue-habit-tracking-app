@@ -1,56 +1,60 @@
-# SOLID presentation refactor — Vitue Habit Tracker
+# SOLID Refactoring Changelog — Virtue Habit Tracker
 
-**Date:** 2026-11-05  
-**Scope:** Presentation-layer file organisation and maintainability only.
+## Phase 1: Presentation-Layer Extraction (2026-11-05)
+- Separated `presentation/App.kt` into `App.kt`, `Connectivity.kt`, `HomeTab.kt`, `HistoryScreens.kt`, `HabitStatusComponents.kt`, and `ProfileTab.kt`.
 
-## Goal and compatibility promise
+---
 
-This change separates the previously 730-line `presentation/App.kt` into focused source files. The refactor is intended to preserve the existing user-visible flow and behaviour: authentication/navigation routes, tab order, tab state retention, connectivity banners, habit creation/completion/archive, date selection, history filtering, progress view, program full-screen navigation and sign-out callbacks.
+## Phase 2: Domain, Data, & Presentation SOLID Refactoring (2026-11-12)
 
-No domain rules, repository contracts, Room schema, Firebase behaviour, billing logic, UI copy, styling, or navigation destinations were intentionally changed.
+### Scope
+Addressed the remaining architectural and design findings identified in `docs/SOLID_REVIEW.md`:
+1. **SRP in Authentication & Bootstrapping**: Decoupled Firebase Authentication from local cache preparation and sync scheduling.
+2. **DIP & Testability in Google Sign-In**: Decoupled UI and CredentialManager via an interface abstraction.
+3. **SRP & DIP in In-App Billing**: Decoupled Play BillingClient transport from entitlement policy verification and persistent caching.
+4. **SRP in Programs Tab Presentation**: Extracted `ProgramsBillingViewModel` out of `ProgramsTab.kt`.
+5. **Robustness in Data Models**: Fixed `ProgramPreferences` instantiation in `RoomProgramRepository` and `ProgramsTab` to use named parameters.
+6. **Comprehensive Unit Tests**: Added unit tests for Auth use cases, session coordination, AuthViewModel, Google credential faking, and Entitlement verification.
 
-## Changes made
+### Detailed Changes
 
-| File | Responsibility after refactor |
-|---|---|
-| `presentation/App.kt` | Root composition, selected tab, shared bottom navigation, program full-screen chrome, and reconnection-banner timing |
-| `presentation/Connectivity.kt` | Validated internet observation and reusable connectivity banner |
-| `presentation/HomeTab.kt` | Home UI, daily habit controls, date picker, create-habit dialog and habit card |
-| `presentation/HistoryScreens.kt` | History filtering, date picker, history cards, day summaries and existing progress screen |
-| `presentation/HabitStatusComponents.kt` | Shared habit-status summary card used by Home and Progress |
-| `presentation/ProfileTab.kt` | Profile tab and sign-out UI |
-| `docs/SOLID_REFACTORING_CHANGELOG.md` | This implementation record and validation checklist |
+| File | Change & Responsibility | SOLID Principle |
+|---|---|---|
+| `domain/repository/AuthSessionCoordinator.kt` | New contract for coordinating post-auth tasks (local cache prep, sync enqueueing) | SRP, DIP |
+| `data/sync/DefaultAuthSessionCoordinator.kt` | Concrete coordinator encapsulating `HabitCloudDataSource` cache prep & `HabitSyncScheduler` enqueueing | SRP |
+| `data/repository/FirebaseAuthRepository.kt` | Stripped cloud data source & sync scheduler dependencies; now handles **only** Firebase Auth | SRP |
+| `domain/usecase/SignInUseCase.kt` | Coordinates authentication outcome with `AuthSessionCoordinator` on success | SRP |
+| `domain/usecase/RegisterUseCase.kt` | Coordinates registration outcome with `AuthSessionCoordinator` on success | SRP |
+| `domain/usecase/GoogleSignInUseCase.kt` | Coordinates Google sign-in outcome with `AuthSessionCoordinator` on success | SRP |
+| `presentation/auth/GoogleCredentialProvider.kt` | New abstraction for acquiring Google ID tokens | DIP, ISP |
+| `presentation/auth/GoogleCredentialClient.kt` | Implements `GoogleCredentialProvider` using Android CredentialManager | DIP, LSP |
+| `presentation/auth/AuthScreens.kt` | `LoginScreen`, `RegisterScreen`, and `GoogleButton` accept optional `GoogleCredentialProvider` | DIP |
+| `domain/repository/EntitlementVerifier.kt` | New domain contract for verifying whether purchase states confer active entitlements | SRP, ISP |
+| `data/billing/DefaultEntitlementVerifier.kt` | Pure verification logic (filters `PURCHASED`, checks eligible product IDs, rejects `PENDING`) | SRP |
+| `data/billing/PremiumEntitlementCache.kt` | Abstraction and SharedPreferences implementation for local offline entitlement caching | SRP, ISP |
+| `data/billing/PremiumBillingManager.kt` | Injects `EntitlementVerifier` and `PremiumEntitlementCache`; retains transport & connection lifecycle | SRP, DIP |
+| `presentation/programs/ProgramsBillingViewModel.kt` | Extracted from `ProgramsTab.kt` into its own file | SRP |
+| `presentation/programs/ProgramsTab.kt` | Removed nested `ProgramsBillingViewModel` | SRP |
+| `di/FirebaseModule.kt` | Bound `AuthSessionCoordinator`, `EntitlementVerifier`, and `PremiumEntitlementCache` in Hilt | DIP |
 
-## SOLID impact
+### Unit Tests Added
+- `domain/usecase/AuthUseCasesTest.kt`:
+  - `SignInUseCase`: validation rejections, failure does not trigger coordinator, success triggers coordinator.
+  - `RegisterUseCase`: validation rejections, success triggers coordinator.
+  - `GoogleSignInUseCase`: blank token rejection, success triggers coordinator.
+- `presentation/auth/AuthViewModelTest.kt`:
+  - Password mismatch rejection without calling usecase.
+  - Sign-in success emits `AuthEvent.Authenticated` and clears password fields.
+  - Sign-in failure updates `errorMessage`.
+  - Password reset success & error handling.
+  - Deterministic testing with fake `GoogleCredentialProvider`.
+- `data/billing/EntitlementVerifierTest.kt`:
+  - `PURCHASED` with eligible product returns `true`.
+  - `PENDING` with eligible product returns `false`.
+  - `UNSPECIFIED_STATE` returns `false`.
+  - `PURCHASED` with unknown product returns `false`.
+  - Empty products return `false`.
 
-- **SRP:** app-shell orchestration is separated from feature-specific screen composition and connectivity observation.
-- **OCP:** shared presentation pieces can be extended without growing the root shell.
-- **ISP/DIP:** no repository or ViewModel interfaces were changed; existing dependency boundaries remain intact.
-- **LSP:** no inheritance or subtype contracts were introduced or altered.
-
-This is a focused first step, not a claim that every SOLID finding is now resolved. The broader findings in `docs/SOLID_REVIEW.md`—auth bootstrap, cloud sync responsibilities, billing responsibilities and Google credential injection—remain separate future work.
-
-## Comments added or retained
-
-Comments explain the intent of important non-obvious behaviour: destinations remain composed for fast tab switching and state retention; offline status remains visible until connectivity returns; and connectivity requires Android's validated internet capability. Routine statements were not given redundant comments.
-
-## Validation
-
-- Source-level extraction was prepared from the current `main` file.
-- The first CI attempt exposed a pre-existing workflow setup failure: `setup-android` tried to install the retired SDK package `tools`, so compilation never started. The workflow now requests the required API 36 platform and build-tools packages explicitly.
-- A successful Gradle build/test is still required; do not treat this document as proof of a successful build.
-- Suggested local check:
-  ```bash
-  git checkout main
-  git pull origin main
-  ./gradlew testDebugUnitTest assembleDebug
-  ```
-- If a compile error appears, do not ship until it is fixed and the same command passes.
-
-## Follow-up recommendations
-
-1. Add Compose/UI tests around tab switching, date selection and sign-out before deeper changes.
-2. Introduce a post-auth bootstrap use case to separate Firebase Auth from profile/sync setup.
-3. Split cloud sync by aggregate with conflict/tombstone tests.
-4. Split Play Billing transport from entitlement policy and verify purchases on a trusted backend.
-5. Inject Google credential acquisition behind an interface for deterministic ViewModel/UI tests.
+### Verification Status
+- `./gradlew testDebugUnitTest`: **37 tests passed, 0 failed, 0 skipped**.
+- `./gradlew assembleDebug`: **Build finished successfully**.
