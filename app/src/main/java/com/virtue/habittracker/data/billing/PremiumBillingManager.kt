@@ -11,37 +11,45 @@ import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import com.virtue.habittracker.domain.repository.EntitlementVerifier
+import com.virtue.habittracker.domain.repository.PremiumEntitlementProvider
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
-import javax.inject.Singleton
-import com.virtue.habittracker.domain.repository.PremiumEntitlementProvider
 
 /**
- * Google Play subscription client.
- * Replace product IDs with Play Console IDs and verify purchase tokens on a trusted backend
- * before production. Client-only purchase state is a UX signal, not a secure authorization boundary.
+ * Google Play subscription client and billing transport.
+ *
+ * Responsibilities are segregated:
+ * - Entitlement policy verification is delegated to [EntitlementVerifier].
+ * - Persistent caching is delegated to [PremiumEntitlementCache].
+ * - BillingClient transport and Google Play connection lifecycle are managed here.
  */
 @Singleton
 class PremiumBillingManager @Inject constructor(
-    @dagger.hilt.android.qualifiers.ApplicationContext context: Context
+    @ApplicationContext context: Context,
+    private val entitlementVerifier: EntitlementVerifier,
+    private val entitlementCache: PremiumEntitlementCache
 ) : com.android.billingclient.api.PurchasesUpdatedListener, PremiumEntitlementProvider {
 
     companion object {
-        const val MONTHLY_PRODUCT_ID = "vitue_premium_monthly"
-        const val YEARLY_PRODUCT_ID = "vitue_premium_yearly"
-        private val PRODUCT_IDS = listOf(MONTHLY_PRODUCT_ID, YEARLY_PRODUCT_ID)
+        const val MONTHLY_PRODUCT_ID = "virtue_premium_monthly"
+        const val YEARLY_PRODUCT_ID = "virtue_premium_yearly"
+        val PRODUCT_IDS = listOf(MONTHLY_PRODUCT_ID, YEARLY_PRODUCT_ID)
     }
 
-    private val preferences = context.getSharedPreferences("vitue_premium_entitlement", Context.MODE_PRIVATE)
     // Cached state supports offline UX only; a trusted backend must be the authorization source.
-    private val _isPremium = MutableStateFlow(preferences.getBoolean("premiumCached", false))
+    private val _isPremium = MutableStateFlow(entitlementCache.isPremiumCached())
     val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
     override val premiumEntitlement: StateFlow<Boolean> get() = isPremium
     override fun refreshEntitlement() = refreshPurchases()
+
     private val _products = MutableStateFlow<List<ProductDetails>>(emptyList())
     val products: StateFlow<List<ProductDetails>> = _products.asStateFlow()
+
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
@@ -137,11 +145,15 @@ class PremiumBillingManager @Inject constructor(
     }
 
     private fun handlePurchases(purchases: List<Purchase>) {
-        val owned = purchases.filter {
-            it.purchaseState == Purchase.PurchaseState.PURCHASED && it.products.any(PRODUCT_IDS::contains)
+        val owned = purchases.filter { purchase ->
+            entitlementVerifier.isPurchaseEntitled(
+                purchaseState = purchase.purchaseState,
+                purchasedProducts = purchase.products,
+                eligibleProducts = PRODUCT_IDS
+            )
         }
         _isPremium.value = owned.isNotEmpty()
-        preferences.edit().putBoolean("premiumCached", owned.isNotEmpty()).apply()
+        entitlementCache.setPremiumCached(owned.isNotEmpty())
         owned.filter { !it.isAcknowledged }.forEach { purchase ->
             val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build()
             client.acknowledgePurchase(params) { result ->

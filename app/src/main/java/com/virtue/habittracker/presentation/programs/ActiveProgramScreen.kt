@@ -1,5 +1,7 @@
 package com.virtue.habittracker.presentation.programs
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -58,8 +61,19 @@ internal fun ActiveProgramScreen(
             Text(progress.enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramLavender)
             LinearProgressIndicator(progress = { progress.progressPercent / 100f }, modifier = Modifier.fillMaxWidth(), color = ProgramViolet)
             Text(progress.progressPercent.toString() + "% complete · " + progress.completedCount + "/" + progress.totalCount + " activities", style = MaterialTheme.typography.bodySmall, color = ProgramMuted)
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(1.dp, Color(0xFF383245))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(ProgramCardGradient, RoundedCornerShape(20.dp))
+                        .padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text("TODAY", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     val today = progress.todayActivities
                     if (today.isEmpty()) {
@@ -85,8 +99,19 @@ internal fun ActiveProgramScreen(
             Text("PROGRAM TIMELINE", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             val todayEpochDay = LocalDate.now().toEpochDay()
             progress.activities.filter { it.epochDay >= todayEpochDay - 2L }.take(21).forEach { activity ->
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    border = BorderStroke(1.dp, Color(0xFF383245))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(ProgramCardGradient, RoundedCornerShape(16.dp))
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Day " + activity.dayIndex, color = ProgramLavender, style = MaterialTheme.typography.labelMedium)
                             Text(activity.title, fontWeight = FontWeight.SemiBold)

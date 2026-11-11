@@ -56,7 +56,7 @@ class HabitSyncScheduler @Inject constructor(
     }
 
     private companion object {
-        const val ONE_TIME_WORK_NAME = "vitue-habit-sync"
-        const val PERIODIC_WORK_NAME = "vitue-habit-periodic-sync"
+        const val ONE_TIME_WORK_NAME = "virtue-habit-sync"
+        const val PERIODIC_WORK_NAME = "virtue-habit-periodic-sync"
     }
 }

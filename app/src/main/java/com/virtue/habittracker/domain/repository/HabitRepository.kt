@@ -14,4 +14,6 @@ interface HabitRepository {
     suspend fun setCompletion(habitId: String, epochDay: Long, completed: Boolean)
     suspend fun clearCompletion(habitId: String, epochDay: Long)
     suspend fun archiveHabit(habitId: String, inactiveFromEpochDay: Long)
+    suspend fun unarchiveHabit(habitId: String)
+    suspend fun reactivateHabitFreshStart(habitId: String, newCreatedEpochDay: Long)
 }

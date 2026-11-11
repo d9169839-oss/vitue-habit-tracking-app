@@ -2,30 +2,36 @@ package com.virtue.habittracker.presentation.programs
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,26 +41,78 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.billingclient.api.ProductDetails
 import com.virtue.habittracker.data.billing.PremiumBillingManager
-import com.virtue.habittracker.domain.model.program.ProgramCategory
-import com.virtue.habittracker.domain.model.program.ProgramEquipment
 import com.virtue.habittracker.domain.model.program.ProgramExperience
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
-import com.virtue.habittracker.domain.model.program.ProgramStatus
 import com.virtue.habittracker.domain.model.program.WorkActivityLevel
 import java.time.LocalDate
 
 private enum class ProgramRoute { CATALOG, DETAIL, PERSONALIZE, REVIEW, ACTIVE, ADJUST_PERSONALIZE, ADJUST_REVIEW }
+
+data class PrimaryFocusProgram(
+    val id: String,
+    val title: String,
+    val description: String,
+    val icon: String,
+    val isRecommended: Boolean = false,
+    val tags: List<String>,
+    val templateId: String
+)
+
+val focusPrograms = listOf(
+    PrimaryFocusProgram(
+        id = "build-lean-muscle",
+        title = "Build Lean Muscle",
+        description = "Progressive overload focused on hypertrophic adaptation, structural density, and functional power.",
+        icon = "🏋️",
+        isRecommended = true,
+        tags = listOf("📅 4–5 days/wk", "🥩 Hypertrophic Macros", "⏳ 3–6 months"),
+        templateId = "home-strength-60"
+    ),
+    PrimaryFocusProgram(
+        id = "calm-recomposition",
+        title = "Calm Recomposition",
+        description = "Simultaneous fat loss and muscle retention with precise caloric partitioning and steady, controlled volume.",
+        icon = "⚖️",
+        isRecommended = false,
+        tags = listOf("📅 3–4 days/wk", "🍽️ High-Protein Fueling", "⏳ 16–24 weeks"),
+        templateId = "weight-habits-90"
+    ),
+    PrimaryFocusProgram(
+        id = "aerobic-engine",
+        title = "Aerobic Engine & Vitality",
+        description = "Cardiovascular resilience, metabolic conditioning, and sustained baseline energy for demanding workdays.",
+        icon = "⚡",
+        isRecommended = false,
+        tags = listOf("📅 3–5 days/wk", "⚡ Balanced Glycogen"),
+        templateId = "stamina-60"
+    ),
+    PrimaryFocusProgram(
+        id = "longevity-movement",
+        title = "Longevity & Movement Health",
+        description = "Joint articulation, thoracic mobility, active tissue recovery, and sustainable low-fatigue functional movement.",
+        icon = "🧘",
+        isRecommended = false,
+        tags = listOf("📅 3–4 days/wk", "🪴 Maintenance & Vitality"),
+        templateId = "movement-30"
+    )
+)
 
 @Composable
 fun ProgramsTab(
@@ -80,7 +138,6 @@ fun ProgramsTab(
     val selectedProgress = state.programs.firstOrNull { it.enrollment.id == selectedEnrollmentId }
 
     LaunchedEffect(Unit) { manager.connect() }
-    // Keep app navigation visible while the preview is shown over the catalogue.
     LaunchedEffect(route) { onFullScreenChange(route != ProgramRoute.CATALOG && route != ProgramRoute.DETAIL) }
 
     BackHandler(enabled = route != ProgramRoute.CATALOG) {
@@ -96,25 +153,34 @@ fun ProgramsTab(
     }
 
     Column(
-        modifier.fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF12111A))
             .then(if (visible) Modifier else Modifier.padding(start = 10_000.dp))
     ) {
         when (route) {
-            ProgramRoute.CATALOG, ProgramRoute.DETAIL -> ProgramCatalogScreen(
+            ProgramRoute.CATALOG, ProgramRoute.DETAIL -> PrimaryFocusProgramScreen(
                 state = state,
-                onCategory = vm::selectCategory,
-                onOpenTemplate = { template ->
-                    selectedTemplateId = template.id
-                    route = ProgramRoute.DETAIL
+                onOpenTemplate = { templateId ->
+                    selectedTemplateId = templateId
+                    val template = vm.catalog.firstOrNull { it.id == templateId }
+                    if (template != null) {
+                        draftPreferences = ProgramPreferences(
+                            availableMinutesPerDay = template.defaultMinutesPerDay.coerceIn(5, 90),
+                            availableDaysPerWeek = 5,
+                            experience = ProgramExperience.BEGINNER,
+                            workActivityLevel = WorkActivityLevel.MIXED,
+                            equipment = template.equipment
+                        )
+                    }
+                    draftStartEpochDay = LocalDate.now().toEpochDay()
+                    route = ProgramRoute.PERSONALIZE
                 },
                 onOpenProgram = { progress ->
                     selectedEnrollmentId = progress.enrollment.id
                     route = ProgramRoute.ACTIVE
-                },
-                onPremium = { showPremiumDialog = true }
+                }
             )
-            // Preview details are displayed in a modal overlay below.
             ProgramRoute.PERSONALIZE, ProgramRoute.ADJUST_PERSONALIZE -> selectedTemplate?.let { template ->
                 ProgramPersonalizationScreen(
                     template = template,
@@ -127,7 +193,7 @@ fun ProgramsTab(
                     onContinue = { preferences, startEpochDay, _ ->
                         draftPreferences = preferences
                         draftStartEpochDay = startEpochDay
-                        route = if (route == ProgramRoute.ADJUST_PERSONALIZE) ProgramRoute.ADJUST_REVIEW else ProgramRoute.REVIEW
+                        route = if (route == ProgramRoute.ADJUST_REVIEW) ProgramRoute.ADJUST_REVIEW else ProgramRoute.REVIEW
                     }
                 )
             }
@@ -153,59 +219,50 @@ fun ProgramsTab(
                         } else {
                             vm.startProgram(template.id, draftStartEpochDay, draftPreferences)
                             selectedTemplateId = template.id
-                            route = ProgramRoute.CATALOG
+                            route = ProgramRoute.ACTIVE
                         }
                     }
                 )
             }
-            ProgramRoute.ACTIVE -> selectedProgress?.let { progress ->
-                val template = vm.catalog.firstOrNull { it.id == progress.enrollment.templateId }
-                if (template == null) {
-                    Text("This program is no longer available.", Modifier.padding(20.dp))
+            ProgramRoute.ACTIVE -> {
+                val progress = selectedProgress
+                    ?: state.programs.firstOrNull { if (selectedEnrollmentId != null) it.enrollment.id == selectedEnrollmentId else it.enrollment.templateId == selectedTemplateId }
+                    ?: state.programs.firstOrNull()
+                if (progress != null) {
+                    val template = vm.catalog.firstOrNull { it.id == progress.enrollment.templateId }
+                    if (template == null) {
+                        Text("This program is no longer available.", Modifier.padding(20.dp))
+                    } else {
+                        ActiveProgramScreen(
+                            progress = progress,
+                            onBack = { route = ProgramRoute.CATALOG },
+                            onAdjust = {
+                                selectedTemplateId = template.id
+                                draftPreferences = progress.enrollment.preferences
+                                draftStartEpochDay = progress.enrollment.startEpochDay
+                                route = ProgramRoute.ADJUST_PERSONALIZE
+                            },
+                            onActivityStatus = vm::setActivityStatus,
+                            onProgramStatus = { status -> vm.setEnrollmentStatus(progress.enrollment.id, status) },
+                            onDelete = {
+                                vm.deleteEnrollment(progress.enrollment.id)
+                                selectedEnrollmentId = null
+                                route = ProgramRoute.CATALOG
+                            }
+                        )
+                    }
                 } else {
-                    ActiveProgramScreen(
-                        progress = progress,
-                        onBack = { route = ProgramRoute.CATALOG },
-                        onAdjust = {
-                            selectedTemplateId = template.id
-                            draftPreferences = progress.enrollment.preferences
-                            draftStartEpochDay = progress.enrollment.startEpochDay
-                            route = ProgramRoute.ADJUST_PERSONALIZE
-                        },
-                        onActivityStatus = vm::setActivityStatus,
-                        onProgramStatus = { status -> vm.setEnrollmentStatus(progress.enrollment.id, status) },
-                        onDelete = {
-                            vm.deleteEnrollment(progress.enrollment.id)
-                            selectedEnrollmentId = null
-                            route = ProgramRoute.CATALOG
-                        }
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = ProgramViolet)
+                    }
                 }
             }
         }
-    }
-
-    // Large preview sheet: the catalogue remains visible behind the dimmed scrim.
-    if (route == ProgramRoute.DETAIL) {
-        selectedTemplate?.let { template ->
-            ProgramDetailScreen(
-                template = template,
-                isPremium = state.isPremium,
-                onBack = { route = ProgramRoute.CATALOG },
-                onPersonalize = {
-                    draftPreferences = ProgramPreferences(
-                        availableMinutesPerDay = template.defaultMinutesPerDay.coerceIn(5, 90),
-                        availableDaysPerWeek = 5,
-                        experience = ProgramExperience.BEGINNER,
-                        workActivityLevel = WorkActivityLevel.MIXED,
-                        equipment = template.equipment
-                    )
-                    draftStartEpochDay = LocalDate.now().toEpochDay()
-                    route = ProgramRoute.PERSONALIZE
-                },
-                onPremium = { showPremiumDialog = true }
-            )
-        } ?: run { route = ProgramRoute.CATALOG }
     }
 
     if (showPremiumDialog) {
@@ -230,154 +287,330 @@ fun ProgramsTab(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProgramCatalogScreen(
+private fun PrimaryFocusProgramScreen(
     state: ProgramsUiState,
-    onCategory: (ProgramCategory?) -> Unit,
-    onOpenTemplate: (com.virtue.habittracker.domain.model.program.ProgramTemplate) -> Unit,
-    onOpenProgram: (ProgramProgress) -> Unit,
-    onPremium: () -> Unit
+    onOpenTemplate: (String) -> Unit,
+    onOpenProgram: (ProgramProgress) -> Unit
 ) {
-    val visiblePrograms = state.programs
-    val catalog = ProgramCatalogForUi.all
+    val activeEnrollment = state.programs.firstOrNull()
+
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF12111A))
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("VITUE PROGRAMS", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            Text("Become who you choose.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Small, repeatable actions. A plan that fits your real life.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("YOUR NEXT CHAPTER", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                Text("A little progress, repeated.", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Choose a guided fitness, grooming, or mindfulness journey. Your plan is saved on this device first and works offline.", color = ProgramMuted)
-                if (!state.isPremium) OutlinedButton(onClick = onPremium) { Text("Explore Vitue Premium") }
-                else Text("Premium active", color = androidx.compose.ui.graphics.Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
+        // Top Header Bar: Progress Title & Profile Avatar Icon
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Progress",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.SansSerif,
+                color = Color.White
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color(0xFF262436), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("👤", fontSize = 16.sp)
             }
         }
-        if (visiblePrograms.isNotEmpty()) {
-            Text("YOUR PROGRAMS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            visiblePrograms.forEach { progress -> ActiveProgramSummaryCard(progress, onOpenProgram) }
-        }
-        Text("DISCOVER", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = state.selectedCategory == null, onClick = { onCategory(null) }, label = { Text("All") })
-            FilterChip(selected = state.selectedCategory == ProgramCategory.FITNESS, onClick = { onCategory(ProgramCategory.FITNESS) }, label = { Text("Fitness") })
-            FilterChip(selected = state.selectedCategory == ProgramCategory.SELF_GROOMING, onClick = { onCategory(ProgramCategory.SELF_GROOMING) }, label = { Text("Grooming") })
-            FilterChip(selected = state.selectedCategory == ProgramCategory.MINDFULNESS, onClick = { onCategory(ProgramCategory.MINDFULNESS) }, label = { Text("Mindfulness") })
-            FilterChip(selected = state.selectedCategory == ProgramCategory.PERSONAL_DEVELOPMENT, onClick = { onCategory(ProgramCategory.PERSONAL_DEVELOPMENT) }, label = { Text("Personal development") })
-        }
-        // Adapt the catalog to available width in dp, not the raw pixel resolution.
-        // 720p and 1080p devices can have different density/scaling, so pixel checks are unreliable.
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val columns = when {
-                maxWidth >= 900.dp -> 3
-                maxWidth >= 600.dp -> 2
-                else -> 1
+
+        // Step Indicator Pill + Segmented Progress Bar Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = Color(0xFF1E1C2B),
+                border = BorderStroke(1.dp, Color(0xFF2E2C3E))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(Color(0xFFA78BFA), CircleShape)
+                    )
+                    Text(
+                        text = "STEP 1 OF 4",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
             }
-            val filteredCatalog = catalog.filter {
-                state.selectedCategory == null || it.category == state.selectedCategory
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                filteredCatalog.chunked(columns).forEach { rowTemplates ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        rowTemplates.forEach { template ->
-                            ProgramTemplateCard(
-                                template = template,
-                                modifier = Modifier.weight(1f),
-                                onClick = { onOpenTemplate(template) }
-                            )
-                        }
-                        repeat(columns - rowTemplates.size) {
-                            Spacer(Modifier.weight(1f))
-                        }
-                    }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
+                    modifier = Modifier
+                        .width(26.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFFA78BFA))
+                )
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .width(16.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFF282536))
+                    )
                 }
             }
         }
-        Text("Fitness programs are general-wellness guidance, not medical advice. Content should be reviewed by a qualified professional before public release.", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+
+        // Ongoing Program Summary Card (matching home screen gradient)
+        if (activeEnrollment != null) {
+            Card(
+                onClick = { onOpenProgram(activeEnrollment) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(1.5.dp, Color(0xFFA78BFA))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = ProgramCardGradient,
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "ONGOING PROGRAM: ${activeEnrollment.enrollment.titleSnapshot}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "${activeEnrollment.progressPercent}%",
+                            color = Color(0xFF00DC82),
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif
+                        )
+                    }
+                    Text(
+                        text = "Open active routine schedule →",
+                        color = Color(0xFFC4B5FD),
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.SansSerif,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+            }
+        }
+
+        // Main Headline & Subtitle
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "What's your primary focus?",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.SansSerif,
+                color = Color.White
+            )
+            Text(
+                text = "Choose the foundation for your 3 to 6 month tailored progression. You can adjust this anytime without losing data.",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Normal,
+                fontFamily = FontFamily.SansSerif,
+                color = Color(0xFF9E8AA7),
+                lineHeight = 20.sp
+            )
+        }
+
+        // Focus Program Cards List
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            focusPrograms.forEach { program ->
+                FocusProgramCard(
+                    program = program,
+                    onClick = {
+                        onOpenTemplate(program.templateId)
+                    }
+                )
+            }
+        }
+
+        // Subtle trust badge footer
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp, bottom = 20.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("🛡️", fontSize = 14.sp)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "Adaptive periodization • Auto-syncs to your rhythm",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Normal,
+                fontFamily = FontFamily.SansSerif,
+                color = Color(0xFF8E8AA7),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
-private object ProgramCatalogForUi {
-    val all get() = com.virtue.habittracker.domain.model.program.ProgramCatalog.all
-}
-
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProgramTemplateCard(
-    template: com.virtue.habittracker.domain.model.program.ProgramTemplate,
-    modifier: Modifier = Modifier,
+private fun FocusProgramCard(
+    program: PrimaryFocusProgram,
     onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = ProgramCard)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(
+            width = if (program.isRecommended) 1.5.dp else 1.dp,
+            color = if (program.isRecommended) Color(0xFFA78BFA) else Color(0xFF383245)
+        )
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(
-                painter = painterResource(template.artworkResource()),
-                contentDescription = "${template.title} program artwork",
-                modifier = Modifier.fillMaxWidth().height(132.dp),
-                contentScale = ContentScale.Crop
-            )
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = ProgramCardGradient,
+                    shape = RoundedCornerShape(24.dp)
+                )
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Top Row: Icon + Recommended Badge (flexibly weighted) + Action Arrow Indicator
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    template.category.displayName(),
-                    color = ProgramLavender,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    if (template.isPremium) "PREMIUM" else "FREE",
-                    color = if (template.isPremium) ProgramLavender else androidx.compose.ui.graphics.Color(0xFF34D399),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.weight(1f, fill = false),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color(0xFF29233A), RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = program.icon,
+                            fontSize = 20.sp,
+                            fontFamily = FontFamily.SansSerif
+                        )
+                    }
+
+                    if (program.isRecommended) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFF392B58)
+                        ) {
+                            Text(
+                                text = "RECOMMENDED",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFC4B5FD),
+                                fontFamily = FontFamily.SansSerif,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Action Arrow Affordance
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFF2E283E), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "→",
+                        color = Color(0xFFC4B5FD),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        fontFamily = FontFamily.SansSerif
+                    )
+                }
             }
+
+            // Title
             Text(
-                template.title,
-                color = androidx.compose.ui.graphics.Color(0xFFF8F5FF),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                text = program.title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.SansSerif,
+                color = Color.White
             )
-            Text(template.description, color = ProgramMuted, style = MaterialTheme.typography.bodyMedium)
+
+            // Description
             Text(
-                "${template.durationDays} days · ${template.defaultMinutesPerDay} min/day · ${template.difficulty.displayName()}",
-                color = ProgramMuted,
-                style = MaterialTheme.typography.labelMedium
+                text = program.description,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Normal,
+                fontFamily = FontFamily.SansSerif,
+                color = Color(0xFF9E8AA7),
+                lineHeight = 20.sp
             )
-            Text("View program details →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
+
+            // Tags Row (FlowRow prevents overlapping on any device width or font scale)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                program.tags.forEach { tag ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF242132)
+                    ) {
+                        Text(
+                            text = tag,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.SansSerif,
+                            color = Color(0xFFC4B5FD),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-@Composable
-private fun ActiveProgramSummaryCard(progress: ProgramProgress, onOpen: (ProgramProgress) -> Unit) {
-    Card(onClick = { onOpen(progress) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(progress.enrollment.titleSnapshot, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(progress.progressPercent.toString() + "%", color = ProgramLavender, fontWeight = FontWeight.Bold)
-            }
-            Text(progress.enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
-            Text("Open your plan →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
-        }
-    }
-}
 
 @Composable
 private fun PremiumDialog(
@@ -389,11 +622,11 @@ private fun PremiumDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Unlock Vitue Premium") },
+        title = { Text("Unlock Virtue Premium") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Get access to premium guided programs while keeping your existing progress and history.")
-                if (products.isEmpty()) Text("Subscription options will appear when Google Play Billing is connected and your products are available for this tester.", color = ProgramMuted)
+                if (products.isEmpty()) Text("Subscription options will appear when Google Play Billing is connected and your products are available for this tester.", color = Color(0xFF9E8AA7))
                 products.forEach { product ->
                     val offer = product.subscriptionOfferDetails?.firstOrNull()
                     val price = offer?.pricingPhases?.pricingPhaseList?.lastOrNull()?.formattedPrice ?: "View price in Google Play"
@@ -409,5 +642,3 @@ private fun PremiumDialog(
     )
 }
 
-@dagger.hilt.android.lifecycle.HiltViewModel
-class ProgramsBillingViewModel @javax.inject.Inject constructor(val manager: PremiumBillingManager) : androidx.lifecycle.ViewModel()

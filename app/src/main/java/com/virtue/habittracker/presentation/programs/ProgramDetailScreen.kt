@@ -98,11 +98,8 @@ internal fun ProgramDetailScreen(
                 Spacer(Modifier.height(4.dp))
             }
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (template.isPremium && !isPremium) {
-                    OutlinedButton(onClick = onPremium, modifier = Modifier.fillMaxWidth()) { Text("Explore Vitue Premium") }
-                }
-                Button(onClick = onPersonalize, modifier = Modifier.fillMaxWidth(), enabled = !template.isPremium || isPremium) {
-                    Text(if (template.isPremium && !isPremium) "Premium required" else "Personalize this program")
+                Button(onClick = onPersonalize, modifier = Modifier.fillMaxWidth()) {
+                    Text("Personalize this program")
                 }
             }
         }

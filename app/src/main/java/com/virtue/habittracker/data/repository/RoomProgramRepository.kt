@@ -131,10 +131,11 @@ class RoomProgramRepository @Inject constructor(
         durationDays, startEpochDay,
         runCatching { ProgramStatus.valueOf(status) }.getOrDefault(ProgramStatus.ACTIVE),
         ProgramPreferences(
-            availableMinutesPerDay, availableDaysPerWeek,
-            runCatching { ProgramExperience.valueOf(experience) }.getOrDefault(ProgramExperience.BEGINNER),
-            runCatching { WorkActivityLevel.valueOf(workActivityLevel) }.getOrDefault(WorkActivityLevel.MIXED),
-            runCatching { ProgramEquipment.valueOf(equipment) }.getOrDefault(ProgramEquipment.NONE)
+            availableMinutesPerDay = availableMinutesPerDay,
+            availableDaysPerWeek = availableDaysPerWeek,
+            experience = runCatching { ProgramExperience.valueOf(experience) }.getOrDefault(ProgramExperience.BEGINNER),
+            workActivityLevel = runCatching { WorkActivityLevel.valueOf(workActivityLevel) }.getOrDefault(WorkActivityLevel.MIXED),
+            equipment = runCatching { ProgramEquipment.valueOf(equipment) }.getOrDefault(ProgramEquipment.NONE)
         ),
         isPremium, createdAtMillis, updatedAtMillis
     )

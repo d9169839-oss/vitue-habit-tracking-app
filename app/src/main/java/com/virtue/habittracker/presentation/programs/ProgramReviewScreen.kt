@@ -1,5 +1,7 @@
 package com.virtue.habittracker.presentation.programs
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -52,8 +55,19 @@ internal fun ProgramReviewScreen(
         })
     }) { padding ->
         Column(Modifier.padding(padding).padding(horizontal = 18.dp, vertical = 12.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(1.dp, Color(0xFF383245))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(ProgramCardGradient, RoundedCornerShape(22.dp))
+                        .padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(template.title, color = ColorWhite, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(if (isAdjusting) "Completed history remains unchanged. Only the remaining schedule is revised." else "Your schedule is generated deterministically from the settings below.", color = ProgramMuted)
                     Text(
@@ -70,8 +84,19 @@ internal fun ProgramReviewScreen(
             }
             Text("NEXT 7 DAYS", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             preview.forEach { activity ->
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    border = BorderStroke(1.dp, Color(0xFF383245))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(ProgramCardGradient, RoundedCornerShape(16.dp))
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Day " + activity.dayIndex + " · " + LocalDate.ofEpochDay(activity.epochDay).format(DateTimeFormatter.ofPattern("EEE, d MMM")), style = MaterialTheme.typography.labelMedium, color = ProgramLavender)
                             Text(activity.title, fontWeight = FontWeight.SemiBold)
@@ -93,10 +118,21 @@ private val ColorWhite = androidx.compose.ui.graphics.Color(0xFFF8F5FF)
 
 @Composable
 private fun Summary(label: String, value: String, modifier: Modifier) {
-    Card(modifier, shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(1.dp, Color(0xFF383245))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(ProgramCardGradient, RoundedCornerShape(14.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xFFAAA2BB))
+            Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = Color.White)
         }
     }
 }

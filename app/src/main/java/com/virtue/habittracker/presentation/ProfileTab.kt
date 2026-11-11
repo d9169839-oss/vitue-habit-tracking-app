@@ -71,6 +71,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 
+@Composable
 fun ProfileTab(modifier: Modifier, visible: Boolean, onSignOut: () -> Unit) {
     Column(modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)) {

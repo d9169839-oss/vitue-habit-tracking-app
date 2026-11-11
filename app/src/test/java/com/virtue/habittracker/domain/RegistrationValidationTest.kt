@@ -26,7 +26,7 @@ class RegistrationValidationTest {
     }
 
     private val fake = FakeRepository()
-    private val useCase = RegisterUseCase(fake)
+    private val useCase = RegisterUseCase(fake) { }
 
     @Test fun rejectsInvalidEmail() = runTest {
         assertTrue(useCase("Test User", "not-an-email", "abc12345") is AuthOutcome.Failure)

@@ -1,4 +1,5 @@
 package com.virtue.habittracker.presentation.auth
+
 import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -9,9 +10,10 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import com.virtue.habittracker.BuildConfig
 import kotlinx.coroutines.CancellationException
 
-class GoogleCredentialClient(private val context: Context) {
+class GoogleCredentialClient(private val context: Context) : GoogleCredentialProvider {
     private val credentialManager = CredentialManager.create(context)
-    suspend fun getIdToken(): String {
+
+    override suspend fun getIdToken(): String {
         val option = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)

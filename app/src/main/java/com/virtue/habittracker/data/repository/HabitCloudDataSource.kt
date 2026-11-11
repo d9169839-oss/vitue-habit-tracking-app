@@ -16,7 +16,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
 
 /**
- * Cloud boundary for Vitue's local-first sync.
+ * Cloud boundary for Virtue's local-first sync.
  *
  * Normal habit actions never call Firestore. Room mutations and outbox entries commit first;
  * WorkManager later uploads only queued entities. Cloud reads happen on initial sync and then

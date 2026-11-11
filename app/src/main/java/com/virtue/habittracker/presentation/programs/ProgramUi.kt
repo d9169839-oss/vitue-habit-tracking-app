@@ -1,5 +1,7 @@
 package com.virtue.habittracker.presentation.programs
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.virtue.habittracker.domain.model.program.ProgramCategory
 import com.virtue.habittracker.domain.model.program.ProgramArtwork
@@ -13,6 +15,19 @@ internal val ProgramViolet = Color(0xFFA78BFA)
 internal val ProgramLavender = Color(0xFFC4B5FD)
 internal val ProgramCard = Color(0xFF211B30)
 internal val ProgramMuted = Color(0xFFAAA2BB)
+
+/**
+ * Cohesive card gradient matching the main progress card on the Home screen.
+ */
+internal val ProgramCardGradient = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFF393344),
+        Color(0xFF302A3A),
+        Color(0xFF24202D)
+    ),
+    start = Offset(0f, 0f),
+    end = Offset(900f, 900f)
+)
 
 internal fun ProgramCategory.displayName(): String = when (this) {
     ProgramCategory.FITNESS -> "FITNESS"

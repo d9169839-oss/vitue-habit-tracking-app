@@ -1,5 +1,6 @@
 package com.virtue.habittracker.presentation.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,11 +14,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -60,7 +63,8 @@ fun LoginScreen(
     vm: AuthViewModel,
     onRegister: () -> Unit,
     onForgot: () -> Unit,
-    onGoogle: (String) -> Unit
+    onGoogle: (String) -> Unit,
+    credentialProvider: GoogleCredentialProvider? = null
 ) {
     AuthScaffold(
         eyebrow = "WELCOME BACK",
@@ -84,21 +88,27 @@ fun LoginScreen(
             Text("Forgot password?", color = Color(0xFFC4B5FD))
         }
         AuthDivider()
-        GoogleButton(state.isLoading, onGoogle, vm::showError)
+        GoogleButton(state.isLoading, onGoogle, vm::showError, credentialProvider)
         Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("New to Vitue? ", color = AuthMuted)
+            Text("New to Virtue? ", color = AuthMuted)
             TextButton(onClick = onRegister) { Text("Create account", color = Color(0xFFC4B5FD), fontWeight = FontWeight.SemiBold) }
         }
     }
 }
 
 @Composable
-fun RegisterScreen(state: AuthUiState, vm: AuthViewModel, onBack: () -> Unit, onGoogle: (String) -> Unit) {
+fun RegisterScreen(
+    state: AuthUiState,
+    vm: AuthViewModel,
+    onBack: () -> Unit,
+    onGoogle: (String) -> Unit,
+    credentialProvider: GoogleCredentialProvider? = null
+) {
     AuthScaffold(
         eyebrow = "A FRESH START",
         title = "Build your next chapter.",
@@ -120,7 +130,7 @@ fun RegisterScreen(state: AuthUiState, vm: AuthViewModel, onBack: () -> Unit, on
             else Text("Create account", fontWeight = FontWeight.Bold)
         }
         AuthDivider()
-        GoogleButton(state.isLoading, onGoogle, vm::showError)
+        GoogleButton(state.isLoading, onGoogle, vm::showError, credentialProvider)
         Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -173,22 +183,20 @@ private fun AuthScaffold(
     Column(
         modifier = Modifier.fillMaxSize()
             .background(Color(0xFF100D18))
+            .statusBarsPadding()
+            .padding(top = 8.dp)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 22.dp, vertical = 28.dp),
+            .padding(horizontal = 22.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(
-                modifier = Modifier.background(
-                    brush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFA78BFA), Color(0xFF6D4CC2))),
-                    shape = RoundedCornerShape(16.dp)
-                ).padding(13.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("V", color = Color(0xFF171020), fontSize = 26.sp, fontWeight = FontWeight.Black)
-            }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Image(
+                painter = painterResource(com.virtue.habittracker.R.drawable.ic_virtue_logo),
+                contentDescription = "Virtue Logo",
+                modifier = Modifier.size(48.dp)
+            )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("VITUE", color = AuthText, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp)
+                Text("VIRTUE", color = AuthText, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp)
                 Text("HABIT TRACKER", color = AuthMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
             }
         }
@@ -282,14 +290,19 @@ private fun AuthDivider() {
 }
 
 @Composable
-private fun GoogleButton(loading: Boolean, onGoogle: (String) -> Unit, onError: (String) -> Unit = {}) {
+private fun GoogleButton(
+    loading: Boolean,
+    onGoogle: (String) -> Unit,
+    onError: (String) -> Unit = {},
+    credentialProvider: GoogleCredentialProvider? = null
+) {
     val context = LocalContext.current
-    val client = remember(context) { GoogleCredentialClient(context) }
+    val provider = credentialProvider ?: remember(context) { GoogleCredentialClient(context) }
     val scope = rememberCoroutineScope()
     OutlinedButton(
         onClick = {
             scope.launch {
-                try { onGoogle(client.getIdToken()) }
+                try { onGoogle(provider.getIdToken()) }
                 catch (error: CancellationException) { throw error }
                 catch (error: Exception) { onError(error.localizedMessage ?: "Google sign-in failed. Check Firebase and OAuth setup.") }
             }

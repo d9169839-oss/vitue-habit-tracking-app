@@ -93,6 +93,12 @@ interface HabitDao {
     @Query("UPDATE habits SET inactiveFromEpochDay = :inactiveFromEpochDay WHERE id = :habitId AND (inactiveFromEpochDay IS NULL OR inactiveFromEpochDay > :inactiveFromEpochDay)")
     suspend fun archiveHabit(habitId: String, inactiveFromEpochDay: Long)
 
+    @Query("UPDATE habits SET inactiveFromEpochDay = NULL WHERE id = :habitId")
+    suspend fun unarchiveHabit(habitId: String)
+
+    @Query("UPDATE habits SET inactiveFromEpochDay = NULL, createdEpochDay = :newCreatedEpochDay WHERE id = :habitId")
+    suspend fun reactivateHabitFreshStart(habitId: String, newCreatedEpochDay: Long)
+
     /**
      * Each local mutation and its outbox entry commit together. A crash cannot leave a
      * successful local edit with no durable instruction to upload it.
@@ -120,6 +126,18 @@ interface HabitDao {
     @Transaction
     suspend fun archiveHabitAndQueue(habitId: String, inactiveFromEpochDay: Long) {
         archiveHabit(habitId, inactiveFromEpochDay)
+        queueOperation("habit:$habitId", "HABIT", habitId, "UPSERT")
+    }
+
+    @Transaction
+    suspend fun unarchiveHabitAndQueue(habitId: String) {
+        unarchiveHabit(habitId)
+        queueOperation("habit:$habitId", "HABIT", habitId, "UPSERT")
+    }
+
+    @Transaction
+    suspend fun reactivateHabitFreshStartAndQueue(habitId: String, newCreatedEpochDay: Long) {
+        reactivateHabitFreshStart(habitId, newCreatedEpochDay)
         queueOperation("habit:$habitId", "HABIT", habitId, "UPSERT")
     }
 

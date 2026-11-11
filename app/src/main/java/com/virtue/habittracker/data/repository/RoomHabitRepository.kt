@@ -100,6 +100,16 @@ class RoomHabitRepository @Inject constructor(
         syncScheduler.enqueueSync()
     }
 
+    override suspend fun unarchiveHabit(habitId: String) {
+        dao.unarchiveHabitAndQueue(habitId)
+        syncScheduler.enqueueSync()
+    }
+
+    override suspend fun reactivateHabitFreshStart(habitId: String, newCreatedEpochDay: Long) {
+        dao.reactivateHabitFreshStartAndQueue(habitId, newCreatedEpochDay)
+        syncScheduler.enqueueSync()
+    }
+
     private fun HabitEntity.toDomain() =
         Habit(id, title, description, createdEpochDay, inactiveFromEpochDay)
 }

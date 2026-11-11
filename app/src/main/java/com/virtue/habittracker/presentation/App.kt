@@ -1,15 +1,21 @@
 package com.virtue.habittracker.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,13 +26,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.virtue.habittracker.R
 import com.virtue.habittracker.presentation.auth.AuthViewModel
 import com.virtue.habittracker.presentation.history.HistoryViewModel
 import com.virtue.habittracker.presentation.home.HomeViewModel
 import com.virtue.habittracker.presentation.programs.ProgramsTab
+import com.virtue.habittracker.presentation.theme.VirtueHabitTheme
 import kotlinx.coroutines.delay
 
 private enum class AppTab { HOME, PROGRAMS, HISTORY, PROFILE }
@@ -60,7 +71,13 @@ fun App(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .padding(top = 3.dp)
+    ) {
         // Keep the offline banner persistent; briefly confirm reconnection as before.
         if (!isOnline) {
             ConnectivityBanner(text = "Device offline", background = androidx.compose.ui.graphics.Color(0xFFC62828))
@@ -96,19 +113,120 @@ fun App(
             )
         }
 
-        if (!programsFullScreen) NavigationBar {
-            NavigationBarItem(selected = selectedTab == AppTab.HOME, onClick = { selectedTab = AppTab.HOME },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
-                label = { Text("Home") })
-            NavigationBarItem(selected = selectedTab == AppTab.PROGRAMS, onClick = { selectedTab = AppTab.PROGRAMS },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_program), contentDescription = "Programs") },
-                label = { Text("Programs") })
-            NavigationBarItem(selected = selectedTab == AppTab.HISTORY, onClick = { selectedTab = AppTab.HISTORY },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_history), contentDescription = "History") },
-                label = { Text("History") })
-            NavigationBarItem(selected = selectedTab == AppTab.PROFILE, onClick = { selectedTab = AppTab.PROFILE },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_profile), contentDescription = "Profile") },
-                label = { Text("Profile") })
+        if (!programsFullScreen) {
+            AppBottomNavigation(
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it }
+            )
         }
+    }
+}
+
+@Composable
+private fun AppBottomNavigation(
+    selectedTab: AppTab,
+    onTabSelected: (AppTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        tonalElevation = 6.dp
+    ) {
+        NavigationBar(
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp
+        ) {
+            val itemModifier = Modifier.height(72.dp)
+            NavigationBarItem(
+                modifier = itemModifier,
+                selected = selectedTab == AppTab.HOME,
+                onClick = { onTabSelected(AppTab.HOME) },
+                icon = {
+                    androidx.compose.material3.Icon(
+                        painter = painterResource(R.drawable.ic_home),
+                        contentDescription = "Home",
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        "Home",
+                        fontSize = 11.sp,
+                        fontWeight = if (selectedTab == AppTab.HOME) FontWeight.SemiBold else FontWeight.Medium
+                    )
+                }
+            )
+            NavigationBarItem(
+                modifier = itemModifier,
+                selected = selectedTab == AppTab.PROGRAMS,
+                onClick = { onTabSelected(AppTab.PROGRAMS) },
+                icon = {
+                    androidx.compose.material3.Icon(
+                        painter = painterResource(R.drawable.ic_program),
+                        contentDescription = "Programs",
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        "Programs",
+                        fontSize = 11.sp,
+                        fontWeight = if (selectedTab == AppTab.PROGRAMS) FontWeight.SemiBold else FontWeight.Medium
+                    )
+                }
+            )
+            NavigationBarItem(
+                modifier = itemModifier,
+                selected = selectedTab == AppTab.HISTORY,
+                onClick = { onTabSelected(AppTab.HISTORY) },
+                icon = {
+                    androidx.compose.material3.Icon(
+                        painter = painterResource(R.drawable.ic_history),
+                        contentDescription = "History",
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        "History",
+                        fontSize = 11.sp,
+                        fontWeight = if (selectedTab == AppTab.HISTORY) FontWeight.SemiBold else FontWeight.Medium
+                    )
+                }
+            )
+            NavigationBarItem(
+                modifier = itemModifier,
+                selected = selectedTab == AppTab.PROFILE,
+                onClick = { onTabSelected(AppTab.PROFILE) },
+                icon = {
+                    androidx.compose.material3.Icon(
+                        painter = painterResource(R.drawable.ic_profile),
+                        contentDescription = "Profile",
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        "Profile",
+                        fontSize = 11.sp,
+                        fontWeight = if (selectedTab == AppTab.PROFILE) FontWeight.SemiBold else FontWeight.Medium
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF100D18)
+@Composable
+private fun AppBottomNavigationPreview() {
+    VirtueHabitTheme {
+        AppBottomNavigation(
+            selectedTab = AppTab.HOME,
+            onTabSelected = {}
+        )
     }
 }

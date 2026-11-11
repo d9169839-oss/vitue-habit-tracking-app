@@ -52,7 +52,7 @@ object HabitNotificationHelper {
             "You have $remainingCount habits left to check in on today."
         }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setSmallIcon(com.virtue.habittracker.R.drawable.ic_notification_logo)
             .setContentTitle("A moment for your habits")
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))

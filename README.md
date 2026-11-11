@@ -1,4 +1,4 @@
-# Vitue Habit Tracker
+# Virtue Habit Tracker
 
 Native Android habit tracker built with Kotlin, Jetpack Compose, MVVM, Clean Architecture, Hilt, Firebase Authentication, and Room.
 

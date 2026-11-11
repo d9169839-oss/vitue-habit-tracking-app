@@ -27,7 +27,7 @@ class AuthViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState = _uiState.asStateFlow()
-    private val _events = MutableSharedFlow<AuthEvent>()
+    private val _events = MutableSharedFlow<AuthEvent>(extraBufferCapacity = 1)
     val events = _events.asSharedFlow()
     fun showError(message: String) = _uiState.update { it.copy(errorMessage = message) }
     fun onNameChanged(value: String) = _uiState.update { it.copy(name = value, errorMessage = null) }

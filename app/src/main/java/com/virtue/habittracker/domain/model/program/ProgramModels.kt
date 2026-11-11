@@ -38,11 +38,23 @@ data class ProgramTemplate(
     val artwork: ProgramArtwork = ProgramArtwork.DEFAULT
 )
 
+enum class BiologicalSex { MALE, FEMALE }
+enum class DailyOccupation { DESK, LIGHT, ON_FEET, PHYSICAL }
+
+data class Biometrics(
+    val sex: BiologicalSex = BiologicalSex.MALE,
+    val age: Int = 25,
+    val heightCm: Double = 178.0,
+    val weightKg: Double = 72.0,
+    val occupation: DailyOccupation = DailyOccupation.DESK
+)
+
 data class ProgramPreferences(
-    val availableMinutesPerDay: Int = 20,
-    val availableDaysPerWeek: Int = 5,
+    val biometrics: Biometrics = Biometrics(),
+    val availableMinutesPerDay: Int = 30,
+    val availableDaysPerWeek: Int = 4,
     val experience: ProgramExperience = ProgramExperience.BEGINNER,
-    val workActivityLevel: WorkActivityLevel = WorkActivityLevel.MIXED,
+    val workActivityLevel: WorkActivityLevel = WorkActivityLevel.MOSTLY_SEATED,
     val equipment: ProgramEquipment = ProgramEquipment.NONE
 )
 

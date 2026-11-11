@@ -26,7 +26,7 @@ import javax.inject.Singleton
 object FirebaseProviders {
     @Provides @Singleton
     fun provideHabitDatabase(@dagger.hilt.android.qualifiers.ApplicationContext context: Context): HabitDatabase =
-        Room.databaseBuilder(context, HabitDatabase::class.java, "vitue_habits.db")
+        Room.databaseBuilder(context, HabitDatabase::class.java, "virtue_habits.db")
             .addMigrations(HabitDatabase.MIGRATION_1_2, HabitDatabase.MIGRATION_2_3, HabitDatabase.MIGRATION_3_4)
             .build()
     @Provides
@@ -49,11 +49,21 @@ object FirebaseProviders {
 abstract class RepositoryBindings {
     @Binds @Singleton
     abstract fun bindAuthRepository(implementation: FirebaseAuthRepository): AuthRepository
+
+    @Binds @Singleton
+    abstract fun bindAuthSessionCoordinator(implementation: com.virtue.habittracker.data.sync.DefaultAuthSessionCoordinator): com.virtue.habittracker.domain.repository.AuthSessionCoordinator
+
     @Binds @Singleton
     abstract fun bindHabitRepository(implementation: RoomHabitRepository): HabitRepository
 
     @Binds @Singleton
     abstract fun bindProgramRepository(implementation: RoomProgramRepository): ProgramRepository
+
+    @Binds @Singleton
+    abstract fun bindEntitlementVerifier(implementation: com.virtue.habittracker.data.billing.DefaultEntitlementVerifier): com.virtue.habittracker.domain.repository.EntitlementVerifier
+
+    @Binds @Singleton
+    abstract fun bindPremiumEntitlementCache(implementation: com.virtue.habittracker.data.billing.SharedPreferencesPremiumEntitlementCache): com.virtue.habittracker.data.billing.PremiumEntitlementCache
 
     @Binds @Singleton
     abstract fun bindPremiumEntitlementProvider(implementation: PremiumBillingManager): PremiumEntitlementProvider

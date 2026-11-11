@@ -10,9 +10,11 @@
     <application
         android:name=".HabitTrackerApplication"
         android:allowBackup="false"
-        android:label="Vitue Habit Tracker"
+        android:icon="@drawable/ic_virtue_logo"
+        android:roundIcon="@drawable/ic_virtue_logo"
+        android:label="Virtue Habit Tracker"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.App.Starting">
 
         <!-- Hilt supplies the WorkerFactory, so disable WorkManager's default initializer. -->
         <provider

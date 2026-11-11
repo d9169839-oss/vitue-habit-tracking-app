@@ -13,7 +13,7 @@ class StartProgramUseCase @Inject constructor(
     suspend operator fun invoke(templateId: String, startEpochDay: Long, preferences: ProgramPreferences): String {
         val template = ProgramCatalog.find(templateId) ?: error("This program is not available.")
         if (template.isPremium && !entitlementProvider.premiumEntitlement.value) {
-            error("This program requires an active Vitue Premium subscription.")
+            error("This program requires an active Virtue Premium subscription.")
         }
         return repository.startProgram(templateId, startEpochDay, preferences)
     }

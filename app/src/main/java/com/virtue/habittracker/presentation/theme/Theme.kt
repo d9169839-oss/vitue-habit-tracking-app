@@ -5,8 +5,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Centralized Vitue palette. Screen-specific accents should reuse these semantic colors.
-private val VitueColors = darkColorScheme(
+// Centralized Virtue palette. Screen-specific accents should reuse these semantic colors.
+private val VirtueColors = darkColorScheme(
     primary = Color(0xFFA78BFA),
     onPrimary = Color(0xFF171020),
     primaryContainer = Color(0xFF302643),
@@ -26,6 +26,9 @@ private val VitueColors = darkColorScheme(
 )
 
 @Composable
-fun VitueHabitTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = VitueColors, content = content)
+fun VirtueHabitTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = VirtueColors, content = content)
 }
+
+@Composable
+fun VitueHabitTheme(content: @Composable () -> Unit) = VirtueHabitTheme(content)

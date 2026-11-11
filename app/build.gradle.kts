@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
@@ -10,7 +9,7 @@ android {
     namespace = "com.virtue.habittracker"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.virtue.habittracker"
+        applicationId = "com.ytron.virtuhabit"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -33,6 +32,7 @@ kotlin {
 }
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
