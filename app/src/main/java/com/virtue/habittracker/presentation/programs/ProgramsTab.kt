@@ -51,6 +51,7 @@ import com.virtue.habittracker.domain.model.program.ProgramExperience
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
 import com.virtue.habittracker.domain.model.program.ProgramStatus
+import com.virtue.habittracker.presentation.SectionLoading
 import com.virtue.habittracker.domain.model.program.WorkActivityLevel
 import java.time.LocalDate
 
@@ -103,6 +104,7 @@ fun ProgramsTab(
         when (route) {
             ProgramRoute.CATALOG, ProgramRoute.DETAIL -> ProgramCatalogScreen(
                 state = state,
+                isProgramsLoading = state.isInitialLoading,
                 onCategory = vm::selectCategory,
                 onOpenTemplate = { template ->
                     selectedTemplateId = template.id
@@ -158,28 +160,34 @@ fun ProgramsTab(
                     }
                 )
             }
-            ProgramRoute.ACTIVE -> selectedProgress?.let { progress ->
-                val template = vm.catalog.firstOrNull { it.id == progress.enrollment.templateId }
-                if (template == null) {
-                    Text("This program is no longer available.", Modifier.padding(20.dp))
+            ProgramRoute.ACTIVE -> {
+                if (state.isInitialLoading) {
+                    SectionLoading(Modifier.fillMaxSize(), "Loading your program…")
                 } else {
-                    ActiveProgramScreen(
-                        progress = progress,
-                        onBack = { route = ProgramRoute.CATALOG },
-                        onAdjust = {
-                            selectedTemplateId = template.id
-                            draftPreferences = progress.enrollment.preferences
-                            draftStartEpochDay = progress.enrollment.startEpochDay
-                            route = ProgramRoute.ADJUST_PERSONALIZE
-                        },
-                        onActivityStatus = vm::setActivityStatus,
-                        onProgramStatus = { status -> vm.setEnrollmentStatus(progress.enrollment.id, status) },
-                        onDelete = {
-                            vm.deleteEnrollment(progress.enrollment.id)
-                            selectedEnrollmentId = null
-                            route = ProgramRoute.CATALOG
+                    selectedProgress?.let { progress ->
+                        val template = vm.catalog.firstOrNull { it.id == progress.enrollment.templateId }
+                        if (template == null) {
+                            Text("This program is no longer available.", Modifier.padding(20.dp))
+                        } else {
+                            ActiveProgramScreen(
+                                progress = progress,
+                                onBack = { route = ProgramRoute.CATALOG },
+                                onAdjust = {
+                                    selectedTemplateId = template.id
+                                    draftPreferences = progress.enrollment.preferences
+                                    draftStartEpochDay = progress.enrollment.startEpochDay
+                                    route = ProgramRoute.ADJUST_PERSONALIZE
+                                },
+                                onActivityStatus = vm::setActivityStatus,
+                                onProgramStatus = { status -> vm.setEnrollmentStatus(progress.enrollment.id, status) },
+                                onDelete = {
+                                    vm.deleteEnrollment(progress.enrollment.id)
+                                    selectedEnrollmentId = null
+                                    route = ProgramRoute.CATALOG
+                                }
+                            )
                         }
-                    )
+                    } ?: Text("This program is no longer available.", Modifier.padding(20.dp))
                 }
             }
         }
@@ -233,6 +241,7 @@ fun ProgramsTab(
 @Composable
 private fun ProgramCatalogScreen(
     state: ProgramsUiState,
+    isProgramsLoading: Boolean,
     onCategory: (ProgramCategory?) -> Unit,
     onOpenTemplate: (com.virtue.habittracker.domain.model.program.ProgramTemplate) -> Unit,
     onOpenProgram: (ProgramProgress) -> Unit,
@@ -258,7 +267,9 @@ private fun ProgramCatalogScreen(
                 else Text("Premium active", color = androidx.compose.ui.graphics.Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
             }
         }
-        if (visiblePrograms.isNotEmpty()) {
+        if (isProgramsLoading) {
+            SectionLoading(message = "Loading your programs…")
+        } else if (visiblePrograms.isNotEmpty()) {
             Text("YOUR PROGRAMS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             visiblePrograms.forEach { progress -> ActiveProgramSummaryCard(progress, onOpenProgram) }
         }
