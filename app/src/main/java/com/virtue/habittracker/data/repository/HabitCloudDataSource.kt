@@ -18,6 +18,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Cloud boundary for Vitue's local-first sync.
@@ -46,8 +47,11 @@ class HabitCloudDataSource @Inject constructor(
      */
     suspend fun awaitInitialRealtimeSnapshot() {
         val expectedUid = auth.currentUser?.uid ?: return
-        _initialRealtimeSnapshotReady.first {
-            auth.currentUser?.uid != expectedUid || it
+        // A bounded fallback prevents a stalled network/listener from trapping the user on splash.
+        withTimeoutOrNull(INITIAL_REALTIME_SYNC_TIMEOUT_MILLIS) {
+            _initialRealtimeSnapshotReady.first {
+                auth.currentUser?.uid != expectedUid || it
+            }
         }
     }
 
@@ -378,6 +382,11 @@ class HabitCloudDataSource @Inject constructor(
 
         // Persist only after both reads and all Room merges have succeeded.
         preferences.edit().putLong("lastSuccessfulPullMillis", System.currentTimeMillis()).apply()
+        if (lastSyncMillis == 0L) {
+            // WorkManager's initial full pull is also a valid hydration barrier if listeners lag.
+            markInitialSnapshotReady(uid, HABITS_COLLECTION)
+            markInitialSnapshotReady(uid, CHECK_INS_COLLECTION)
+        }
     }
 
     /**
@@ -517,6 +526,7 @@ class HabitCloudDataSource @Inject constructor(
         const val MIN_PULL_INTERVAL_MILLIS = 15 * 60 * 1000L
         const val HABITS_COLLECTION = "habits"
         const val CHECK_INS_COLLECTION = "habitCheckIns"
+        const val INITIAL_REALTIME_SYNC_TIMEOUT_MILLIS = 12_000L
     }
 
     private val realtimeScope = kotlinx.coroutines.CoroutineScope(
