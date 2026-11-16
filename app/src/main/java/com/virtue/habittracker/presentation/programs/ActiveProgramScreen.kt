@@ -56,6 +56,7 @@ internal fun ActiveProgramScreen(
         Column(Modifier.padding(padding).padding(horizontal = 18.dp, vertical = 12.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(progress.enrollment.titleSnapshot, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(progress.enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramLavender)
+            Text("PROGRAM PROGRESS", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             LinearProgressIndicator(progress = { progress.progressPercent / 100f }, modifier = Modifier.fillMaxWidth(), color = ProgramViolet)
             Text(progress.progressPercent.toString() + "% complete · " + progress.completedCount + "/" + progress.totalCount + " activities", style = MaterialTheme.typography.bodySmall, color = ProgramMuted)
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
