@@ -22,6 +22,7 @@ import com.virtue.habittracker.presentation.auth.LoginScreen
 import com.virtue.habittracker.presentation.auth.RegisterScreen
 import com.virtue.habittracker.presentation.auth.SessionState
 import com.virtue.habittracker.presentation.App
+import com.virtue.habittracker.presentation.VitueSplashScreen
 
 private object Routes { const val SPLASH = "session_check"; const val LOGIN = "login"; const val REGISTER = "register"; const val FORGOT = "forgot"; const val HOME = "home" }
 
@@ -46,7 +47,7 @@ fun AppNavigation() {
     Surface(Modifier.fillMaxSize()) {
         NavHost(navController = navController, startDestination = Routes.SPLASH) {
             composable(Routes.SPLASH) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                VitueSplashScreen()
             }
             composable(Routes.LOGIN) {
                 val vm: AuthViewModel = hiltViewModel()
