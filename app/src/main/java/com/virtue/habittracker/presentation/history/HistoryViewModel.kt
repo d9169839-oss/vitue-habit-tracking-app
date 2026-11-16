@@ -23,6 +23,8 @@ class HistoryViewModel @Inject constructor(
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
+    private val _isWeeklyProgressLoading = MutableStateFlow(true)
+    val isWeeklyProgressLoading = _isWeeklyProgressLoading.asStateFlow()
     val selectedDate = _selectedDate.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -56,6 +58,7 @@ class HistoryViewModel @Inject constructor(
                 }
             }
         }
+        .onEach { _isWeeklyProgressLoading.value = false }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun selectDate(date: LocalDate) {
@@ -63,6 +66,7 @@ class HistoryViewModel @Inject constructor(
         val safeDate = if (date.isAfter(LocalDate.now())) LocalDate.now() else date
         if (safeDate != _selectedDate.value) {
             _isLoading.value = true
+            _isWeeklyProgressLoading.value = true
             _selectedDate.value = safeDate
         }
     }
