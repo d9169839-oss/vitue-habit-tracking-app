@@ -5,10 +5,12 @@ Vitue uses Room as the local source of truth, so the UI waits for the first loca
 ## Startup
 
 - `AppNavigation` shows the branded Vitue splash while Firebase session state is being resolved.
-- Once a signed-in session opens the app, `App` keeps the same splash over the app until `HomeViewModel` receives its first Room-backed habit emission.
+- Once a signed-in session opens the app, `App` keeps the same splash over the app until the initial habit and check-in snapshots have been merged into Room and Home receives its first Room-backed emission.
+- When online, startup waits for the initial server snapshots so an empty/partial local cache cannot flash before the user's cloud records arrive.
+- When offline, the Firestore cached snapshot is used when available. A bounded 12-second fallback prevents a stalled listener/network from trapping the user on the splash.
 - Home remains composed underneath the splash so its Room Flow can start and finish loading.
-- The first emission is authoritative even when it is an empty list. Only then may Home show its empty state.
-- Firestore synchronization continues in the background; startup does not require a network connection.
+- The first Room emission is authoritative even when it is an empty list. Only then may Home show its empty state.
+- WorkManager's initial full pull can also complete the hydration barrier; later uploads and periodic sync remain background work.
 
 ## Screen-level loading
 
@@ -27,4 +29,4 @@ Vitue uses Room as the local source of truth, so the UI waits for the first loca
 4. Open Programs. The catalogue should remain visible while saved programs load.
 5. Repeat offline. Cached Room data should still render; no screen should wait for Firestore.
 
-The startup gate intentionally waits for the first local Room snapshot, not for a remote Firestore round trip. This preserves offline-first startup and avoids making the entire app dependent on network availability.
+The startup gate uses Room as the rendering source of truth, but on a connected device it waits for initial cloud hydration before allowing the first Home snapshot through. Offline startup uses the best available local cache and remains bounded; normal habit actions still write to Room first.
