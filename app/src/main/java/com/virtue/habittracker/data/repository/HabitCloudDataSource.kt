@@ -42,6 +42,9 @@ class HabitCloudDataSource @Inject constructor(
     private val _initialRealtimeSnapshotReady = MutableStateFlow(false)
     private var initialHabitsSnapshotReady = false
     private var initialCheckInsSnapshotReady = false
+    private val _initialProgramSnapshotReady = MutableStateFlow(false)
+    private var initialProgramEnrollmentsSnapshotReady = false
+    private var initialProgramActivitiesSnapshotReady = false
 
     /**
      * Wait until the first authoritative Firestore snapshot for both habit collections has been
@@ -52,6 +55,16 @@ class HabitCloudDataSource @Inject constructor(
         // A bounded fallback prevents a stalled network/listener from trapping the user on splash.
         withTimeoutOrNull(INITIAL_REALTIME_SYNC_TIMEOUT_MILLIS) {
             _initialRealtimeSnapshotReady.first {
+                auth.currentUser?.uid != expectedUid || it
+            }
+        }
+    }
+
+    /** Programs are also hydrated before their first catalogue snapshot is exposed. */
+    suspend fun awaitInitialProgramSnapshot() {
+        val expectedUid = auth.currentUser?.uid ?: return
+        withTimeoutOrNull(INITIAL_REALTIME_SYNC_TIMEOUT_MILLIS) {
+            _initialProgramSnapshotReady.first {
                 auth.currentUser?.uid != expectedUid || it
             }
         }
@@ -70,7 +83,10 @@ class HabitCloudDataSource @Inject constructor(
     private fun resetInitialSnapshotState(uid: String?) {
         initialHabitsSnapshotReady = false
         initialCheckInsSnapshotReady = false
+        initialProgramEnrollmentsSnapshotReady = false
+        initialProgramActivitiesSnapshotReady = false
         _initialRealtimeSnapshotReady.value = uid == null
+        _initialProgramSnapshotReady.value = uid == null
     }
 
     @Synchronized
@@ -80,6 +96,16 @@ class HabitCloudDataSource @Inject constructor(
         if (collection == CHECK_INS_COLLECTION) initialCheckInsSnapshotReady = true
         if (initialHabitsSnapshotReady && initialCheckInsSnapshotReady) {
             _initialRealtimeSnapshotReady.value = true
+        }
+    }
+
+    @Synchronized
+    private fun markInitialProgramSnapshotReady(uid: String, collection: String) {
+        if (auth.currentUser?.uid != uid) return
+        if (collection == PROGRAM_ENROLLMENTS_COLLECTION) initialProgramEnrollmentsSnapshotReady = true
+        if (collection == PROGRAM_ACTIVITIES_COLLECTION) initialProgramActivitiesSnapshotReady = true
+        if (initialProgramEnrollmentsSnapshotReady && initialProgramActivitiesSnapshotReady) {
+            _initialProgramSnapshotReady.value = true
         }
     }
     private fun userDocument(uid: String) = firestore.collection("users").document(uid)
@@ -388,6 +414,8 @@ class HabitCloudDataSource @Inject constructor(
             // WorkManager's initial full pull is also a valid hydration barrier if listeners lag.
             markInitialSnapshotReady(uid, HABITS_COLLECTION)
             markInitialSnapshotReady(uid, CHECK_INS_COLLECTION)
+            markInitialProgramSnapshotReady(uid, PROGRAM_ENROLLMENTS_COLLECTION)
+            markInitialProgramSnapshotReady(uid, PROGRAM_ACTIVITIES_COLLECTION)
         }
     }
 
@@ -516,6 +544,109 @@ class HabitCloudDataSource @Inject constructor(
                     }
                 }
             }
+
+        // Program state is live-synced too, so a completion made on another device is reflected
+        // in Room immediately rather than waiting for the periodic WorkManager pull.
+        realtimeRegistrations += userRef.collection(PROGRAM_ENROLLMENTS_COLLECTION)
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
+                if (auth.currentUser?.uid != uid) return@addSnapshotListener
+                if (error != null || snapshot == null) {
+                    markInitialProgramSnapshotReady(uid, PROGRAM_ENROLLMENTS_COLLECTION)
+                    return@addSnapshotListener
+                }
+
+                realtimeScope.launch {
+                    if (auth.currentUser?.uid != uid) return@launch
+                    snapshot.documentChanges.forEach { change ->
+                        val document = change.document
+                        val enrollmentId = document.getString("id") ?: document.id
+                        runCatching {
+                            if (auth.currentUser?.uid != uid) return@runCatching
+                            if (dao.hasPendingSyncOperation("program-enrollment:$enrollmentId")) return@runCatching
+
+                            if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED ||
+                                document.getBoolean("deleted") == true
+                            ) {
+                                programDao.deleteActivitiesForEnrollment(enrollmentId)
+                                programDao.deleteEnrollmentRow(enrollmentId)
+                            } else {
+                                val title = document.getString("titleSnapshot") ?: return@runCatching
+                                val templateId = document.getString("templateId") ?: return@runCatching
+                                programDao.upsertEnrollment(
+                                    ProgramEnrollmentEntity(
+                                        id = enrollmentId,
+                                        templateId = templateId,
+                                        templateVersion = (document.getLong("templateVersion") ?: 1L).toInt(),
+                                        titleSnapshot = title,
+                                        category = document.getString("category") ?: "FITNESS",
+                                        durationDays = (document.getLong("durationDays") ?: 30L).toInt(),
+                                        startEpochDay = document.getLong("startEpochDay") ?: return@runCatching,
+                                        status = document.getString("status") ?: "ACTIVE",
+                                        availableMinutesPerDay = (document.getLong("availableMinutesPerDay") ?: 15L).toInt(),
+                                        availableDaysPerWeek = (document.getLong("availableDaysPerWeek") ?: 5L).toInt(),
+                                        experience = document.getString("experience") ?: "BEGINNER",
+                                        workActivityLevel = document.getString("workActivityLevel") ?: "MIXED",
+                                        equipment = document.getString("equipment") ?: "NONE",
+                                        isPremium = document.getBoolean("isPremium") ?: false,
+                                        createdAtMillis = document.getLong("createdAtMillis") ?: 0L,
+                                        updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    if (!snapshot.metadata.isFromCache || !hasValidatedInternet()) {
+                        markInitialProgramSnapshotReady(uid, PROGRAM_ENROLLMENTS_COLLECTION)
+                    }
+                }
+            }
+
+        realtimeRegistrations += userRef.collection(PROGRAM_ACTIVITIES_COLLECTION)
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
+                if (auth.currentUser?.uid != uid) return@addSnapshotListener
+                if (error != null || snapshot == null) {
+                    markInitialProgramSnapshotReady(uid, PROGRAM_ACTIVITIES_COLLECTION)
+                    return@addSnapshotListener
+                }
+
+                realtimeScope.launch {
+                    if (auth.currentUser?.uid != uid) return@launch
+                    snapshot.documentChanges.forEach { change ->
+                        val document = change.document
+                        val activityId = document.getString("id") ?: document.id
+                        runCatching {
+                            if (auth.currentUser?.uid != uid) return@runCatching
+                            if (dao.hasPendingSyncOperation("program-activity:$activityId")) return@runCatching
+
+                            if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED ||
+                                document.getBoolean("deleted") == true
+                            ) {
+                                programDao.deleteActivityRow(activityId)
+                            } else {
+                                val enrollmentId = document.getString("enrollmentId") ?: return@runCatching
+                                val dayIndex = (document.getLong("dayIndex") ?: return@runCatching).toInt()
+                                programDao.upsertActivity(
+                                    ProgramActivityEntity(
+                                        id = activityId,
+                                        enrollmentId = enrollmentId,
+                                        dayIndex = dayIndex,
+                                        epochDay = document.getLong("epochDay") ?: return@runCatching,
+                                        phaseTitle = document.getString("phaseTitle") ?: "",
+                                        title = document.getString("title") ?: return@runCatching,
+                                        instructions = document.getString("instructions") ?: "",
+                                        estimatedMinutes = (document.getLong("estimatedMinutes") ?: 0L).toInt(),
+                                        status = document.getString("status") ?: "PENDING",
+                                        updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    if (!snapshot.metadata.isFromCache || !hasValidatedInternet()) {
+                        markInitialProgramSnapshotReady(uid, PROGRAM_ACTIVITIES_COLLECTION)
+                    }
+                }
+            }
     }
 
     @Synchronized
@@ -528,6 +659,8 @@ class HabitCloudDataSource @Inject constructor(
         const val MIN_PULL_INTERVAL_MILLIS = 15 * 60 * 1000L
         const val HABITS_COLLECTION = "habits"
         const val CHECK_INS_COLLECTION = "habitCheckIns"
+        const val PROGRAM_ENROLLMENTS_COLLECTION = "programEnrollments"
+        const val PROGRAM_ACTIVITIES_COLLECTION = "programActivities"
         const val INITIAL_REALTIME_SYNC_TIMEOUT_MILLIS = 12_000L
     }
 
