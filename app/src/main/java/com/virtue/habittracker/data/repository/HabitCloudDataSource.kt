@@ -16,6 +16,7 @@ import com.virtue.habittracker.data.local.ProgramActivityEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -536,3 +537,4 @@ class HabitCloudDataSource @Inject constructor(
     private val realtimeRegistrations = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
     @Volatile private var realtimeUid: String? = null
     @Volatile private var realtimeAuthListener: FirebaseAuth.AuthStateListener? = null
+}
