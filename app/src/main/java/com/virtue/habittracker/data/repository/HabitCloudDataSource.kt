@@ -462,7 +462,7 @@ class HabitCloudDataSource @Inject constructor(
             }
 
         realtimeRegistrations += userRef.collection("habitCheckIns")
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
                 if (auth.currentUser?.uid != uid) return@addSnapshotListener
                 if (error != null || snapshot == null) {
                     markInitialSnapshotReady(uid, CHECK_INS_COLLECTION)
