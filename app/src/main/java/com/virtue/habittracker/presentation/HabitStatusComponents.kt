@@ -71,6 +71,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 
+@Composable
 fun StatusSummaryCard(label: String, count: Int, accent: Color, modifier: Modifier, symbol: String) {
     Card(modifier, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
