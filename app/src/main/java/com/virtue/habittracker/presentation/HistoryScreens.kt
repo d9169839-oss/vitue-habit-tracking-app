@@ -76,6 +76,7 @@ private enum class HistoryFilter { ALL, ACTIVE, INACTIVE }
 fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
+    val isLoading by vm.isLoading.collectAsStateWithLifecycle()
     var showCalendar by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(HistoryFilter.ALL) }
     val active = entries.filter { it.isActiveOnDate }
@@ -108,7 +109,10 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
                     OutlinedButton(onClick = { showCalendar = true }, modifier = Modifier.weight(1f)) { Text("Choose date") }
                     OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now()), modifier = Modifier.weight(1f)) { Text("Next →") }
                 }
-                if (date != LocalDate.now()) TextButton(onClick = vm::goToToday) { Text("Back to today") }
+                if (date != LocalDate.now()) TextButton(onClick = v        if (isLoading) {
+            SectionLoading(message = "Loading your history…")
+        } else {
+m::goToToday) { Text("Back to today") }
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -137,7 +141,8 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                visibleEntries.forEach { entry -> HistoryHabitCard(entry) }
+                visibleEntries.forE
+        }ach { entry -> HistoryHabitCard(entry) }
             }
         }
     }
