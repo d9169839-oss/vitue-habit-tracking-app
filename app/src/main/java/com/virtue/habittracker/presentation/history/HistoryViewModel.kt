@@ -77,9 +77,8 @@ class HistoryViewModel @Inject constructor(
 
     /** Move through complete Monday-to-Sunday weeks; users cannot land on arbitrary dates. */
     fun previousWeek() {
-        val current = _selectedDate.value
-        val currentWeekStart = current.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        selectDate(currentWeekStart.minusDays(1))
+        // Keep the daily snapshot on the same weekday while the chart moves by a full week.
+        selectDate(_selectedDate.value.minusWeeks(1))
     }
 
     fun nextWeek() {
@@ -87,7 +86,7 @@ class HistoryViewModel @Inject constructor(
         val currentWeekStart = current.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val thisWeekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         if (currentWeekStart.isBefore(thisWeekStart)) {
-            selectDate(minOf(LocalDate.now(), currentWeekStart.plusWeeks(2).minusDays(1)))
+            selectDate(minOf(LocalDate.now(), current.plusWeeks(1)))
         }
     }
 
