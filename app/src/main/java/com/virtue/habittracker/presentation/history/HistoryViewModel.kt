@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
