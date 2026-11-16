@@ -71,6 +71,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 
+@Composable
 fun HomeTab(
     modifier: Modifier,
     visible: Boolean,
