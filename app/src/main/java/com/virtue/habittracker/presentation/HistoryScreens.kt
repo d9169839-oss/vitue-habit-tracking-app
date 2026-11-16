@@ -67,6 +67,8 @@ import com.virtue.habittracker.presentation.programs.ProgramsTab
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
+import java.time.DayOfWeek
+import java.time.temporal.TemporalAdjusters
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
@@ -78,7 +80,10 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
     val isLoading by vm.isLoading.collectAsStateWithLifecycle()
-    var showCalendar by remember { mutableStateOf(false) }
+    val weeklyProgress by vm.weeklyProgress.collectAsStateWithLifecycle()
+    val isWeeklyProgressLoading by vm.isWeeklyProgressLoading.collectAsStateWithLifecycle()
+    val weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    val weekEnd = weekStart.plusDays(6)
     var filter by remember { mutableStateOf(HistoryFilter.ALL) }
     val active = entries.filter { it.isActiveOnDate }
     val completed = active.count { it.status == HabitDayStatus.COMPLETED }
@@ -101,17 +106,25 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
         }
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("DAY SNAPSHOT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMM yyyy")), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text("Habits created by this date · status recorded on this day", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("WEEKLY HISTORY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text(
+                    "${weekStart.format(DateTimeFormatter.ofPattern("d MMM"))} – ${weekEnd.format(DateTimeFormatter.ofPattern("d MMM yyyy"))}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text("Browse one complete week at a time. Daily habit records remain separate from program progress.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = vm::previousDay, modifier = Modifier.weight(1f)) { Text("← Previous") }
-                    OutlinedButton(onClick = { showCalendar = true }, modifier = Modifier.weight(1f)) { Text("Choose date") }
-                    OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now()), modifier = Modifier.weight(1f)) { Text("Next →") }
+                    OutlinedButton(onClick = vm::previousWeek, modifier = Modifier.weight(1f)) { Text("← Previous week") }
+                    OutlinedButton(onClick = vm::goToCurrentWeek, modifier = Modifier.weight(1f)) { Text("This week") }
+                    OutlinedButton(onClick = vm::nextWeek, enabled = vm.canMoveToNextWeek(), modifier = Modifier.weight(1f)) { Text("Next →") }
                 }
-                if (date != LocalDate.now()) TextButton(onClick = vm::goToToday) { Text("Back to today") }
+                Text("Daily snapshot: ${date.format(DateTimeFormatter.ofPattern("EEEE, d MMM yyyy"))}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
         }
+        WeeklyHabitHistoryChart(
+            points = weeklyProgress,
+            isLoading = isWeeklyProgressLoading
+        )
         if (isLoading) {
             SectionLoading(message = "Loading your history…")
         } else {
@@ -146,14 +159,60 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
         }
         }
     }
-    if (showCalendar) {
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-        DatePickerDialog(onDismissRequest = { showCalendar = false }, confirmButton = {
-            TextButton(onClick = {
-                pickerState.selectedDateMillis?.let { vm.selectDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
-                showCalendar = false
-            }) { Text("View history") }
-        }, dismissButton = { TextButton(onClick = { showCalendar = false }) { Text("Cancel") } }) { DatePicker(state = pickerState) }
+
+}
+
+@Composable
+private fun WeeklyHabitHistoryChart(
+    points: List<com.virtue.habittracker.presentation.history.DailyProgressPoint>,
+    isLoading: Boolean
+) {
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Weekly consistency", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Each day is shown independently. Days without recorded completions stay at 0%.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            if (isLoading) {
+                SectionLoading(message = "Loading this week…")
+            } else if (points.isEmpty()) {
+                Text("No weekly records yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Row(
+                    Modifier.fillMaxWidth().height(142.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    points.forEach { point ->
+                        Column(
+                            Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Bottom
+                        ) {
+                            Text(
+                                "${point.completionRatePercent}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(5.dp))
+                            Box(
+                                Modifier.fillMaxWidth(0.68f)
+                                    .height((point.completionRatePercent.coerceIn(0, 100) * 0.78f + 3f).dp)
+                                    .background(
+                                        if (point.completionRatePercent == 0) MaterialTheme.colorScheme.surfaceVariant
+                                        else MaterialTheme.colorScheme.primary,
+                                        RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
+                                    )
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(point.date.format(DateTimeFormatter.ofPattern("EE")), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -206,147 +265,3 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
     }
 }
 
-/**
- * Progress uses persisted records for the selected day. Long-range trend charts should only be
- * added once the repository exposes a complete historical aggregation; this screen never fakes data.
- */
-@Composable
-fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOpenHistory: () -> Unit) {
-    val date by vm.selectedDate.collectAsStateWithLifecycle()
-    val entries by vm.entries.collectAsStateWithLifecycle()
-    val isLoading by vm.isLoading.collectAsStateWithLifecycle()
-    val weeklyProgress by vm.weeklyProgress.collectAsStateWithLifecycle()
-    val isWeeklyProgressLoading by vm.isWeeklyProgressLoading.collectAsStateWithLifecycle()
-    val activeEntries = entries.filter { it.isActiveOnDate }
-    val completed = activeEntries.count { it.status == HabitDayStatus.COMPLETED }
-    val notCompleted = activeEntries.count { it.status == HabitDayStatus.NOT_COMPLETED }
-    val unrecorded = activeEntries.count { it.status == HabitDayStatus.UNRECORDED }
-    val recorded = completed + notCompleted
-    val rate = if (recorded == 0) 0 else completed * 100 / recorded
-
-    Column(
-        modifier.offset(x = if (visible) 0.dp else 10_000.dp)
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("Progress", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-        Text("Small steps. Lasting change.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (isLoading) {
-            SectionLoading(message = "Loading your progress…")
-        } else {
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF211B30))) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("DAILY OVERVIEW", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("$rate%", style = MaterialTheme.typography.displaySmall, color = Color(0xFFF8F5FF), fontWeight = FontWeight.Bold)
-                        Text("of recorded habits completed", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
-                    }
-                    Box(Modifier.background(Color(0xFF302643), RoundedCornerShape(18.dp)).padding(16.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                        Text("$completed/$recorded", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    }
-                }
-                androidx.compose.material3.LinearProgressIndicator(
-                    progress = { rate / 100f },
-                    modifier = Modifier.fillMaxWidth().height(8.dp),
-                    color = Color(0xFFA78BFA),
-                    trackColor = Color(0xFF393047)
-                )
-                Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy")), color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = vm::previousDay, modifier = Modifier.weight(1f)) { Text("Previous") }
-                    OutlinedButton(onClick = vm::goToToday, modifier = Modifier.weight(1f)) { Text("Today") }
-                    OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now()), modifier = Modifier.weight(1f)) { Text("Next") }
-                }
-            }
-        }
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF211B30))) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Consistency · 7 days", color = Color(0xFFF8F5FF), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("Tap a day to inspect its saved history.", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
-                if (isWeeklyProgressLoading) {
-                    SectionLoading(message = "Loading weekly progress…")
-                } else if (weeklyProgress.isEmpty()) {
-                    Text("Your recent progress will appear here as records are saved.", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
-                } else {
-                    Row(Modifier.fillMaxWidth().height(132.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.Bottom) {
-                        weeklyProgress.forEach { point ->
-                            Column(
-                                Modifier.weight(1f).fillMaxWidth().clickable {
-                                    vm.selectDate(point.date)
-                                    onOpenHistory()
-                                },
-                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Bottom
-                            ) {
-                                Text("${point.completionRatePercent}%", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelSmall)
-                                Spacer(Modifier.height(4.dp))
-                                Box(
-                                    Modifier.fillMaxWidth(0.72f)
-                                        .height((point.completionRatePercent.coerceIn(0, 100) * 0.82f + 5f).dp)
-                                        .background(
-                                            if (point.date == date) Color(0xFFC4B5FD) else Color(0xFFA78BFA),
-                                            RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp)
-                                        )
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                Text(point.date.format(DateTimeFormatter.ofPattern("EE")), color = Color(0xFFAAA2BB), style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatusSummaryCard("Completed", completed, Color(0xFF34D399), Modifier.weight(1f), "✓")
-            StatusSummaryCard("Not done", notCompleted, Color(0xFFFB7185), Modifier.weight(1f), "×")
-            StatusSummaryCard("Unrecorded", unrecorded, Color(0xFF9891A8), Modifier.weight(1f), "○")
-        }
-        Text("Habit performance", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        if (activeEntries.isEmpty()) {
-            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("No habits to summarize", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Create habits on Home and their recorded progress will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        } else activeEntries.forEach { entry ->
-            val accent = when (entry.status) {
-                HabitDayStatus.COMPLETED -> Color(0xFF34D399)
-                HabitDayStatus.NOT_COMPLETED -> Color(0xFFFB7185)
-                HabitDayStatus.UNRECORDED -> Color(0xFF9891A8)
-            }
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.background(Color(0xFF302643), RoundedCornerShape(12.dp)).padding(12.dp)) {
-                            Text(if (entry.habit.title.contains("read", true)) "Aa" else if (entry.habit.title.contains("workout", true)) "↗" else "✦", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold)
-                        }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(entry.habit.title, color = Color(0xFFF8F5FF), fontWeight = FontWeight.SemiBold)
-                            Text(when (entry.status) {
-                                HabitDayStatus.COMPLETED -> "Completed"
-                                HabitDayStatus.NOT_COMPLETED -> "Not completed"
-                                HabitDayStatus.UNRECORDED -> "Not recorded"
-                            }, color = accent, style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (entry.currentStreak > 0) Text("${entry.currentStreak}d streak", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelSmall)
-                    }
-                    androidx.compose.material3.LinearProgressIndicator(
-                        progress = { if (entry.status == HabitDayStatus.COMPLETED) 1f else 0f },
-                        modifier = Modifier.fillMaxWidth().height(5.dp),
-                        color = accent,
-                        trackColor = Color(0xFF393047)
-                    )
-                }
-            }
-        }
-        Button(onClick = onOpenHistory, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-            Text("Open daily history for this date")
-        }
-        Text("Unrecorded habits are not counted as failures. This view summarizes saved records for the selected day.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
