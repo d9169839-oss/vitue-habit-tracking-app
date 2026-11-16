@@ -33,8 +33,8 @@ class HabitTrackerApplication : Application(), Configuration.Provider {
         super.onCreate()
         // WorkManager persists scheduled work across process death and device restarts.
         reminderScheduler.scheduleNextReminder()
-        // Listen for remote habit/check-in changes while signed in. Events are merged into Room,
-        // so every screen continues observing the same local source of truth.
+        // Listen for remote habit, check-in and program changes while signed in. Events are
+        // merged into Room, so every screen observes the same local source of truth.
         habitCloudDataSource.startRealtimeSync()
         // Startup schedules durable work; the worker exits harmlessly when signed out/offline.
         habitSyncScheduler.enqueueSync()
