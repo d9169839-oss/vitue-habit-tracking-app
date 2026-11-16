@@ -82,6 +82,12 @@ The app's domain enum includes `PERSONAL_DEVELOPMENT`, but the original Firestor
 - Add a user-visible last-synced state and a recoverable sync-error state. The offline banner alone does not tell a user whether their latest change is safely backed up.
 - Add tests for outbox atomicity, retries, tombstones, stale acknowledgements, account changes, clock skew and simultaneous edits.
 
+### Program progress accuracy and first-sync state
+
+- `ProgramProgress.totalCount` currently counts every generated activity, including zero-minute "Rest and reset" days, while `progressPercent` counts only completed activities. A user can follow every planned workout and still see an artificially low completion percentage. Define whether planned rest days count as completed adherence or should be excluded from the denominator, then add unit tests.
+- The Programs ViewModel considers its first Room emission to mean programs have loaded. On a fresh device, that emission can be empty while the WorkManager cloud import is still pending, so saved programs may appear late without a dedicated syncing state. Test a second-device first launch and add a program-hydration indicator/gate if the empty flash is visible.
+- Program activity/enrollment cloud synchronization currently uses WorkManager rather than real-time listeners. Set a clear expected consistency window and test process-death/reconnect recovery.
+
 ### Local database and history scale
 
 - Room database version is 4 and explicit migrations are registered, which is a good foundation.
