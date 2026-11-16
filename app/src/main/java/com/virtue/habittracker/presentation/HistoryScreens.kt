@@ -109,12 +109,12 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
                     OutlinedButton(onClick = { showCalendar = true }, modifier = Modifier.weight(1f)) { Text("Choose date") }
                     OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now()), modifier = Modifier.weight(1f)) { Text("Next →") }
                 }
-                if (date != LocalDate.now()) TextButton(onClick = v        if (isLoading) {
-            SectionLoading(message = "Loading your history…")
-        } else {
-m::goToToday) { Text("Back to today") }
+                if (date != LocalDate.now()) TextButton(onClick = vm::goToToday) { Text("Back to today") }
             }
         }
+        if (isLoading) {
+            SectionLoading(message = "Loading your history…")
+        } else {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SummaryTile("Completed", completed.toString(), Color(0xFF34D399), Modifier.weight(1f), "✓")
             SummaryTile("Not done", notDone.toString(), Color(0xFFFB7185), Modifier.weight(1f), "×")
@@ -141,9 +141,9 @@ m::goToToday) { Text("Back to today") }
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                visibleEntries.forE
-        }ach { entry -> HistoryHabitCard(entry) }
+                visibleEntries.forEach { entry -> HistoryHabitCard(entry) }
             }
+        }
         }
     }
     if (showCalendar) {
@@ -214,6 +214,7 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
 fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOpenHistory: () -> Unit) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
+    val isLoading by vm.isLoading.collectAsStateWithLifecycle()
     val weeklyProgress by vm.weeklyProgress.collectAsStateWithLifecycle()
     val activeEntries = entries.filter { it.isActiveOnDate }
     val completed = activeEntries.count { it.status == HabitDayStatus.COMPLETED }
@@ -232,6 +233,9 @@ fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOp
         Text("YOUR JOURNEY", style = MaterialTheme.typography.labelMedium, color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold)
         Text("Your progress", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Small steps. Lasting change.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (isLoading) {
+            SectionLoading(message = "Loading your progress…")
+        } else {
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF211B30))) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("DAILY OVERVIEW", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -341,5 +345,6 @@ fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOp
             Text("Open daily history for this date")
         }
         Text("Unrecorded habits are not counted as failures. This view summarizes saved records for the selected day.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
