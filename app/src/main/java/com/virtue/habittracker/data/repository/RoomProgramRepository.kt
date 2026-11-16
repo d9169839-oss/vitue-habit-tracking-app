@@ -37,6 +37,9 @@ class RoomProgramRepository @Inject constructor(
         // Clear another account's local cache before exposing program data, then sync in background.
         runCatching { cloud.prepareLocalCacheForCurrentUser() }
         syncScheduler.enqueueSync()
+        // Avoid showing a misleading empty "Your programs" state while the first cloud snapshot
+        // is still being merged into Room on a newly installed or second device.
+        runCatching { cloud.awaitInitialProgramSnapshot() }
         launch {
             combine(dao.observeEnrollments(), dao.observeActivities()) { enrollments, activities ->
                 val activitiesByEnrollment = activities.groupBy { it.enrollmentId }
