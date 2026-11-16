@@ -61,6 +61,13 @@ class HabitCloudDataSource @Inject constructor(
     }
 
     @Synchronized
+    private fun resetInitialSnapshotState(uid: String?) {
+        initialHabitsSnapshotReady = false
+        initialCheckInsSnapshotReady = false
+        _initialRealtimeSnapshotReady.value = uid == null
+    }
+
+    @Synchronized
     private fun markInitialSnapshotReady(uid: String, collection: String) {
         if (auth.currentUser?.uid != uid) return
         if (collection == HABITS_COLLECTION) initialHabitsSnapshotReady = true
@@ -389,9 +396,7 @@ class HabitCloudDataSource @Inject constructor(
 
             removeRealtimeRegistrations()
             realtimeUid = uid
-            initialHabitsSnapshotReady = false
-            initialCheckInsSnapshotReady = false
-            _initialRealtimeSnapshotReady.value = uid == null
+            resetInitialSnapshotState(uid)
 
             if (uid != null) {
                 realtimeScope.launch {
@@ -414,7 +419,7 @@ class HabitCloudDataSource @Inject constructor(
 
         val userRef = userDocument(uid)
         realtimeRegistrations += userRef.collection("habits")
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
                 if (auth.currentUser?.uid != uid) return@addSnapshotListener
                 if (error != null || snapshot == null) {
                     // A denied/failed listener must not hold the app on its splash indefinitely.
