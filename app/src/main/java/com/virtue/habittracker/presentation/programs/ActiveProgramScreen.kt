@@ -73,10 +73,14 @@ internal fun ActiveProgramScreen(
                                 }
                                 Text(if (activity.estimatedMinutes == 0) "Rest" else activity.estimatedMinutes.toString() + " min", color = ProgramLavender, style = MaterialTheme.typography.labelMedium)
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FilterChip(selected = activity.status == ProgramActivityStatus.COMPLETED, onClick = { onActivityStatus(activity.id, ProgramActivityStatus.COMPLETED) }, label = { Text("Complete") })
-                                FilterChip(selected = activity.status == ProgramActivityStatus.SKIPPED, onClick = { onActivityStatus(activity.id, ProgramActivityStatus.SKIPPED) }, label = { Text("Skip") })
-                                if (activity.status != ProgramActivityStatus.PENDING) TextButton(onClick = { onActivityStatus(activity.id, ProgramActivityStatus.PENDING) }) { Text("Reset") }
+                            if (activity.estimatedMinutes == 0) {
+                                Text("Recovery day · no workout required", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(selected = activity.status == ProgramActivityStatus.COMPLETED, onClick = { onActivityStatus(activity.id, ProgramActivityStatus.COMPLETED) }, label = { Text("Done") })
+                                    FilterChip(selected = activity.status == ProgramActivityStatus.SKIPPED, onClick = { onActivityStatus(activity.id, ProgramActivityStatus.SKIPPED) }, label = { Text("Skip") })
+                                    if (activity.status != ProgramActivityStatus.PENDING) TextButton(onClick = { onActivityStatus(activity.id, ProgramActivityStatus.PENDING) }) { Text("Reset") }
+                                }
                             }
                         }
                     }
