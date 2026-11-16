@@ -90,8 +90,7 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
     val notDone = active.count { it.status == HabitDayStatus.NOT_COMPLETED }
     val unrecorded = active.count { it.status == HabitDayStatus.UNRECORDED }
     val inactiveCount = entries.count { !it.isActiveOnDate }
-    val recorded = completed + notDone
-    val rate = if (recorded == 0) 0 else (completed * 100f / recorded).toInt()
+    val rate = if (active.isEmpty()) 0 else (completed * 100f / active.size).toInt()
     val visibleEntries = when (filter) {
         HistoryFilter.ALL -> entries
         HistoryFilter.ACTIVE -> entries.filter { it.isActiveOnDate }
