@@ -50,13 +50,14 @@ class HistoryViewModel @Inject constructor(
                     val active = dayEntries.filter { it.isActiveOnDate }
                     val completed = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.COMPLETED }
                     val notCompleted = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.NOT_COMPLETED }
-                    val recorded = completed + notCompleted
+                    // Use all active habits as the denominator. A day with only one or two
+                    // recorded habits must not appear as 100% merely because few were recorded.
                     DailyProgressPoint(
                         date = day,
                         completedCount = completed,
                         notCompletedCount = notCompleted,
                         unrecordedCount = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.UNRECORDED },
-                        completionRatePercent = if (recorded == 0) 0 else completed * 100 / recorded
+                        completionRatePercent = if (active.isEmpty()) 0 else completed * 100 / active.size
                     )
                 }
             }
