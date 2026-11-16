@@ -366,6 +366,7 @@ class HabitCloudDataSource @Inject constructor(
         auth.addAuthStateListener(listener)
     }
 
+    @Synchronized
     private fun attachRealtimeListeners(uid: String) {
         removeRealtimeRegistrations()
         if (auth.currentUser?.uid != uid) return
@@ -380,6 +381,8 @@ class HabitCloudDataSource @Inject constructor(
                     val habitId = document.getString("id") ?: document.id
                     realtimeScope.launch {
                         runCatching {
+                            // Ignore queued callbacks from a user who has since signed out/switched.
+                            if (auth.currentUser?.uid != uid) return@runCatching
                             // A pending local edit always wins until its upload is acknowledged.
                             if (dao.hasPendingSyncOperation("habit:$habitId")) return@runCatching
                             val title = document.getString("title") ?: return@runCatching
@@ -412,6 +415,8 @@ class HabitCloudDataSource @Inject constructor(
 
                     realtimeScope.launch {
                         runCatching {
+                            // Ignore queued callbacks from a user who has since signed out/switched.
+                            if (auth.currentUser?.uid != uid) return@runCatching
                             // Do not overwrite a check-in that this device has not uploaded yet.
                             if (dao.hasPendingSyncOperation(operationKey)) return@runCatching
 
@@ -437,6 +442,7 @@ class HabitCloudDataSource @Inject constructor(
             }
     }
 
+    @Synchronized
     private fun removeRealtimeRegistrations() {
         realtimeRegistrations.forEach { it.remove() }
         realtimeRegistrations.clear()
