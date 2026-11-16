@@ -30,7 +30,7 @@ service cloud.firestore {
               && request.resource.data.titleSnapshot is string
               && request.resource.data.titleSnapshot.size() > 0
               && request.resource.data.titleSnapshot.size() <= 160
-              && request.resource.data.category in ['FITNESS', 'SELF_GROOMING', 'MINDFULNESS']
+              && request.resource.data.category in ['FITNESS', 'SELF_GROOMING', 'MINDFULNESS', 'PERSONAL_DEVELOPMENT']
               && request.resource.data.durationDays in [14, 30, 60, 90]
               && request.resource.data.startEpochDay is int
               && request.resource.data.status in ['ACTIVE', 'PAUSED', 'COMPLETED', 'ENDED']
