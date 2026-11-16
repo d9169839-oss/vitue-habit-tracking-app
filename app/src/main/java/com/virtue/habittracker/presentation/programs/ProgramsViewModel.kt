@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class ProgramsUiState(
@@ -33,7 +34,8 @@ data class ProgramsUiState(
     val programs: List<ProgramProgress> = emptyList(),
     val isPremium: Boolean = false,
     val isStarting: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    val isInitialLoading: Boolean = true
 )
 
 @HiltViewModel
@@ -50,12 +52,14 @@ class ProgramsViewModel @Inject constructor(
     private val selectedCategory = MutableStateFlow<ProgramCategory?>(null)
     private val message = MutableStateFlow<String?>(null)
     private val isStarting = MutableStateFlow(false)
+    private val _hasLoadedPrograms = MutableStateFlow(false)
+    private val programs = repository.observePrograms().onEach { _hasLoadedPrograms.value = true }
 
     val uiState: StateFlow<ProgramsUiState> = combine(
-        repository.observePrograms(), selectedCategory, entitlementProvider.premiumEntitlement,
+        programs, selectedCategory, entitlementProvider.premiumEntitlement,
         message, isStarting
     ) { progress, category, premium, msg, starting ->
-        ProgramsUiState(category, progress, premium, starting, msg)
+        ProgramsUiState(category, progress, premium, starting, msg, !_hasLoadedPrograms.value)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgramsUiState())
 
     val catalog = ProgramCatalog.all

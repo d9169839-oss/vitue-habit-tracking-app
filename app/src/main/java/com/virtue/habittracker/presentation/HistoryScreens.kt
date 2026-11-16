@@ -73,9 +73,11 @@ import java.time.format.DateTimeFormatter
 
 private enum class HistoryFilter { ALL, ACTIVE, INACTIVE }
 
+@Composable
 fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
+    val isLoading by vm.isLoading.collectAsStateWithLifecycle()
     var showCalendar by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(HistoryFilter.ALL) }
     val active = entries.filter { it.isActiveOnDate }
@@ -111,6 +113,9 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
                 if (date != LocalDate.now()) TextButton(onClick = vm::goToToday) { Text("Back to today") }
             }
         }
+        if (isLoading) {
+            SectionLoading(message = "Loading your history…")
+        } else {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SummaryTile("Completed", completed.toString(), Color(0xFF34D399), Modifier.weight(1f), "✓")
             SummaryTile("Not done", notDone.toString(), Color(0xFFFB7185), Modifier.weight(1f), "×")
@@ -139,6 +144,7 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 visibleEntries.forEach { entry -> HistoryHabitCard(entry) }
             }
+        }
         }
     }
     if (showCalendar) {
@@ -209,7 +215,9 @@ private fun HistoryHabitCard(entry: HabitDayEntry) {
 fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOpenHistory: () -> Unit) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
+    val isLoading by vm.isLoading.collectAsStateWithLifecycle()
     val weeklyProgress by vm.weeklyProgress.collectAsStateWithLifecycle()
+    val isWeeklyProgressLoading by vm.isWeeklyProgressLoading.collectAsStateWithLifecycle()
     val activeEntries = entries.filter { it.isActiveOnDate }
     val completed = activeEntries.count { it.status == HabitDayStatus.COMPLETED }
     val notCompleted = activeEntries.count { it.status == HabitDayStatus.NOT_COMPLETED }
@@ -227,6 +235,9 @@ fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOp
         Text("YOUR JOURNEY", style = MaterialTheme.typography.labelMedium, color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold)
         Text("Your progress", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Small steps. Lasting change.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (isLoading) {
+            SectionLoading(message = "Loading your progress…")
+        } else {
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF211B30))) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("DAILY OVERVIEW", color = Color(0xFFC4B5FD), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -257,7 +268,9 @@ fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOp
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Consistency · 7 days", color = Color(0xFFF8F5FF), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text("Tap a day to inspect its saved history.", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
-                if (weeklyProgress.isEmpty()) {
+                if (isWeeklyProgressLoading) {
+                    SectionLoading(message = "Loading weekly progress…")
+                } else if (weeklyProgress.isEmpty()) {
                     Text("Your recent progress will appear here as records are saved.", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
                 } else {
                     Row(Modifier.fillMaxWidth().height(132.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.Bottom) {
@@ -336,5 +349,6 @@ fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOp
             Text("Open daily history for this date")
         }
         Text("Unrecorded habits are not counted as failures. This view summarizes saved records for the selected day.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }

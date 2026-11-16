@@ -1,13 +1,9 @@
 package com.virtue.habittracker.presentation.navigation
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,6 +18,7 @@ import com.virtue.habittracker.presentation.auth.LoginScreen
 import com.virtue.habittracker.presentation.auth.RegisterScreen
 import com.virtue.habittracker.presentation.auth.SessionState
 import com.virtue.habittracker.presentation.App
+import com.virtue.habittracker.presentation.VitueSplashScreen
 
 private object Routes { const val SPLASH = "session_check"; const val LOGIN = "login"; const val REGISTER = "register"; const val FORGOT = "forgot"; const val HOME = "home" }
 
@@ -46,7 +43,7 @@ fun AppNavigation() {
     Surface(Modifier.fillMaxSize()) {
         NavHost(navController = navController, startDestination = Routes.SPLASH) {
             composable(Routes.SPLASH) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                VitueSplashScreen()
             }
             composable(Routes.LOGIN) {
                 val vm: AuthViewModel = hiltViewModel()

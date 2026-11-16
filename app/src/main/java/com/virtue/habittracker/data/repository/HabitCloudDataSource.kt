@@ -1,6 +1,8 @@
 package com.virtue.habittracker.data.repository
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -14,13 +16,18 @@ import com.virtue.habittracker.data.local.ProgramActivityEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Cloud boundary for Vitue's local-first sync.
  *
  * Normal habit actions never call Firestore. Room mutations and outbox entries commit first;
- * WorkManager later uploads only queued entities. Cloud reads happen on initial sync and then
- * only for documents changed since this account's last successful pull.
+ * WorkManager later uploads only queued entities. Initial snapshots hydrate Room before the first
+ * signed-in Home/History emission; listeners then merge live changes, with incremental WorkManager
+ * pulls retained as the offline/process-death recovery path.
  */
 @Singleton
 class HabitCloudDataSource @Inject constructor(
@@ -31,6 +38,50 @@ class HabitCloudDataSource @Inject constructor(
     private val programDao: ProgramDao
 ) {
     private fun userIdOrNull(): String? = auth.currentUser?.uid
+
+    private val _initialRealtimeSnapshotReady = MutableStateFlow(false)
+    private var initialHabitsSnapshotReady = false
+    private var initialCheckInsSnapshotReady = false
+
+    /**
+     * Wait until the first authoritative Firestore snapshot for both habit collections has been
+     * merged into Room. When offline, the cached snapshot is the best available initial dataset.
+     */
+    suspend fun awaitInitialRealtimeSnapshot() {
+        val expectedUid = auth.currentUser?.uid ?: return
+        // A bounded fallback prevents a stalled network/listener from trapping the user on splash.
+        withTimeoutOrNull(INITIAL_REALTIME_SYNC_TIMEOUT_MILLIS) {
+            _initialRealtimeSnapshotReady.first {
+                auth.currentUser?.uid != expectedUid || it
+            }
+        }
+    }
+
+    private fun hasValidatedInternet(): Boolean {
+        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    @Synchronized
+    private fun resetInitialSnapshotState(uid: String?) {
+        initialHabitsSnapshotReady = false
+        initialCheckInsSnapshotReady = false
+        _initialRealtimeSnapshotReady.value = uid == null
+    }
+
+    @Synchronized
+    private fun markInitialSnapshotReady(uid: String, collection: String) {
+        if (auth.currentUser?.uid != uid) return
+        if (collection == HABITS_COLLECTION) initialHabitsSnapshotReady = true
+        if (collection == CHECK_INS_COLLECTION) initialCheckInsSnapshotReady = true
+        if (initialHabitsSnapshotReady && initialCheckInsSnapshotReady) {
+            _initialRealtimeSnapshotReady.value = true
+        }
+    }
     private fun userDocument(uid: String) = firestore.collection("users").document(uid)
     private fun syncPreferences(uid: String) =
         context.getSharedPreferences("habit_sync_state_$uid", Context.MODE_PRIVATE)
@@ -333,8 +384,157 @@ class HabitCloudDataSource @Inject constructor(
 
         // Persist only after both reads and all Room merges have succeeded.
         preferences.edit().putLong("lastSuccessfulPullMillis", System.currentTimeMillis()).apply()
+        if (lastSyncMillis == 0L) {
+            // WorkManager's initial full pull is also a valid hydration barrier if listeners lag.
+            markInitialSnapshotReady(uid, HABITS_COLLECTION)
+            markInitialSnapshotReady(uid, CHECK_INS_COLLECTION)
+        }
     }
+
+    /**
+     * Starts account-scoped Firestore listeners for habit definitions and daily check-ins.
+     *
+     * Room remains the UI source of truth: listener events are merged into Room, never rendered
+     * directly. The existing WorkManager outbox remains responsible for reliable uploads and
+     * periodic catch-up when a device is offline or a listener is unavailable.
+     */
+    fun startRealtimeSync() {
+        if (realtimeAuthListener != null) return
+
+        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            val uid = firebaseAuth.currentUser?.uid
+            if (uid == realtimeUid) return@AuthStateListener
+
+            removeRealtimeRegistrations()
+            realtimeUid = uid
+            resetInitialSnapshotState(uid)
+
+            if (uid != null) {
+                realtimeScope.launch {
+                    runCatching { ensureLocalOwner(uid) }
+                        .onSuccess {
+                            // Do not attach a stale account listener if auth changed during setup.
+                            if (auth.currentUser?.uid == uid) attachRealtimeListeners(uid)
+                        }
+                }
+            }
+        }
+        realtimeAuthListener = listener
+        auth.addAuthStateListener(listener)
+    }
+
+    @Synchronized
+    private fun attachRealtimeListeners(uid: String) {
+        removeRealtimeRegistrations()
+        if (auth.currentUser?.uid != uid) return
+
+        val userRef = userDocument(uid)
+        realtimeRegistrations += userRef.collection("habits")
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
+                if (auth.currentUser?.uid != uid) return@addSnapshotListener
+                if (error != null || snapshot == null) {
+                    // A denied/failed listener must not hold the app on its splash indefinitely.
+                    markInitialSnapshotReady(uid, HABITS_COLLECTION)
+                    return@addSnapshotListener
+                }
+
+                realtimeScope.launch {
+                    if (auth.currentUser?.uid != uid) return@launch
+                    snapshot.documentChanges.forEach { change ->
+                        val document = change.document
+                        val habitId = document.getString("id") ?: document.id
+                        runCatching {
+                            if (auth.currentUser?.uid != uid) return@runCatching
+                            // An unuploaded local edit always wins over an incoming remote event.
+                            if (dao.hasPendingSyncOperation("habit:$habitId")) return@runCatching
+                            if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED) {
+                                return@runCatching
+                            }
+                            val title = document.getString("title") ?: return@runCatching
+                            val createdEpochDay = document.getLong("createdEpochDay")
+                                ?: return@runCatching
+
+                            dao.upsertHabitFromCloud(
+                                HabitEntity(
+                                    id = habitId,
+                                    title = title,
+                                    description = document.getString("description").orEmpty(),
+                                    createdEpochDay = createdEpochDay,
+                                    inactiveFromEpochDay = document.getLong("inactiveFromEpochDay")
+                                )
+                            )
+                        }
+                    }
+                    // Online startup waits for the server snapshot, not an empty cache snapshot.
+                    if (!snapshot.metadata.isFromCache || !hasValidatedInternet()) {
+                        markInitialSnapshotReady(uid, HABITS_COLLECTION)
+                    }
+                }
+            }
+
+        realtimeRegistrations += userRef.collection("habitCheckIns")
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
+                if (auth.currentUser?.uid != uid) return@addSnapshotListener
+                if (error != null || snapshot == null) {
+                    markInitialSnapshotReady(uid, CHECK_INS_COLLECTION)
+                    return@addSnapshotListener
+                }
+
+                realtimeScope.launch {
+                    if (auth.currentUser?.uid != uid) return@launch
+                    snapshot.documentChanges.forEach { change ->
+                        val document = change.document
+                        val habitId = document.getString("habitId") ?: return@forEach
+                        val epochDay = document.getLong("epochDay") ?: return@forEach
+                        val operationKey = "checkin:${habitId}_${epochDay}"
+
+                        runCatching {
+                            if (auth.currentUser?.uid != uid) return@runCatching
+                            // Do not overwrite a check-in that this device has not uploaded yet.
+                            if (dao.hasPendingSyncOperation(operationKey)) return@runCatching
+
+                            if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED ||
+                                document.getBoolean("deleted") == true
+                            ) {
+                                dao.deleteCheckIn(habitId, epochDay)
+                            } else {
+                                val completed = document.getBoolean("completed")
+                                    ?: return@runCatching
+                                dao.upsertCheckInFromCloud(
+                                    HabitCheckInEntity(
+                                        habitId = habitId,
+                                        epochDay = epochDay,
+                                        completed = completed,
+                                        updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    if (!snapshot.metadata.isFromCache || !hasValidatedInternet()) {
+                        markInitialSnapshotReady(uid, CHECK_INS_COLLECTION)
+                    }
+                }
+            }
+    }
+
+    @Synchronized
+    private fun removeRealtimeRegistrations() {
+        realtimeRegistrations.forEach { it.remove() }
+        realtimeRegistrations.clear()
+    }
+
     private companion object {
         const val MIN_PULL_INTERVAL_MILLIS = 15 * 60 * 1000L
+        const val HABITS_COLLECTION = "habits"
+        const val CHECK_INS_COLLECTION = "habitCheckIns"
+        const val INITIAL_REALTIME_SYNC_TIMEOUT_MILLIS = 12_000L
     }
+
+    private val realtimeScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    )
+    private val realtimeRegistrations = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
+    @Volatile private var realtimeUid: String? = null
+    @Volatile private var realtimeAuthListener: FirebaseAuth.AuthStateListener? = null
 }

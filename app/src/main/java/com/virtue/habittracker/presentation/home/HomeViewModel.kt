@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -27,14 +27,32 @@ class HomeViewModel @Inject constructor(
     private val clearHabitCheckInUseCase: com.virtue.habittracker.domain.usecase.ClearHabitCheckInUseCase
 ) : ViewModel() {
     private val _selectedDate = MutableStateFlow(LocalDate.now())
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
+    private val _hasLoadedInitialData = MutableStateFlow(false)
+    val hasLoadedInitialData = _hasLoadedInitialData.asStateFlow()
     val selectedDate = _selectedDate.asStateFlow()
     @OptIn(ExperimentalCoroutinesApi::class)
     val habits = selectedDate.flatMapLatest { observeHabitsForDay(it.toEpochDay()) }
+        // The first Room emission (including a legitimate empty list) completes loading.
+        .onEach {
+            _isLoading.value = false
+            _hasLoadedInitialData.value = true
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun selectDate(date: LocalDate) { _selectedDate.value = if (date.isAfter(LocalDate.now())) LocalDate.now() else date }
-    fun previousDay() { _selectedDate.update { it.minusDays(1) } }
-    fun nextDay() { _selectedDate.update { current -> if (current.isBefore(LocalDate.now())) current.plusDays(1) else current } }
+    fun selectDate(date: LocalDate) {
+        val safeDate = if (date.isAfter(LocalDate.now())) LocalDate.now() else date
+        if (safeDate != _selectedDate.value) {
+            _isLoading.value = true
+            _selectedDate.value = safeDate
+        }
+    }
+    fun previousDay() { selectDate(_selectedDate.value.minusDays(1)) }
+    fun nextDay() {
+        val current = _selectedDate.value
+        if (current.isBefore(LocalDate.now())) selectDate(current.plusDays(1))
+    }
     fun addHabit(title: String, description: String, onError: (String) -> Unit) {
         viewModelScope.launch {
             createHabit(title, description, LocalDate.now().toEpochDay())

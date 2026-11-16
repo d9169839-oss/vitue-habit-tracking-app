@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.weight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -22,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.virtue.habittracker.R
 import com.virtue.habittracker.presentation.auth.AuthViewModel
 import com.virtue.habittracker.presentation.history.HistoryViewModel
@@ -42,6 +42,8 @@ fun App(
     authViewModel: AuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     historyViewModel: HistoryViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
+    // HomeTab remains composed underneath the splash so its Room Flow can emit the first snapshot.
+    val hasLoadedInitialHomeData by homeViewModel.hasLoadedInitialData.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(AppTab.HOME) }
     var programsFullScreen by remember { mutableStateOf(false) }
     val isOnline = rememberInternetConnectivity()
@@ -60,7 +62,8 @@ fun App(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(Modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Keep the offline banner persistent; briefly confirm reconnection as before.
         if (!isOnline) {
             ConnectivityBanner(text = "Device offline", background = androidx.compose.ui.graphics.Color(0xFFC62828))
@@ -110,5 +113,8 @@ fun App(
                 icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_profile), contentDescription = "Profile") },
                 label = { Text("Profile") })
         }
+      }
+      // Cover the complete app (including navigation) only for the first local data load.
+      if (!hasLoadedInitialHomeData) VitueSplashScreen()
     }
 }
