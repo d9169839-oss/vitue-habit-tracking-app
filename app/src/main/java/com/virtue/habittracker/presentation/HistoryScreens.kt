@@ -96,8 +96,7 @@ fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
     Column(modifier.offset(x = if (visible) 0.dp else 10_000.dp).background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("YOUR JOURNEY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Text("Habit history", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("History", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             Text("Look back at the person you were becoming, one day at a time.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -232,8 +231,7 @@ fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOp
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("YOUR JOURNEY", style = MaterialTheme.typography.labelMedium, color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold)
-        Text("Your progress", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Progress", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
         Text("Small steps. Lasting change.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (isLoading) {
             SectionLoading(message = "Loading your progress…")
