@@ -216,6 +216,7 @@ fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOp
     val entries by vm.entries.collectAsStateWithLifecycle()
     val isLoading by vm.isLoading.collectAsStateWithLifecycle()
     val weeklyProgress by vm.weeklyProgress.collectAsStateWithLifecycle()
+    val isWeeklyProgressLoading by vm.isWeeklyProgressLoading.collectAsStateWithLifecycle()
     val activeEntries = entries.filter { it.isActiveOnDate }
     val completed = activeEntries.count { it.status == HabitDayStatus.COMPLETED }
     val notCompleted = activeEntries.count { it.status == HabitDayStatus.NOT_COMPLETED }
@@ -266,7 +267,9 @@ fun ProgressTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel, onOp
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Consistency · 7 days", color = Color(0xFFF8F5FF), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text("Tap a day to inspect its saved history.", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
-                if (weeklyProgress.isEmpty()) {
+                if (isWeeklyProgressLoading) {
+                    SectionLoading(message = "Loading weekly progress…")
+                } else if (weeklyProgress.isEmpty()) {
                     Text("Your recent progress will appear here as records are saved.", color = Color(0xFFAAA2BB), style = MaterialTheme.typography.bodySmall)
                 } else {
                     Row(Modifier.fillMaxWidth().height(132.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.Bottom) {
