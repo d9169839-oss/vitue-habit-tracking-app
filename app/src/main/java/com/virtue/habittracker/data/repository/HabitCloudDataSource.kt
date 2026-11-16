@@ -334,7 +334,121 @@ class HabitCloudDataSource @Inject constructor(
         // Persist only after both reads and all Room merges have succeeded.
         preferences.edit().putLong("lastSuccessfulPullMillis", System.currentTimeMillis()).apply()
     }
+
+    /**
+     * Starts account-scoped Firestore listeners for habit definitions and daily check-ins.
+     *
+     * Room remains the UI source of truth: listener events are merged into Room, never rendered
+     * directly. The existing WorkManager outbox remains responsible for reliable uploads and
+     * periodic catch-up when a device is offline or a listener is unavailable.
+     */
+    fun startRealtimeSync() {
+        if (realtimeAuthListener != null) return
+
+        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            val uid = firebaseAuth.currentUser?.uid
+            if (uid == realtimeUid) return@AuthStateListener
+
+            removeRealtimeRegistrations()
+            realtimeUid = uid
+
+            if (uid != null) {
+                realtimeScope.launch {
+                    runCatching { ensureLocalOwner(uid) }
+                        .onSuccess {
+                            // Do not attach a stale account listener if auth changed during setup.
+                            if (auth.currentUser?.uid == uid) attachRealtimeListeners(uid)
+                        }
+                }
+            }
+        }
+        realtimeAuthListener = listener
+        auth.addAuthStateListener(listener)
+    }
+
+    private fun attachRealtimeListeners(uid: String) {
+        removeRealtimeRegistrations()
+        if (auth.currentUser?.uid != uid) return
+
+        val userRef = userDocument(uid)
+        realtimeRegistrations += userRef.collection("habits")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || auth.currentUser?.uid != uid) return@addSnapshotListener
+
+                snapshot.documentChanges.forEach { change ->
+                    val document = change.document
+                    val habitId = document.getString("id") ?: document.id
+                    realtimeScope.launch {
+                        runCatching {
+                            // A pending local edit always wins until its upload is acknowledged.
+                            if (dao.hasPendingSyncOperation("habit:$habitId")) return@runCatching
+                            val title = document.getString("title") ?: return@runCatching
+                            val createdEpochDay = document.getLong("createdEpochDay")
+                                ?: return@runCatching
+
+                            dao.upsertHabitFromCloud(
+                                HabitEntity(
+                                    id = habitId,
+                                    title = title,
+                                    description = document.getString("description").orEmpty(),
+                                    createdEpochDay = createdEpochDay,
+                                    inactiveFromEpochDay = document.getLong("inactiveFromEpochDay")
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+        realtimeRegistrations += userRef.collection("habitCheckIns")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || auth.currentUser?.uid != uid) return@addSnapshotListener
+
+                snapshot.documentChanges.forEach { change ->
+                    val document = change.document
+                    val habitId = document.getString("habitId") ?: return@forEach
+                    val epochDay = document.getLong("epochDay") ?: return@forEach
+                    val operationKey = "checkin:${habitId}_${epochDay}"
+
+                    realtimeScope.launch {
+                        runCatching {
+                            // Do not overwrite a check-in that this device has not uploaded yet.
+                            if (dao.hasPendingSyncOperation(operationKey)) return@runCatching
+
+                            if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED ||
+                                document.getBoolean("deleted") == true
+                            ) {
+                                dao.deleteCheckIn(habitId, epochDay)
+                            } else {
+                                val completed = document.getBoolean("completed")
+                                    ?: return@runCatching
+                                dao.upsertCheckInFromCloud(
+                                    HabitCheckInEntity(
+                                        habitId = habitId,
+                                        epochDay = epochDay,
+                                        completed = completed,
+                                        updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+    }
+
+    private fun removeRealtimeRegistrations() {
+        realtimeRegistrations.forEach { it.remove() }
+        realtimeRegistrations.clear()
+    }
+
     private companion object {
         const val MIN_PULL_INTERVAL_MILLIS = 15 * 60 * 1000L
     }
-}
+
+    private val realtimeScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    )
+    private val realtimeRegistrations = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
+    @Volatile private var realtimeUid: String? = null
+    @Volatile private var realtimeAuthListener: FirebaseAuth.AuthStateListener? = null
