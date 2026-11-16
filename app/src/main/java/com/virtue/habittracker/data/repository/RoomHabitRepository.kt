@@ -39,6 +39,9 @@ class RoomHabitRepository @Inject constructor(
         channelFlow {
             runCatching { cloud.prepareLocalCacheForCurrentUser() }
             syncScheduler.enqueueSync()
+            // Wait for both initial cloud snapshots before emitting the first Room value.
+            // This prevents an empty/partial cache from flashing before remote records arrive.
+            runCatching { cloud.awaitInitialRealtimeSnapshot() }
 
             val habitsFlow = if (includeInactive) {
                 dao.observeAllHabitsCreatedByDay(epochDay)
