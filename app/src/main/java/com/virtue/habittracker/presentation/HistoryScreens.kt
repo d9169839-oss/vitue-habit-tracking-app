@@ -73,6 +73,7 @@ import java.time.format.DateTimeFormatter
 
 private enum class HistoryFilter { ALL, ACTIVE, INACTIVE }
 
+@Composable
 fun HistoryTab(modifier: Modifier, visible: Boolean, vm: HistoryViewModel) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val entries by vm.entries.collectAsStateWithLifecycle()
