@@ -36,8 +36,8 @@ class HistoryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
-     * A real seven-day series derived from the same persisted history as the daily History screen.
-     * Each point excludes unrecorded entries from its completion-rate denominator.
+     * A Monday-to-Sunday series derived from persisted habit history. Every calendar day is
+     * represented, and the percentage uses all habits active that day as its denominator.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val weeklyProgress = selectedDate
