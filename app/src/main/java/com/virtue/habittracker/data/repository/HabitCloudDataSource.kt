@@ -24,8 +24,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * Cloud boundary for Vitue's local-first sync.
  *
  * Normal habit actions never call Firestore. Room mutations and outbox entries commit first;
- * WorkManager later uploads only queued entities. Cloud reads happen on initial sync and then
- * only for documents changed since this account's last successful pull.
+ * WorkManager later uploads only queued entities. Initial snapshots hydrate Room before the first
+ * signed-in Home/History emission; listeners then merge live changes, with incremental WorkManager
+ * pulls retained as the offline/process-death recovery path.
  */
 @Singleton
 class HabitCloudDataSource @Inject constructor(
