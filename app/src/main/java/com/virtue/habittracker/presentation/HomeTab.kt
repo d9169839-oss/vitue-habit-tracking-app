@@ -82,6 +82,7 @@ fun HomeTab(
 ) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val habits by vm.habits.collectAsStateWithLifecycle()
+    val isLoading by vm.isLoading.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -111,44 +112,52 @@ fun HomeTab(
                     OutlinedButton(onClick = vm::nextDay, enabled = date.isBefore(LocalDate.now())) { Text("Next →") }
                     TextButton(onClick = { showCalendar = true }) { Text("Calendar") }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusSummaryCard("Completed", summary.completedCount, Color(0xFF34D399), Modifier.weight(1f), "✓")
-                    StatusSummaryCard("Not done", summary.notCompletedCount, Color(0xFFFB7185), Modifier.weight(1f), "×")
-                    StatusSummaryCard("Unrecorded", summary.unrecordedCount, Color(0xFF9891A8), Modifier.weight(1f), "○")
-                }
-                Text("$recordedCompletionRate% of recorded habits completed", style = MaterialTheme.typography.labelMedium, color = Color(0xFFC4B5FD))
-                androidx.compose.material3.LinearProgressIndicator(
-                    progress = recordedCompletionRate / 100f,
-                    modifier = Modifier.fillMaxWidth().height(6.dp),
-                    color = Color(0xFFA78BFA),
-                    trackColor = Color(0xFF393047)
-                )
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Your habits", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Button(onClick = { title = ""; description = ""; formError = null; showAddDialog = true }, enabled = date == LocalDate.now()) { Text("+ Add habit") }
-        }
-        if (habits.isEmpty()) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(20.dp)) {
-                    Text(if (date.isAfter(LocalDate.now())) "This day is in the future." else "A fresh start.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(6.dp))
-                    Text(if (date.isAfter(LocalDate.now())) "Choose today or an earlier date to review your habits." else "Add a habit you want to practice consistently. You can record completions for each date.")
-                }
-            }
+        if (isLoading) {
+            SectionLoading(message = "Loading this day's habits…")
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                habits.forEach { entry ->
-                    HabitCard(
-                        entry = entry,
-                        isFuture = date.isAfter(LocalDate.now()),
-                        canArchive = date == LocalDate.now(),
-                        onToggle = { vm.toggleCompletion(entry) },
-                        onMarkNotCompleted = { vm.markNotCompleted(entry) },
-                        onArchive = { vm.archiveHabit(entry) },
-                        onClear = { vm.clearCompletion(entry) }
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatusSummaryCard("Completed", summary.completedCount, Color(0xFF34D399), Modifier.weight(1f), "✓")
+                        StatusSummaryCard("Not done", summary.notCompletedCount, Color(0xFFFB7185), Modifier.weight(1f), "×")
+                        StatusSummaryCard("Unrecorded", summary.unrecordedCount, Color(0xFF9891A8), Modifier.weight(1f), "○")
+                    }
+                    Text("$recordedCompletionRate% of recorded habits completed", style = MaterialTheme.typography.labelMedium, color = Color(0xFFC4B5FD))
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = recordedCompletionRate / 100f,
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = Color(0xFFA78BFA),
+                        trackColor = Color(0xFF393047)
                     )
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Your habits", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Button(onClick = { title = ""; description = ""; formError = null; showAddDialog = true }, enabled = date == LocalDate.now()) { Text("+ Add habit") }
+            }
+            if (habits.isEmpty()) {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(20.dp)) {
+                        Text(if (date.isAfter(LocalDate.now())) "This day is in the future." else "A fresh start.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(if (date.isAfter(LocalDate.now())) "Choose today or an earlier date to review your habits." else "Add a habit you want to practice consistently. You can record completions for each date.")
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    habits.forEach { entry ->
+                        HabitCard(
+                            entry = entry,
+                            isFuture = date.isAfter(LocalDate.now()),
+                            canArchive = date == LocalDate.now(),
+                            onToggle = { vm.toggleCompletion(entry) },
+                            onMarkNotCompleted = { vm.markNotCompleted(entry) },
+                            onArchive = { vm.archiveHabit(entry) },
+                            onClear = { vm.clearCompletion(entry) }
+                        )
+                    }
                 }
             }
         }
