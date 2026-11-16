@@ -82,6 +82,11 @@ The app's domain enum includes `PERSONAL_DEVELOPMENT`, but the original Firestor
 - Add a user-visible last-synced state and a recoverable sync-error state. The offline banner alone does not tell a user whether their latest change is safely backed up.
 - Add tests for outbox atomicity, retries, tombstones, stale acknowledgements, account changes, clock skew and simultaneous edits.
 
+### Progress destination is currently unreachable
+
+- `ProgressTab` is declared in `HistoryScreens.kt`, but the inspected `App.kt` navigation enum and bottom bar expose only Home, Programs, History and Profile. No call site for `ProgressTab` was found. The heading polish is therefore applied to the existing composable, but it will not be visible to users unless the Progress destination is intentionally restored or integrated into another screen.
+- Decide whether Progress should return as a fifth bottom-navigation destination, be integrated into History, or be removed as obsolete. Do not ship a dead screen as if it were a reachable feature.
+
 ### Program progress accuracy and first-sync state
 
 - `ProgramProgress.totalCount` currently counts every generated activity, including zero-minute "Rest and reset" days, while `progressPercent` counts only completed activities. A user can follow every planned workout and still see an artificially low completion percentage. Define whether planned rest days count as completed adherence or should be excluded from the denominator, then add unit tests.
