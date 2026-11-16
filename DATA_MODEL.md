@@ -56,6 +56,26 @@ WorkManager runs only when Android reports network connectivity. It uploads queu
 
 The first pull imports the user's cloud history. Later pulls query `updatedAtMillis` changes since the account's last successful pull cursor; pulls are throttled to at most once every 15 minutes, reducing empty query reads after frequent local edits. Local check-in deletions are represented by Firestore tombstones (`deleted = true`) so other devices can receive deletions rather than accidentally resurrecting a cleared record. The cache owner is checked before local data is exposed; switching Firebase UID clears the previous account's local habits, check-ins, and outbox.
 
+
+### Near-real-time updates on other devices
+
+While the app process is running and a user is signed in, `HabitCloudDataSource` attaches
+account-scoped Firestore snapshot listeners to `habits` and `habitCheckIns`. Added and
+modified remote documents are merged into Room; check-in tombstones (and remote document
+removals) are applied as local deletions. Every merge checks the Room outbox first, so an
+unuploaded local edit is not overwritten by an incoming remote event.
+
+The listener is started by `HabitTrackerApplication` and is detached when Firebase Auth changes
+to another UID or signs out. Screens still observe Room only. WorkManager remains responsible
+for uploads, offline recovery, process-death recovery, and the periodic safety pull. Program
+enrollment/activity documents continue using the existing background pull path; the realtime
+listener currently covers habit definitions and daily check-ins only.
+
+Realtime delivery is best-effort while a device is connected and the app process is alive; it is
+not a guarantee that a killed or force-stopped app receives an event immediately. On the next
+eligible WorkManager sync, the existing pull path catches up. Firestore rules and Firebase app
+configuration must still be deployed/configured in the Firebase project for this to work.
+
 This is a durable local-first sync foundation, but it is not yet a full multi-device conflict-resolution engine. Concurrent edits to the same habit/day still need an explicit policy (for example, server version/updated-at conflict resolution), and large histories need pagination. `updatedAtMillis` relies on device clocks, so clock skew is another limitation to address before production.
 
 ## 6. Security
