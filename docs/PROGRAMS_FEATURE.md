@@ -307,7 +307,7 @@ Prioritize these after responsive UI and release-quality testing. Each should ha
 - **Release 1.2:** Confidence and Communication, Hair-Care Routine, and expanded walking/cardio options after content review.
 - **Later:** 90-day gym/strength and user-selected spiritual paths only after appropriate review and user research.
 
-The first release has no premium tier. Keep every user's saved plans, activities, and history available without payment.
+All bundled programs are free. Keep every user's saved plans, activities, and history available without payment.
 
 
 ## Built-in templates added for the next catalog revision
