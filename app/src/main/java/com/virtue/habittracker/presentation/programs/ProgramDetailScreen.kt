@@ -19,7 +19,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -39,10 +38,8 @@ import com.virtue.habittracker.domain.model.program.ProgramTemplate
 @Composable
 internal fun ProgramDetailScreen(
     template: ProgramTemplate,
-    isPremium: Boolean,
     onBack: () -> Unit,
-    onPersonalize: () -> Unit,
-    onPremium: () -> Unit
+    onPersonalize: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -94,7 +91,7 @@ internal fun ProgramDetailScreen(
                     }
                 }
                 Text("Equipment: ${template.equipment.displayName()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(if (template.isPremium) "Premium program" else "Free starter program", color = if (template.isPremium) ProgramLavender else Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
+                Text("Free program for every user", color = Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
             }
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

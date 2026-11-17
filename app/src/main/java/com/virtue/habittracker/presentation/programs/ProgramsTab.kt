@@ -1,6 +1,5 @@
 package com.virtue.habittracker.presentation.programs
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -36,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,11 +53,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.android.billingclient.api.ProductDetails
-import com.virtue.habittracker.data.billing.PremiumBillingManager
 import com.virtue.habittracker.domain.model.program.ProgramExperience
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
+import com.virtue.habittracker.domain.model.program.ProgramStatus
+import com.virtue.habittracker.presentation.SectionLoading
 import com.virtue.habittracker.domain.model.program.WorkActivityLevel
 import java.time.LocalDate
 
@@ -119,25 +117,19 @@ fun ProgramsTab(
     modifier: Modifier,
     visible: Boolean,
     onFullScreenChange: (Boolean) -> Unit,
-    vm: ProgramsViewModel = hiltViewModel(),
-    billingViewModel: ProgramsBillingViewModel = hiltViewModel()
+    vm: ProgramsViewModel = hiltViewModel()
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
-    val manager = billingViewModel.manager
-    val products by manager.products.collectAsState()
-    val billingMessage by manager.message.collectAsState()
-    val context = LocalContext.current
     var route by remember { mutableStateOf(ProgramRoute.CATALOG) }
     var selectedTemplateId by remember { mutableStateOf<String?>(null) }
     var selectedEnrollmentId by remember { mutableStateOf<String?>(null) }
     var draftPreferences by remember { mutableStateOf(ProgramPreferences()) }
     var draftStartEpochDay by remember { mutableStateOf(LocalDate.now().toEpochDay()) }
-    var showPremiumDialog by remember { mutableStateOf(false) }
 
     val selectedTemplate = vm.catalog.firstOrNull { it.id == selectedTemplateId }
     val selectedProgress = state.programs.firstOrNull { it.enrollment.id == selectedEnrollmentId }
 
-    LaunchedEffect(Unit) { manager.connect() }
+    // Keep app navigation visible while the preview is shown over the catalogue.
     LaunchedEffect(route) { onFullScreenChange(route != ProgramRoute.CATALOG && route != ProgramRoute.DETAIL) }
 
     BackHandler(enabled = route != ProgramRoute.CATALOG) {
@@ -225,56 +217,41 @@ fun ProgramsTab(
                 )
             }
             ProgramRoute.ACTIVE -> {
-                val progress = selectedProgress
-                    ?: state.programs.firstOrNull { if (selectedEnrollmentId != null) it.enrollment.id == selectedEnrollmentId else it.enrollment.templateId == selectedTemplateId }
-                    ?: state.programs.firstOrNull()
-                if (progress != null) {
-                    val template = vm.catalog.firstOrNull { it.id == progress.enrollment.templateId }
-                    if (template == null) {
-                        Text("This program is no longer available.", Modifier.padding(20.dp))
-                    } else {
-                        ActiveProgramScreen(
-                            progress = progress,
-                            onBack = { route = ProgramRoute.CATALOG },
-                            onAdjust = {
-                                selectedTemplateId = template.id
-                                draftPreferences = progress.enrollment.preferences
-                                draftStartEpochDay = progress.enrollment.startEpochDay
-                                route = ProgramRoute.ADJUST_PERSONALIZE
-                            },
-                            onActivityStatus = vm::setActivityStatus,
-                            onProgramStatus = { status -> vm.setEnrollmentStatus(progress.enrollment.id, status) },
-                            onDelete = {
-                                vm.deleteEnrollment(progress.enrollment.id)
-                                selectedEnrollmentId = null
-                                route = ProgramRoute.CATALOG
-                            }
-                        )
-                    }
+                if (state.isInitialLoading) {
+                    SectionLoading(Modifier.fillMaxSize(), "Loading your program…")
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = ProgramViolet)
+                    val progress = selectedProgress
+                        ?: state.programs.firstOrNull { if (selectedEnrollmentId != null) it.enrollment.id == selectedEnrollmentId else it.enrollment.templateId == selectedTemplateId }
+                        ?: state.programs.firstOrNull()
+                    if (progress != null) {
+                        val template = vm.catalog.firstOrNull { it.id == progress.enrollment.templateId }
+                        if (template == null) {
+                            Text("This program is no longer available.", Modifier.padding(20.dp))
+                        } else {
+                            ActiveProgramScreen(
+                                progress = progress,
+                                onBack = { route = ProgramRoute.CATALOG },
+                                onAdjust = {
+                                    selectedTemplateId = template.id
+                                    draftPreferences = progress.enrollment.preferences
+                                    draftStartEpochDay = progress.enrollment.startEpochDay
+                                    route = ProgramRoute.ADJUST_PERSONALIZE
+                                },
+                                onActivityStatus = vm::setActivityStatus,
+                                onProgramStatus = { status -> vm.setEnrollmentStatus(progress.enrollment.id, status) },
+                                onDelete = {
+                                    vm.deleteEnrollment(progress.enrollment.id)
+                                    selectedEnrollmentId = null
+                                    route = ProgramRoute.CATALOG
+                                }
+                            )
+                        }
+                    } else {
+                        Text("This program is no longer available.", Modifier.padding(20.dp))
                     }
                 }
             }
         }
-    }
-
-    if (showPremiumDialog) {
-        PremiumDialog(
-            products = products,
-            message = billingMessage,
-            onDismiss = { showPremiumDialog = false },
-            onRestore = manager::refreshPurchases,
-            onPurchase = { product ->
-                (context as? Activity)?.let { manager.launchPurchase(it, product) }
-            }
-        )
     }
 
     state.message?.let { message ->
@@ -304,30 +281,6 @@ private fun PrimaryFocusProgramScreen(
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // Top Header Bar: Progress Title & Profile Avatar Icon
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Progress",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.SansSerif,
-                color = Color.White
-            )
-
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(Color(0xFF262436), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("👤", fontSize = 16.sp)
-            }
-        }
-
         // Step Indicator Pill + Segmented Progress Bar Row
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -611,34 +564,25 @@ private fun FocusProgramCard(
     }
 }
 
-
 @Composable
-private fun PremiumDialog(
-    products: List<ProductDetails>,
-    message: String?,
-    onDismiss: () -> Unit,
-    onRestore: () -> Unit,
-    onPurchase: (ProductDetails) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Unlock Virtue Premium") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Get access to premium guided programs while keeping your existing progress and history.")
-                if (products.isEmpty()) Text("Subscription options will appear when Google Play Billing is connected and your products are available for this tester.", color = Color(0xFF9E8AA7))
-                products.forEach { product ->
-                    val offer = product.subscriptionOfferDetails?.firstOrNull()
-                    val price = offer?.pricingPhases?.pricingPhaseList?.lastOrNull()?.formattedPrice ?: "View price in Google Play"
-                    OutlinedButton(onClick = { onPurchase(product) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(product.name + " · " + price)
-                    }
-                }
-                if (message != null) Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) { Text("Restore purchase") }
+private fun ActiveProgramSummaryCard(progress: ProgramProgress, onOpen: (ProgramProgress) -> Unit) {
+    Card(onClick = { onOpen(progress) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(progress.enrollment.titleSnapshot, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(progress.progressPercent.toString() + "%", color = ProgramLavender, fontWeight = FontWeight.Bold)
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Not now") } }
-    )
+            Text(progress.enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { progress.progressPercent / 100f },
+                modifier = Modifier.fillMaxWidth().height(7.dp),
+                color = ProgramViolet,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${progress.completedCount}/${progress.totalCount} activities completed", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+                Text("Open program →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
 }
-

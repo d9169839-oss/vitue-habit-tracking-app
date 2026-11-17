@@ -7,6 +7,8 @@ import com.virtue.habittracker.domain.model.HabitDayStatus
 import com.virtue.habittracker.domain.usecase.ObserveHabitHistoryForDayUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
+import java.time.DayOfWeek
+import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -39,6 +42,10 @@ class HistoryViewModel @Inject constructor(
     val customDate = _customDate.asStateFlow()
 
     private val _selectedDate = MutableStateFlow(LocalDate.now())
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
+    private val _isWeeklyProgressLoading = MutableStateFlow(true)
+    val isWeeklyProgressLoading = _isWeeklyProgressLoading.asStateFlow()
     val selectedDate = _selectedDate.asStateFlow()
 
     private val _selectedChartDay = MutableStateFlow(LocalDate.now())
@@ -47,15 +54,18 @@ class HistoryViewModel @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     val entries = selectedDate
         .flatMapLatest { observeHistoryForDay(it.toEpochDay()) }
+        .onEach { _isLoading.value = false }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
-     * 7-day progress points for the consistency bar chart.
+     * A Monday-to-Sunday series derived from persisted habit history. Every calendar day is
+     * represented, and the percentage uses all habits active that day as its denominator.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val weeklyProgress = selectedDate
         .flatMapLatest { selected ->
-            val dates = (6 downTo 0).map { selected.minusDays(it.toLong()) }
+            val weekStart = selected.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            val dates = (0..6).map { weekStart.plusDays(it.toLong()) }
             combine(dates.map { date -> observeHistoryForDay(date.toEpochDay()) }) { dailyEntries ->
                 dates.mapIndexed { index, day ->
                     val dayEntries = dailyEntries[index]
@@ -63,18 +73,18 @@ class HistoryViewModel @Inject constructor(
                     val completed = active.count { it.status == HabitDayStatus.COMPLETED }
                     val notCompleted = active.count { it.status == HabitDayStatus.NOT_COMPLETED }
                     val unrecorded = active.count { it.status == HabitDayStatus.UNRECORDED }
-                    val recorded = completed + notCompleted
                     DailyProgressPoint(
                         date = day,
                         completedCount = completed,
                         notCompletedCount = notCompleted,
                         unrecordedCount = unrecorded,
-                        completionRatePercent = if (recorded == 0) 0 else completed * 100 / recorded,
+                        completionRatePercent = if (active.isEmpty()) 0 else completed * 100 / active.size,
                         totalActiveHabits = active.size
                     )
                 }
             }
         }
+        .onEach { _isWeeklyProgressLoading.value = false }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
@@ -172,22 +182,54 @@ class HistoryViewModel @Inject constructor(
     }
 
     fun selectDate(date: LocalDate) {
-        _selectedDate.value = if (date.isAfter(LocalDate.now())) LocalDate.now() else date
+        // History is a snapshot of the past or today; future dates have no habit history yet.
+        val safeDate = if (date.isAfter(LocalDate.now())) LocalDate.now() else date
+        if (safeDate != _selectedDate.value) {
+            _isLoading.value = true
+            _isWeeklyProgressLoading.value = true
+            _selectedDate.value = safeDate
+        }
     }
 
     fun previousDay() {
-        _selectedDate.update { it.minusDays(1) }
+        selectDate(_selectedDate.value.minusDays(1))
     }
 
     fun nextDay() {
-        _selectedDate.update { current ->
-            if (current.isBefore(LocalDate.now())) current.plusDays(1) else current
+        val current = _selectedDate.value
+        if (current.isBefore(LocalDate.now())) {
+            selectDate(current.plusDays(1))
         }
     }
 
     fun goToToday() {
-        _selectedDate.value = LocalDate.now()
+        selectDate(LocalDate.now())
         _selectedChartDay.value = LocalDate.now()
+    }
+
+    /** Move through complete Monday-to-Sunday weeks; users cannot land on arbitrary dates. */
+    fun previousWeek() {
+        // Keep the daily snapshot on the same weekday while the chart moves by a full week.
+        selectDate(_selectedDate.value.minusWeeks(1))
+    }
+
+    fun nextWeek() {
+        val current = _selectedDate.value
+        val currentWeekStart = current.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val thisWeekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        if (currentWeekStart.isBefore(thisWeekStart)) {
+            selectDate(minOf(LocalDate.now(), current.plusWeeks(1)))
+        }
+    }
+
+    fun goToCurrentWeek() {
+        selectDate(LocalDate.now())
+    }
+
+    fun canMoveToNextWeek(): Boolean {
+        val selectedWeekStart = _selectedDate.value.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val thisWeekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        return selectedWeekStart.isBefore(thisWeekStart)
     }
 
     fun reactivateHabitResume(habitId: String) {

@@ -7,8 +7,6 @@ import com.virtue.habittracker.data.local.ProgramDao
 import com.virtue.habittracker.domain.service.ProgramPersonalizationEngine
 import com.virtue.habittracker.data.repository.RoomProgramRepository
 import com.virtue.habittracker.domain.repository.ProgramRepository
-import com.virtue.habittracker.domain.repository.PremiumEntitlementProvider
-import com.virtue.habittracker.data.billing.PremiumBillingManager
 import com.virtue.habittracker.data.repository.RoomHabitRepository
 import com.virtue.habittracker.domain.repository.HabitRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -58,13 +56,4 @@ abstract class RepositoryBindings {
 
     @Binds @Singleton
     abstract fun bindProgramRepository(implementation: RoomProgramRepository): ProgramRepository
-
-    @Binds @Singleton
-    abstract fun bindEntitlementVerifier(implementation: com.virtue.habittracker.data.billing.DefaultEntitlementVerifier): com.virtue.habittracker.domain.repository.EntitlementVerifier
-
-    @Binds @Singleton
-    abstract fun bindPremiumEntitlementCache(implementation: com.virtue.habittracker.data.billing.SharedPreferencesPremiumEntitlementCache): com.virtue.habittracker.data.billing.PremiumEntitlementCache
-
-    @Binds @Singleton
-    abstract fun bindPremiumEntitlementProvider(implementation: PremiumBillingManager): PremiumEntitlementProvider
 }

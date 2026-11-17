@@ -10,9 +10,9 @@
     <application
         android:name=".HabitTrackerApplication"
         android:allowBackup="false"
-        android:icon="@drawable/ic_virtue_logo"
-        android:roundIcon="@drawable/ic_virtue_logo"
-        android:label="Virtue Habit Tracker"
+        android:label="Vitue Habit Tracker"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.App.Starting">
 

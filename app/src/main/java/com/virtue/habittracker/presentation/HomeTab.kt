@@ -87,6 +87,7 @@ fun HomeTab(
 ) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val habits by vm.habits.collectAsStateWithLifecycle()
+    val isLoading by vm.isLoading.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -338,7 +339,9 @@ fun HomeTab(
         }
 
         // Habits List or Empty State
-        if (habits.isEmpty()) {
+        if (isLoading) {
+            SectionLoading(message = "Loading this day's habits…")
+        } else if (habits.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1C2A)),

@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.virtue.habittracker.R
 import com.virtue.habittracker.presentation.auth.AuthViewModel
 import com.virtue.habittracker.presentation.history.HistoryViewModel
@@ -53,6 +54,8 @@ fun App(
     authViewModel: AuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     historyViewModel: HistoryViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
+    // HomeTab remains composed underneath the splash so its Room Flow can emit the first snapshot.
+    val hasLoadedInitialHomeData by homeViewModel.hasLoadedInitialData.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(AppTab.HOME) }
     var programsFullScreen by remember { mutableStateOf(false) }
     val isOnline = rememberInternetConnectivity()
@@ -71,13 +74,14 @@ fun App(
         }
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-            .padding(top = 3.dp)
-    ) {
+    Box(Modifier.fillMaxSize()) {
+      Column(
+          Modifier
+              .fillMaxSize()
+              .background(MaterialTheme.colorScheme.background)
+              .statusBarsPadding()
+              .padding(top = 3.dp)
+      ) {
         // Keep the offline banner persistent; briefly confirm reconnection as before.
         if (!isOnline) {
             ConnectivityBanner(text = "Device offline", background = androidx.compose.ui.graphics.Color(0xFFC62828))
@@ -119,6 +123,9 @@ fun App(
                 onTabSelected = { selectedTab = it }
             )
         }
+      }
+      // Cover the complete app (including navigation) only for the first local data load.
+      if (!hasLoadedInitialHomeData) VitueSplashScreen()
     }
 }
 

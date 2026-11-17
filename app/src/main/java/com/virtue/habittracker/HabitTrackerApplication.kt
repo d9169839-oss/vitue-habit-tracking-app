@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.virtue.habittracker.reminders.HabitReminderScheduler
 import com.virtue.habittracker.data.sync.HabitSyncScheduler
+import com.virtue.habittracker.data.repository.HabitCloudDataSource
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -20,6 +21,9 @@ class HabitTrackerApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var habitSyncScheduler: HabitSyncScheduler
 
+    @Inject
+    lateinit var habitCloudDataSource: HabitCloudDataSource
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -29,6 +33,9 @@ class HabitTrackerApplication : Application(), Configuration.Provider {
         super.onCreate()
         // WorkManager persists scheduled work across process death and device restarts.
         reminderScheduler.scheduleNextReminder()
+        // Listen for remote habit, check-in and program changes while signed in. Events are
+        // merged into Room, so every screen observes the same local source of truth.
+        habitCloudDataSource.startRealtimeSync()
         // Startup schedules durable work; the worker exits harmlessly when signed out/offline.
         habitSyncScheduler.enqueueSync()
         habitSyncScheduler.schedulePeriodicSync()

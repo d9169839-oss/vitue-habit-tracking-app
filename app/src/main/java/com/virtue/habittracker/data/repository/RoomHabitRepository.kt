@@ -32,13 +32,17 @@ class RoomHabitRepository @Inject constructor(
         observeEntries(epochDay, includeInactive = true)
 
     /**
-     * Account ownership is checked locally before exposing Room data. No Firestore request is
-     * required to render Home or History; a background sync is merely scheduled afterward.
+     * Account ownership is checked locally before exposing Room data. On startup, the first
+     * emission waits for initial cloud hydration (or the offline cache/fallback); after that,
+     * screens observe Room only and live updates continue to merge into the local database.
      */
     private fun observeEntries(epochDay: Long, includeInactive: Boolean): Flow<List<HabitDayEntry>> =
         channelFlow {
             runCatching { cloud.prepareLocalCacheForCurrentUser() }
             syncScheduler.enqueueSync()
+            // Wait for both initial cloud snapshots before emitting the first Room value.
+            // This prevents an empty/partial cache from flashing before remote records arrive.
+            runCatching { cloud.awaitInitialRealtimeSnapshot() }
 
             val habitsFlow = if (includeInactive) {
                 dao.observeAllHabitsCreatedByDay(epochDay)

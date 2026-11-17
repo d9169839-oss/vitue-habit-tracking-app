@@ -90,9 +90,13 @@ data class ProgramProgress(
     val enrollment: ProgramEnrollment,
     val activities: List<ScheduledProgramActivity>
 ) {
-    val completedCount: Int get() = activities.count { it.status == ProgramActivityStatus.COMPLETED }
-    val skippedCount: Int get() = activities.count { it.status == ProgramActivityStatus.SKIPPED }
-    val totalCount: Int get() = activities.size
+    // Rest/recovery days are part of the schedule, but are not workout tasks and must not
+    // reduce the user's completion percentage.
+    val measurableActivities: List<ScheduledProgramActivity>
+        get() = activities.filter { it.estimatedMinutes > 0 }
+    val completedCount: Int get() = measurableActivities.count { it.status == ProgramActivityStatus.COMPLETED }
+    val skippedCount: Int get() = measurableActivities.count { it.status == ProgramActivityStatus.SKIPPED }
+    val totalCount: Int get() = measurableActivities.size
     val progressPercent: Int get() = if (totalCount == 0) 0 else completedCount * 100 / totalCount
     val todayActivities: List<ScheduledProgramActivity>
         get() = activities.filter { it.epochDay == java.time.LocalDate.now().toEpochDay() }

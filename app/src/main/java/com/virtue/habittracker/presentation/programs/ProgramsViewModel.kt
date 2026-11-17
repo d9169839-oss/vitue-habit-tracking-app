@@ -9,7 +9,6 @@ import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
 import com.virtue.habittracker.domain.model.program.ProgramStatus
 import com.virtue.habittracker.domain.repository.ProgramRepository
-import com.virtue.habittracker.domain.repository.PremiumEntitlementProvider
 import com.virtue.habittracker.domain.usecase.program.StartProgramUseCase
 import com.virtue.habittracker.domain.usecase.program.SetProgramActivityStatusUseCase
 import com.virtue.habittracker.domain.usecase.program.SetProgramStatusUseCase
@@ -26,14 +25,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class ProgramsUiState(
     val selectedCategory: ProgramCategory? = null,
     val programs: List<ProgramProgress> = emptyList(),
-    val isPremium: Boolean = false,
     val isStarting: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    val isInitialLoading: Boolean = true
 )
 
 @HiltViewModel
@@ -44,23 +44,21 @@ class ProgramsViewModel @Inject constructor(
     private val setProgramStatusUseCase: SetProgramStatusUseCase,
     private val deleteProgramUseCase: DeleteProgramUseCase,
     private val replanProgramUseCase: ReplanProgramUseCase,
-    private val personalizationEngine: ProgramPersonalizationEngine,
-    private val entitlementProvider: PremiumEntitlementProvider
+    private val personalizationEngine: ProgramPersonalizationEngine
 ) : ViewModel() {
     private val selectedCategory = MutableStateFlow<ProgramCategory?>(null)
     private val message = MutableStateFlow<String?>(null)
     private val isStarting = MutableStateFlow(false)
+    private val _hasLoadedPrograms = MutableStateFlow(false)
+    private val programs = repository.observePrograms().onEach { _hasLoadedPrograms.value = true }
 
     val uiState: StateFlow<ProgramsUiState> = combine(
-        repository.observePrograms(), selectedCategory, entitlementProvider.premiumEntitlement,
-        message, isStarting
-    ) { progress, category, premium, msg, starting ->
-        ProgramsUiState(category, progress, premium, starting, msg)
+        programs, selectedCategory, message, isStarting
+    ) { progress, category, msg, starting ->
+        ProgramsUiState(category, progress, starting, msg, !_hasLoadedPrograms.value)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgramsUiState())
 
     val catalog = ProgramCatalog.all
-
-    init { entitlementProvider.refreshEntitlement() }
 
     fun selectCategory(category: ProgramCategory?) { selectedCategory.value = category }
     fun clearMessage() { message.value = null }

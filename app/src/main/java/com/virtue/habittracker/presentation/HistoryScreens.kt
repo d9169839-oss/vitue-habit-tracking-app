@@ -57,6 +57,8 @@ import com.virtue.habittracker.presentation.history.HistoryRange
 import com.virtue.habittracker.presentation.history.HistoryViewModel
 import java.time.Instant
 import java.time.LocalDate
+import java.time.DayOfWeek
+import java.time.temporal.TemporalAdjusters
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
@@ -691,17 +693,4 @@ private fun HabitPerformanceCard(
             }
         }
     }
-}
-
-/**
- * ProgressTab for historical progression review.
- */
-@Composable
-fun ProgressTab(
-    modifier: Modifier,
-    visible: Boolean,
-    vm: HistoryViewModel,
-    onOpenHistory: () -> Unit
-) {
-    HistoryTab(modifier = modifier, visible = visible, vm = vm)
 }
