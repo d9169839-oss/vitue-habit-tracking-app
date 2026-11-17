@@ -112,6 +112,15 @@ class HabitCloudDataSource @Inject constructor(
     private fun syncPreferences(uid: String) =
         context.getSharedPreferences("habit_sync_state_$uid", Context.MODE_PRIVATE)
 
+    /** Remove only this UID's local sync cursor/preferences after successful account deletion. */
+    fun clearLocalSyncMetadata(uid: String) {
+        syncPreferences(uid).edit().clear().apply()
+        val ownerPreferences = context.getSharedPreferences("habit_cache_owner", Context.MODE_PRIVATE)
+        if (ownerPreferences.getString("uid", null) == uid) {
+            ownerPreferences.edit().remove("uid").apply()
+        }
+    }
+
     private suspend fun ensureLocalOwner(uid: String) {
         val preferences = context.getSharedPreferences("habit_cache_owner", Context.MODE_PRIVATE)
         val previousUid = preferences.getString("uid", null)
