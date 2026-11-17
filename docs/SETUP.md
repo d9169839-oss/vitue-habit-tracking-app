@@ -32,6 +32,10 @@
 - If notification permission is denied, the scheduled work remains in place but the app cannot show a notification. Enable notifications for Vitue Habit Tracker in Android Settings to receive them.
 - Android 12 and earlier do not use the Android 13 runtime notification permission prompt.
 
+## Release build and signing
+
+See [`RELEASE_BUILD.md`](RELEASE_BUILD.md) for upload-key setup, secure Gradle properties, and the signed Play Store AAB build process. Never commit the upload keystore or passwords.
+
 ## Open and run
 1. Download or clone this repository.
 2. Open the repository root in Android Studio.
