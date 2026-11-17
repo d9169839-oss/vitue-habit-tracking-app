@@ -1,11 +1,11 @@
 # Vitue Habit Tracker — Release Readiness Audit
 
-**Audit date:** 17 November 2026  
+**Audit date:** 18 November 2026  
 **Repository:** `d9169839-oss/vitue-habit-tracking-app`  
-**Branch audited:** `main` after merge of PR #6  
-**Verdict:** **Not ready for public Play Store release yet.** The core Android app and local-first habit workflow are a useful MVP foundation, but account deletion, subscription security/compliance, data-sync safety, and release verification remain launch gates.
+**Baseline audited:** `main` after merge of PR #8; PR #9 adds free Programs and initial release hardening.  
+**Verdict:** **Not ready for public Play Store release yet.** The core Android app and local-first habit workflow are a useful MVP foundation, but account deletion, data-sync safety, Firebase verification, and release verification remain launch gates. The first public release now includes all Programs free of charge and has no in-app subscription or purchase flow.
 
-This is a source-level audit. It does not claim that Firebase rules are deployed, Play Console products are configured, or the app has passed physical-device testing. The audit cannot inspect the user's Firebase/Play Console account state.
+This is a source-level audit. It does not claim that Firebase rules are deployed or that the app has passed physical-device testing. The audit cannot inspect the user's Firebase/Play Console account state.
 
 ## What is in good shape
 
@@ -15,7 +15,7 @@ This is a source-level audit. It does not claim that Firebase rules are deployed
 - Auth session restoration, email/password and Google sign-in flows.
 - History and date-based habit status model, with completed / not completed / unrecorded states.
 - Program catalog and deterministic schedule generation are separated from Android UI code.
-- The recent startup hydration and section-loading work is merged to `main`; its GitHub Actions run passed the debug unit-test and debug-assembly job.
+- The startup hydration, program progress, realtime program sync, and weekly History changes are merged to `main`; GitHub Actions passed unit tests and debug compilation/assembly for PR #8.
 - The app targets API 36, which meets the Google Play target API requirement for new mobile apps and updates from 31 August 2026.
 
 ## Release blockers — fix before public launch
@@ -27,30 +27,14 @@ The app supports account creation, but the inspected app has sign-out and no acc
 **Required work**
 - Add a discoverable Delete account action with a clear irreversible-action confirmation and recent-authentication handling.
 - Delete the user's Firestore profile and all nested habit, check-in, program-enrollment and program-activity documents.
-- Remove local Room data, per-user sync state, pending work and cached entitlement data for that UID.
+- Remove local Room data, per-user sync state, pending work for that UID.
 - Delete the Firebase Authentication account after cloud data deletion succeeds; handle partial failures and retry safely.
 - Publish an external deletion-request page that names Vitue Habit Tracker and can be used without reinstalling the app.
 - Add retention disclosures for any data that cannot legally or operationally be deleted immediately.
 
-### P0 — Google Play Billing Library is too old
+### Removed from launch scope — subscriptions and premium access
 
-The version catalog currently pins `com.android.billingclient:billing-ktx:6.2.1`. Google Play's current deprecation schedule gives Billing Library 6 a submission deadline of 31 August 2025 and Billing Library 7 a deadline of 31 August 2026. As of this audit date, new apps and updates need Billing Library 8 or newer.
-
-**Required work**
-- Migrate to a supported release (prefer the current 9.x line after reviewing its migration guide) and update removed/deprecated API calls.
-- Run purchase, restore, pending, cancellation, expiry, grace-period, refund and reconnect tests using Play license testers.
-- Do not treat a successful debug build as proof that Play Billing is compliant.
-
-### P0 — Premium entitlement is not securely verified
-
-`PremiumBillingManager` stores a `premiumCached` boolean in SharedPreferences and sets it from the client-side purchase query. There is no trusted purchase-token verification endpoint in the repository. The client also acknowledges owned purchases without first receiving a verified backend entitlement.
-
-**Required work**
-- Verify purchase tokens with the Google Play Developer API on a trusted backend.
-- Bind verified subscription entitlements to the authenticated Firebase UID; never accept a client-writable boolean as proof of payment.
-- Handle token replay, account changes, expiry, grace period, cancellation, refunds, revocation and restore.
-- Keep offline entitlement caching as a temporary UX convenience only, with a bounded and explicit stale-entitlement policy.
-- If the backend is not ready, launch the first public version without paid program access rather than shipping insecure billing.
+The first public release makes every built-in program free. Google Play Billing, premium-only program restrictions, subscription products, and trusted purchase verification are not part of this release. This removes the need for a separate subscription-verification backend. Firebase Authentication and Firestore are separate existing services used for account sign-in and cloud sync; their launch status must be decided and verified independently.
 
 ### P0 — Firestore rules must be deployed and tested
 
@@ -76,22 +60,20 @@ The app's domain enum includes `PERSONAL_DEVELOPMENT`, but the original Firestor
 
 ### Sync correctness and observability
 
-- Habit/check-in real-time listeners are present; program documents currently rely on WorkManager pulls/uploads rather than their own live listeners. This is acceptable for an MVP if eventual consistency is clearly communicated, but test the actual delay and recovery behavior.
+- Habit, check-in, program-enrollment, and program-activity realtime listeners are now present. The durable WorkManager outbox remains responsible for uploads and retry/catch-up. Test live updates, offline recovery, and process-death behaviour on two devices.
 - The sync implementation uses client-generated `updatedAtMillis` values as incremental cursors. Device clock skew can cause missed or repeatedly fetched updates. Prefer server-authoritative timestamps or a versioning strategy, and define a deterministic conflict policy.
 - Same-entity concurrent edits across devices still need a documented policy (for example, server version + last-write-wins with explicit local pending-write protection, or a conflict record).
 - Add a user-visible last-synced state and a recoverable sync-error state. The offline banner alone does not tell a user whether their latest change is safely backed up.
 - Add tests for outbox atomicity, retries, tombstones, stale acknowledgements, account changes, clock skew and simultaneous edits.
 
-### Progress destination is currently unreachable
+### Programs progress and History — updated in PR #8
 
-- `ProgressTab` is declared in `HistoryScreens.kt`, but the inspected `App.kt` navigation enum and bottom bar expose only Home, Programs, History and Profile. No call site for `ProgressTab` was found. The heading polish is therefore applied to the existing composable, but it will not be visible to users unless the Progress destination is intentionally restored or integrated into another screen.
-- Decide whether Progress should return as a fifth bottom-navigation destination, be integrated into History, or be removed as obsolete. Do not ship a dead screen as if it were a reachable feature.
-
-### Program progress accuracy and first-sync state
-
-- `ProgramProgress.totalCount` currently counts every generated activity, including zero-minute "Rest and reset" days, while `progressPercent` counts only completed activities. A user can follow every planned workout and still see an artificially low completion percentage. Define whether planned rest days count as completed adherence or should be excluded from the denominator, then add unit tests.
-- The Programs ViewModel considers its first Room emission to mean programs have loaded. On a fresh device, that emission can be empty while the WorkManager cloud import is still pending, so saved programs may appear late without a dedicated syncing state. Test a second-device first launch and add a program-hydration indicator/gate if the empty flash is visible.
-- Program activity/enrollment cloud synchronization currently uses WorkManager rather than real-time listeners. Set a clear expected consistency window and test process-death/reconnect recovery.
+- Program progress is integrated into Programs: active program cards show completion percentage and a progress bar; the program detail screen shows scheduled activities and their status.
+- Marking an activity Done/Skip/Reset updates Room and queues the matching Firestore operation. Account-scoped realtime listeners merge remote program changes into Room.
+- The Programs repository waits for initial program enrollment/activity snapshots, with a bounded fallback, before exposing an empty state on a new device.
+- Zero-minute rest/recovery days remain visible in a program but are excluded from the completion denominator.
+- History remains habit-only and now navigates by complete Monday–Sunday weeks. The seven-day chart is not clickable, includes zero-completion days, and calculates completion against all habits active that day.
+- PR #8 unit tests and debug compilation/assembly passed. The actual two-device sync path and production Firestore rules still require physical-device verification.
 
 ### Local database and history scale
 
@@ -108,16 +90,16 @@ The app's domain enum includes `PERSONAL_DEVELOPMENT`, but the original Firestor
 
 ### App identity and release configuration
 
-- The manifest does not declare `android:icon` or `android:roundIcon`. Add a production adaptive launcher icon and verify it on light/dark launchers.
-- The current app version is `versionCode 1`, `versionName 0.1.0`; increment these for each Play release.
-- The inspected Gradle configuration does not show a dedicated release verification pipeline or a documented signed AAB generation step. Configure a protected upload key / Play App Signing workflow, build a release AAB, and verify the merged release manifest.
+- PR #9 adds adaptive launcher icon resources and declares `android:icon` / `android:roundIcon`. Verify the icon visually on light/dark launchers and multiple device shapes before release.
+- PR #9 sets `versionName 1.0.0` and keeps `versionCode 1` for the first release. Confirm no higher versionCode has already been uploaded to Play Console; increment it for every subsequent upload.
+- PR #9 adds a `bundleRelease` CI task, Gradle-property-based upload-key signing, and `docs/RELEASE_BUILD.md`. A signed AAB is not verified until the owner configures the upload keystore properties and builds locally; CI intentionally has no signing secrets.
 - Add release shrinking/obfuscation only with keep rules and a tested mapping-file retention process.
 - The Google web OAuth client ID is hard-coded in Gradle. It is not a private secret, but it is environment-specific; move it to a documented build configuration property and validate production Firebase fingerprints.
 - Confirm the app has a stable package name, app icon, screenshots, feature graphic, store description, support contact and content rating before listing.
 
 ### Quality gates and automated tests
 
-The current GitHub Actions workflow runs `testDebugUnitTest assembleDebug`. It does not run Android Lint, build a release bundle, run instrumentation/UI tests, validate Firestore rules in an emulator, or exercise a real Firebase/Play Billing environment.
+PR #9 configures GitHub Actions to run `testDebugUnitTest lintDebug assembleDebug bundleRelease`. The latest run must pass before merge. CI still does not run instrumentation/UI tests, validate Firestore rules in an emulator, or exercise production Firebase authentication/sync.
 
 Add CI gates for:
 1. `testDebugUnitTest`
@@ -128,7 +110,13 @@ Add CI gates for:
 6. Firestore Emulator rules tests
 7. Selected Compose UI / navigation / accessibility tests
 
-The visible unit-test suite focuses mainly on domain calculations, registration validation and program scheduling. Add repository, ViewModel, database migration, sync, billing-state and reminder tests. Run TalkBack, large font, narrow-device and dark-theme checks on physical devices.
+The visible unit-test suite focuses mainly on domain calculations, registration validation and program scheduling. Add repository, ViewModel, database migration, sync, account-deletion and reminder tests. Run TalkBack, large font, narrow-device and dark-theme checks on physical devices.
+
+## Conditional Google Play production-access gate
+
+- Personal developer accounts created after 13 November 2023 must complete a closed test with at least 12 testers opted in continuously for 14 days before applying for production access.
+- Internal testing can still be used while preparing the release, but it does not replace this closed-testing requirement.
+- Confirm the developer account type/creation date and whether the 14-day tester period has already been completed before promising a public production date.
 
 ## Play Store policy and product readiness
 
@@ -136,22 +124,21 @@ The visible unit-test suite focuses mainly on domain calculations, registration 
 - **Data Safety:** complete the Play Console Data safety form accurately for Firebase Authentication, profile fields, habit records, cloud sync and any future analytics/ads. Keep it consistent with the privacy policy.
 - **Privacy policy:** publish a public, accessible policy that describes data collected, purposes, storage, retention, deletion, security and support contact.
 - **Account deletion:** provide both the in-app path and external request page described above.
-- **Subscriptions:** clearly show localized price, billing period, auto-renewal terms, trial/introductory offer terms, cancellation and restore behavior before purchase.
 - **Health/wellness content:** keep claims conservative, clearly distinguish general wellness from medical advice, and have fitness content reviewed by a qualified professional before public distribution.
 - **Accessibility:** verify touch targets, content descriptions, contrast, keyboard/switch access, TalkBack order and font scaling.
 - **Localization:** validate English copy and date/time behavior; consider Urdu only after the first language is polished and tested.
 
 ## Recommended launch sequence
 
-1. **Close P0 gates:** account deletion, privacy policy/web deletion resource, Billing Library upgrade, trusted purchase verification (or disable paid access), deploy/test Firestore rules, and protect unsynced local changes.
+1. **Close P0 gates:** account deletion, privacy policy/web deletion resource, deploy/test Firestore rules, and protect unsynced local changes.
 2. **Stabilize data:** server-authoritative sync timestamps, conflict policy, visible sync status, Room schema snapshots and migration tests.
 3. **Harden the release:** launcher icon, release AAB/signing, lint + release CI, emulator rules tests, UI/accessibility/device matrix.
-4. **Internal testing:** install from a Play internal testing track on multiple Android versions and at least two accounts/devices; test fresh install, upgrade, offline, reconnect, account switch, restore purchases, notification denial and data deletion.
-5. **Closed testing / staged rollout:** monitor crash-free sessions, sync failures, sign-in failures, billing errors, uninstall feedback and support requests before broad rollout.
+4. **Internal testing:** install from a Play internal testing track on multiple Android versions and at least two accounts/devices; test fresh install, upgrade, offline, reconnect, account switch, notification denial and data deletion.
+5. **Closed testing / staged rollout:** monitor crash-free sessions, sync failures, sign-in failures, sync errors, uninstall feedback and support requests before broad rollout.
 
 ## Audit limitations
 
 - No physical device or emulator was available for this source audit.
 - Production Firebase project settings, deployed Firestore rules, OAuth fingerprints and account data were not inspected.
-- Play Console product configuration, developer account status, signing setup, Data Safety answers and store listing were not inspected.
+- Play Console developer account status, signing setup, Data Safety answers and store listing were not inspected. No subscription products or billing configuration are required for the free first release.
 - The source-level CI pass only confirms the workflow's debug unit tests and debug assembly for the merged loading-state branch; it is not a production release sign-off.
