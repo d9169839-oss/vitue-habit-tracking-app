@@ -2,18 +2,18 @@
 
 ## What the feature does
 
-The Profile screen contains a permanent **Delete account** action. The user must review an irreversible-action warning and type \`DELETE\` before the app sends the request.
+The Profile screen contains a permanent **Delete account** action. The user must review an irreversible-action warning and type `DELETE` before the app sends the request.
 
-The Android client does not attempt to recursively delete Firestore data itself. It calls the trusted Firebase callable function \`deleteMyAccount\`, which:
+The Android client does not attempt to recursively delete Firestore data itself. It calls the trusted Firebase callable function `deleteMyAccount`, which:
 
 1. Requires a valid Firebase Authentication session.
-2. Requires a real sign-in within the previous five minutes (\`auth_time\`; refreshing an old ID token is not sufficient).
+2. Requires a real sign-in within the previous five minutes (`auth_time`; refreshing an old ID token is not sufficient).
 3. Requires a valid Firebase App Check token.
 4. Takes the UID only from the verified callable request context. A client cannot submit a different UID.
-5. Uses the Admin SDK \`recursiveDelete\` on \`users/{uid}\`, deleting that document and all nested collections/documents.
+5. Uses the Admin SDK `recursiveDelete` on `users/{uid}`, deleting that document and all nested collections/documents.
 6. Deletes the Firebase Authentication user only after the Firestore purge succeeds. If Auth deletion fails, the still-existing account can retry the idempotent purge.
 
-The current app's cloud user data is stored under \`users/{uid}\`: \`habits\`, \`habitCheckIns\`, \`programEnrollments\`, \`programActivities\`, and \`dailySummaries\`. Recursive deletion covers current and future nested collections under that user document.
+The current app's cloud user data is stored under `users/{uid}`: `habits`, `habitCheckIns`, `programEnrollments`, `programActivities`, and `dailySummaries`. Recursive deletion covers current and future nested collections under that user document.
 
 After the callable succeeds, the Android client signs out, clears UID-specific sync metadata, cancels WorkManager jobs, and clears every Room table (including the durable sync outbox). Firestore disk persistence is disabled because Room is the app's offline source of truth; this avoids retaining a persistent Firestore disk cache on the device after account deletion.
 
@@ -31,7 +31,7 @@ Cloud Functions deployment requires the Firebase project to be on the **Blaze** 
 
 From the repository root:
 
-\`\`\`bash
+```bash
 cd functions
 npm install
 npm test
@@ -39,10 +39,11 @@ npm run build
 cd ..
 firebase login
 firebase use --add
-firebase deploy --only functions,hosting,firestore:rules
-\`\`\`
+firebase deploy --only firestore:rules
+firebase deploy --only functions,hosting
+```
 
-Select the same Firebase project used by the Android app. Do not deploy to a different project from the one whose \`google-services.json\` is bundled in the Android build.
+Select the same Firebase project used by the Android app. Do not deploy to a different project from the one whose `google-services.json` is bundled in the Android build. Deploy Firestore rules first: the callable function relies on the deletion tombstone rule to prevent stale clients from recreating data. Enable the `accountDeletionTombstones.expireAt` TTL policy before allowing real account deletion requests.
 
 ### 3. Configure App Check
 
@@ -54,11 +55,11 @@ Select the same Firebase project used by the Android app. Do not deploy to a dif
 
 ### 4. Publish the external deletion-request page
 
-Before deployment, replace \`REPLACE_WITH_SUPPORT_EMAIL\` in \`public/delete-account.html\` with the real monitored support email address.
+Before deployment, replace `REPLACE_WITH_SUPPORT_EMAIL` in `public/delete-account.html` with the real monitored support email address.
 
 After Firebase Hosting deployment, verify:
 
-\`https://<your-firebase-project-id>.web.app/delete-account.html\`
+`https://<your-firebase-project-id>.web.app/delete-account.html`
 
 Use this exact public URL in the Google Play Console account-deletion URL field. Verify it opens in a browser without requiring sign-in. The email address must be monitored and the process must actually complete deletion requests.
 
@@ -70,7 +71,7 @@ Use this exact public URL in the Google Play Console account-deletion URL field.
 - [ ] Verify the public deletion URL works without authentication.
 - [ ] Create a test account with records in habits, check-ins, program enrollments, and program activities.
 - [ ] Sign in recently, delete from Profile, and verify the Firebase Authentication user no longer exists.
-- [ ] Verify \`users/{uid}\` and every nested Firestore collection/document are gone.
+- [ ] Verify `users/{uid}` and every nested Firestore collection/document are gone.
 - [ ] Verify the app returns to the signed-out state and Room tables/outbox are empty.
 - [ ] Verify a stale session is rejected with a sign-out/sign-in instruction and does not delete data.
 - [ ] Verify an offline request fails safely and does not clear local data.
