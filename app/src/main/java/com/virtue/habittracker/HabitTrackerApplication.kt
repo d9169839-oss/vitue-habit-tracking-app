@@ -3,9 +3,9 @@ package com.virtue.habittracker
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.virtue.habittracker.reminders.HabitReminderScheduler
-import com.virtue.habittracker.data.sync.HabitSyncScheduler
 import com.virtue.habittracker.data.repository.HabitCloudDataSource
+import com.virtue.habittracker.data.sync.HabitSyncScheduler
+import com.virtue.habittracker.reminders.HabitReminderScheduler
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -31,12 +31,13 @@ class HabitTrackerApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // WorkManager persists scheduled work across process death and device restarts.
+
+        // App Check protects callable account deletion from unauthenticated/unverified clients.
+        AppCheckInstaller.install()
+
         reminderScheduler.scheduleNextReminder()
-        // Listen for remote habit, check-in and program changes while signed in. Events are
-        // merged into Room, so every screen observes the same local source of truth.
+        // Listen for remote habit, check-in and program changes while signed in.
         habitCloudDataSource.startRealtimeSync()
-        // Startup schedules durable work; the worker exits harmlessly when signed out/offline.
         habitSyncScheduler.enqueueSync()
         habitSyncScheduler.schedulePeriodicSync()
     }

@@ -85,6 +85,8 @@ dependencies {
     implementation(libs.firebase.auth)
     // Firestore provides per-user cloud persistence and offline write queuing.
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.functions)
+    implementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.coroutines.play.services)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services)
@@ -94,4 +96,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.espresso.core)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.firebase.appcheck.debug)
 }

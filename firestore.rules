@@ -2,24 +2,36 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Every account can read and write only its own profile and nested habit data.
-    // Firebase Authentication handles passwords; they must never be stored here.
+    // A deletion tombstone temporarily blocks stale ID tokens from recreating deleted data.
+    // Tombstones are written by the Admin SDK only; client access is denied by default.
+    function accountIsNotBeingDeleted(userId) {
+      return !exists(/databases/$(database)/documents/accountDeletionTombstones/$(userId));
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && accountIsNotBeingDeleted(userId);
 
       match /habits/{habitId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId);
       }
 
       match /habitCheckIns/{checkInId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId);
       }
 
-      // Program documents are isolated by authenticated UID. The client writes a compact
-      // tombstone for deletions, or a validated snapshot for active records.
       match /programEnrollments/{enrollmentId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow create, update: if request.auth != null && request.auth.uid == userId
+        allow read: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId);
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId)
           && request.resource.data.id == enrollmentId
           && request.resource.data.updatedAtMillis is int
           && (
@@ -47,12 +59,18 @@ service cloud.firestore {
               && request.resource.data.createdAtMillis is int
             )
           );
-        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId);
       }
 
       match /programActivities/{activityId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow create, update: if request.auth != null && request.auth.uid == userId
+        allow read: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId);
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId)
           && request.resource.data.id == activityId
           && request.resource.data.updatedAtMillis is int
           && (
@@ -74,13 +92,19 @@ service cloud.firestore {
               && request.resource.data.status in ['PENDING', 'COMPLETED', 'SKIPPED']
             )
           );
-        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId);
       }
 
-      // Optional future optimization. The app currently derives summaries from check-ins.
       match /dailySummaries/{dateKey} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && accountIsNotBeingDeleted(userId);
       }
     }
+
+    // No client read/write rule is granted for accountDeletionTombstones.
+    // The Admin SDK creates a short-lived UID-only marker with a TTL expiry.
   }
 }

@@ -9,14 +9,11 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Schedules one reminder at 8:00 PM in the device's current time zone.
- *
- * A dated unique-work name prevents app launches from creating duplicate reminders.
  * WorkManager is not an exact alarm: Android battery restrictions can delay delivery.
  */
 @Singleton
@@ -42,10 +39,18 @@ class HabitReminderScheduler @Inject constructor(
             .build()
 
         WorkManager.getInstance(context).enqueueUniqueWork(
-            "habit_reminder_${dateTime.toLocalDate()}",
+            "habit_reminder_" + dateTime.toLocalDate(),
             ExistingWorkPolicy.KEEP,
             request
         )
+    }
+
+    /** Cancel today's and tomorrow's only possible pending reminder after account deletion. */
+    fun cancelScheduledReminders() {
+        val workManager = WorkManager.getInstance(context)
+        val today = LocalDate.now()
+        workManager.cancelUniqueWork("habit_reminder_" + today)
+        workManager.cancelUniqueWork("habit_reminder_" + today.plusDays(1))
     }
 
     companion object {

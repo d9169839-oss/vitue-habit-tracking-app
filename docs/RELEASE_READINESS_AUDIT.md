@@ -142,3 +142,16 @@ The visible unit-test suite focuses mainly on domain calculations, registration 
 - Production Firebase project settings, deployed Firestore rules, OAuth fingerprints and account data were not inspected.
 - Play Console developer account status, signing setup, Data Safety answers and store listing were not inspected. No subscription products or billing configuration are required for the free first release.
 - The source-level CI pass only confirms the workflow's debug unit tests and debug assembly for the merged loading-state branch; it is not a production release sign-off.
+
+
+## Status update — account deletion implementation (PR #10)
+
+The account-deletion implementation has now been added to the Android app and Firebase source:
+
+- Profile includes an irreversible Delete account action with typed confirmation.
+- A callable Firebase Function derives the UID from verified Auth context, requires recent authentication and App Check, creates a short-lived deletion tombstone, recursively deletes `users/{uid}` and nested documents, then deletes the Firebase Authentication account.
+- Firestore rules block stale sessions from recreating the deleted user's data while the tombstone exists.
+- The client signs out and clears Room tables, outbox, UID-specific local sync metadata, sync work and reminders after server deletion.
+- A public Firebase Hosting deletion-request page and deployment guide are included.
+
+**This supersedes the earlier statement that account deletion is absent, but it does not close the release gate yet.** Before release, deploy the function, hosting page and Firestore rules to the production Firebase project; enable TTL for `accountDeletionTombstones.expireAt`; register App Check; replace the support-email placeholder; and verify the entire deletion flow against test accounts. Android uninstall itself cannot execute account deletion; users must use Profile → Delete account before uninstalling, or use the external deletion-request page. The updated Android CI now runs unit tests, lint, debug assembly and a release bundle build; the Firebase Functions workflow runs its policy tests and TypeScript compilation.

@@ -13,3 +13,6 @@ google-services.json
 *.jks
 *.keystore
 secrets.properties
+.firebase/
+functions/node_modules/
+functions/lib/

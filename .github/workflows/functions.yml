@@ -1,0 +1,38 @@
+name: Firebase Functions verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "firebase.json"
+      - ".github/workflows/functions.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "firebase.json"
+      - ".github/workflows/functions.yml"
+  workflow_dispatch:
+
+jobs:
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package.json
+      - name: Install function dependencies
+        working-directory: functions
+        run: npm install
+      - name: Run account deletion policy tests
+        working-directory: functions
+        run: npm test
+      - name: Compile Firebase Functions
+        working-directory: functions
+        run: npm run build

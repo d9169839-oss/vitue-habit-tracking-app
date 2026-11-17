@@ -11,8 +11,13 @@ import com.virtue.habittracker.data.repository.RoomHabitRepository
 import com.virtue.habittracker.domain.repository.HabitRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.MemoryCacheSettings
+import com.google.firebase.functions.FirebaseFunctions
 import com.virtue.habittracker.data.repository.FirebaseAuthRepository
+import com.virtue.habittracker.data.repository.FirebaseAccountDeletionRepository
 import com.virtue.habittracker.domain.repository.AuthRepository
+import com.virtue.habittracker.domain.repository.AccountDeletionRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -40,7 +45,17 @@ object FirebaseProviders {
 
     // Keep a single Firestore client for the lifetime of the application.
     @Provides @Singleton
-    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
+    fun provideFirestore(): FirebaseFirestore =
+        FirebaseFirestore.getInstance().apply {
+            // Room is the offline source of truth; avoid retaining a second persistent user-data cache.
+            firestoreSettings = FirebaseFirestoreSettings.Builder()
+                .setLocalCacheSettings(MemoryCacheSettings.newBuilder().build())
+                .build()
+        }
+
+    @Provides @Singleton
+    fun provideFirebaseFunctions(): FirebaseFunctions =
+        FirebaseFunctions.getInstance("asia-south1")
 }
 @Module
 @InstallIn(SingletonComponent::class)
@@ -52,4 +67,7 @@ abstract class RepositoryBindings {
 
     @Binds @Singleton
     abstract fun bindProgramRepository(implementation: RoomProgramRepository): ProgramRepository
+
+    @Binds @Singleton
+    abstract fun bindAccountDeletionRepository(implementation: FirebaseAccountDeletionRepository): AccountDeletionRepository
 }

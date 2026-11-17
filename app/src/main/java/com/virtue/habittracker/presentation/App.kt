@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.virtue.habittracker.R
+import com.virtue.habittracker.presentation.account.AccountDeletionViewModel
 import com.virtue.habittracker.presentation.auth.AuthViewModel
 import com.virtue.habittracker.presentation.history.HistoryViewModel
 import com.virtue.habittracker.presentation.home.HomeViewModel
@@ -40,15 +41,24 @@ fun App(
     onSignOut: () -> Unit,
     homeViewModel: HomeViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     authViewModel: AuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-    historyViewModel: HistoryViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    historyViewModel: HistoryViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    accountDeletionViewModel: AccountDeletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     // HomeTab remains composed underneath the splash so its Room Flow can emit the first snapshot.
     val hasLoadedInitialHomeData by homeViewModel.hasLoadedInitialData.collectAsStateWithLifecycle()
+    val deletionState by accountDeletionViewModel.uiState.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(AppTab.HOME) }
     var programsFullScreen by remember { mutableStateOf(false) }
     val isOnline = rememberInternetConnectivity()
     var showOnlineBanner by remember { mutableStateOf(false) }
     var hasBeenOffline by remember { mutableStateOf(!isOnline) }
+
+    LaunchedEffect(accountDeletionViewModel) {
+        accountDeletionViewModel.completed.collect {
+            // Firebase Auth has already been deleted by the trusted server function.
+            onSignOut()
+        }
+    }
 
     LaunchedEffect(isOnline) {
         if (!isOnline) {
@@ -63,58 +73,72 @@ fun App(
     }
 
     Box(Modifier.fillMaxSize()) {
-      Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        // Keep the offline banner persistent; briefly confirm reconnection as before.
-        if (!isOnline) {
-            ConnectivityBanner(text = "Device offline", background = androidx.compose.ui.graphics.Color(0xFFC62828))
-        } else if (showOnlineBanner) {
-            ConnectivityBanner(text = "Internet available", background = androidx.compose.ui.graphics.Color(0xFF2E7D32))
-        }
+        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            if (!isOnline) {
+                ConnectivityBanner(text = "Device offline", background = androidx.compose.ui.graphics.Color(0xFFC62828))
+            } else if (showOnlineBanner) {
+                ConnectivityBanner(text = "Internet available", background = androidx.compose.ui.graphics.Color(0xFF2E7D32))
+            }
 
-        // All destinations stay composed to preserve their state and fast tab switching.
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            HomeTab(
-                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HOME) 1f else 0f),
-                visible = selectedTab == AppTab.HOME,
-                vm = homeViewModel,
-                authViewModel = authViewModel,
-                historyViewModel = historyViewModel,
-                onOpenHistory = { selectedTab = AppTab.HISTORY },
-                onSignOut = onSignOut
-            )
-            HistoryTab(
-                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HISTORY) 1f else 0f),
-                visible = selectedTab == AppTab.HISTORY,
-                vm = historyViewModel
-            )
-            ProgramsTab(
-                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
-                visible = selectedTab == AppTab.PROGRAMS,
-                onFullScreenChange = { programsFullScreen = it }
-            )
-            ProfileTab(
-                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
-                visible = selectedTab == AppTab.PROFILE,
-                onSignOut = { authViewModel.signOut(); onSignOut() }
-            )
-        }
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                HomeTab(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HOME) 1f else 0f),
+                    visible = selectedTab == AppTab.HOME,
+                    vm = homeViewModel,
+                    authViewModel = authViewModel,
+                    historyViewModel = historyViewModel,
+                    onOpenHistory = { selectedTab = AppTab.HISTORY },
+                    onSignOut = onSignOut
+                )
+                HistoryTab(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HISTORY) 1f else 0f),
+                    visible = selectedTab == AppTab.HISTORY,
+                    vm = historyViewModel
+                )
+                ProgramsTab(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
+                    visible = selectedTab == AppTab.PROGRAMS,
+                    onFullScreenChange = { programsFullScreen = it }
+                )
+                ProfileTab(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
+                    visible = selectedTab == AppTab.PROFILE,
+                    onSignOut = { authViewModel.signOut(); onSignOut() },
+                    deletionState = deletionState,
+                    onDeleteAccountClick = accountDeletionViewModel::showConfirmation,
+                    onDeleteConfirmationChanged = accountDeletionViewModel::onConfirmationTextChanged,
+                    onDeleteAccountConfirmed = accountDeletionViewModel::deleteAccount,
+                    onDeleteAccountCancelled = accountDeletionViewModel::dismissConfirmation
+                )
+            }
 
-        if (!programsFullScreen) NavigationBar {
-            NavigationBarItem(selected = selectedTab == AppTab.HOME, onClick = { selectedTab = AppTab.HOME },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
-                label = { Text("Home") })
-            NavigationBarItem(selected = selectedTab == AppTab.PROGRAMS, onClick = { selectedTab = AppTab.PROGRAMS },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_program), contentDescription = "Programs") },
-                label = { Text("Programs") })
-            NavigationBarItem(selected = selectedTab == AppTab.HISTORY, onClick = { selectedTab = AppTab.HISTORY },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_history), contentDescription = "History") },
-                label = { Text("History") })
-            NavigationBarItem(selected = selectedTab == AppTab.PROFILE, onClick = { selectedTab = AppTab.PROFILE },
-                icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_profile), contentDescription = "Profile") },
-                label = { Text("Profile") })
+            if (!programsFullScreen) NavigationBar {
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.HOME,
+                    onClick = { selectedTab = AppTab.HOME },
+                    icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_home), contentDescription = "Home") },
+                    label = { Text("Home") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.PROGRAMS,
+                    onClick = { selectedTab = AppTab.PROGRAMS },
+                    icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_program), contentDescription = "Programs") },
+                    label = { Text("Programs") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.HISTORY,
+                    onClick = { selectedTab = AppTab.HISTORY },
+                    icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_history), contentDescription = "History") },
+                    label = { Text("History") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.PROFILE,
+                    onClick = { selectedTab = AppTab.PROFILE },
+                    icon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_profile), contentDescription = "Profile") },
+                    label = { Text("Profile") }
+                )
+            }
         }
-      }
-      // Cover the complete app (including navigation) only for the first local data load.
-      if (!hasLoadedInitialHomeData) VitueSplashScreen()
+        if (!hasLoadedInitialHomeData) VitueSplashScreen()
     }
 }

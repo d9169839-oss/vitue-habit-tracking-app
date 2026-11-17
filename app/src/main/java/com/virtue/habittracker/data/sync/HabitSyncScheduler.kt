@@ -8,6 +8,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,7 +19,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class HabitSyncScheduler @Inject constructor(
-    @dagger.hilt.android.qualifiers.ApplicationContext context: Context
+    @ApplicationContext context: Context
 ) {
     private val workManager = WorkManager.getInstance(context)
     private val connectedConstraint = Constraints.Builder()
@@ -27,7 +28,6 @@ class HabitSyncScheduler @Inject constructor(
 
     fun enqueueSync() {
         val request = OneTimeWorkRequestBuilder<HabitSyncWorker>()
-            // A tiny debounce lets rapid taps/edit sequences collapse into one latest-value upload.
             .setInitialDelay(2, TimeUnit.SECONDS)
             .setConstraints(connectedConstraint)
             .setBackoffCriteria(
@@ -36,14 +36,9 @@ class HabitSyncScheduler @Inject constructor(
                 TimeUnit.SECONDS
             )
             .build()
-        workManager.enqueueUniqueWork(
-            ONE_TIME_WORK_NAME,
-            ExistingWorkPolicy.KEEP,
-            request
-        )
+        workManager.enqueueUniqueWork(ONE_TIME_WORK_NAME, ExistingWorkPolicy.KEEP, request)
     }
 
-    /** A low-frequency incremental pull keeps other-device edits eventually consistent. */
     fun schedulePeriodicSync() {
         val request = PeriodicWorkRequestBuilder<HabitSyncWorker>(6, TimeUnit.HOURS)
             .setConstraints(connectedConstraint)
@@ -53,6 +48,15 @@ class HabitSyncScheduler @Inject constructor(
             ExistingPeriodicWorkPolicy.KEEP,
             request
         )
+    }
+
+    /**
+     * Stop only this app's account-sync jobs after the server deletion succeeds.
+     * The Firestore deletion tombstone protects against a worker that is already running.
+     */
+    fun cancelPendingSync() {
+        workManager.cancelUniqueWork(ONE_TIME_WORK_NAME)
+        workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
     }
 
     private companion object {
