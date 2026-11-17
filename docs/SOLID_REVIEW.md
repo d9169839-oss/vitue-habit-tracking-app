@@ -1,6 +1,6 @@
 # SOLID architecture review — Vitue Habit Tracker
 
-**Review scope:** Kotlin/Compose source currently on `main`, including presentation, domain, data, dependency-injection, authentication, persistence/sync, programs and billing. This is a source-level design review, not a claim that every SOLID concern has been eliminated or that the project has passed a build.
+**Review scope:** Kotlin/Compose source currently on `main`, including presentation, domain, data, dependency-injection, authentication, persistence/sync, and free Programs. This is a source-level design review, not a claim that every SOLID concern has been eliminated or that the project has passed a build.
 
 ## What is already in good shape
 
@@ -19,7 +19,7 @@
 | SRP / ISP | `HabitCloudDataSource` handles several cloud record families (profile, habits, check-ins and program records) and their sync rules. | **Too broad for long-term growth.** Extract focused cloud data sources or sync handlers by aggregate while retaining one orchestration worker. Avoid splitting until contract tests cover conflict/tombstone behaviour. |
 | DIP / testability | `GoogleButton` constructs `GoogleCredentialClient` inside the composable. | **Platform coupling at UI boundary.** Move credential acquisition behind a small interface/factory supplied by Hilt (or a UI launcher abstraction) so screen tests can provide a fake. |
 | OCP | Some UI and data mapping use explicit `when`/enum/string branches for status/category handling. | **Acceptable for closed enums today.** Keep status-specific behaviour behind domain mapping/policy functions as variants grow; avoid a generic plugin framework prematurely. |
-| LSP / ISP | The repository and entitlement contracts are relatively small and purpose-specific; no clear substitutability violation was identified in the reviewed interfaces. | **No confirmed violation.** Keep interfaces consumer-focused and avoid adding unrelated methods to them. |
+| LSP / ISP | The repository contracts are relatively small and purpose-specific; no clear substitutability violation was identified in the reviewed interfaces. | **No confirmed violation.** Keep interfaces consumer-focused and avoid adding unrelated methods to them. |
 
 ## Changes made in this update
 
@@ -33,7 +33,7 @@
 1. Extract `App.kt` into app shell + separate feature screen files, preserving existing behaviour and adding UI tests.
 2. Add a post-auth bootstrap coordinator; test auth success independently from profile bootstrap/sync scheduling.
 3. Split the broad cloud sync implementation behind focused contracts and add tests for pending local edits, tombstones, retries and account switching.
-4. Split Play Billing transport from entitlement verification. **Do not use the local cached premium boolean as an authorization decision**; validate purchase tokens on a trusted backend before granting paid features.
+4. Keep the first release free of subscriptions and in-app purchases. Revisit billing only after a separate product and backend-security review.
 5. Add fake credential-provider tests for Login/Register and tests for ViewModel failure/cancellation/loading transitions.
 
 ## Verification status
