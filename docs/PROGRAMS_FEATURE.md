@@ -248,7 +248,7 @@ Before release: run Gradle unit tests, Android lint, Room migration tests, Fireb
 
 ## Recommended delivery phases
 
-1. **Foundation:** approve template schema, safety policy, entitlement contract, Room migration, repository/use cases, deterministic personalization, unit tests.
+1. **Foundation:** approve template schema, safety policy, Room migration, repository/use cases, deterministic personalization, unit tests.
 2. **Browse and start:** catalog, category filters, detail, personalization wizard, review, enrollment creation.
 3. **Daily plan:** activity checklist, completion, pause/resume/skip/replan, local progress and reminders.
 4. **Cloud sync:** outbox operations, per-user Firestore rules, migration/conflict handling, sync status.
@@ -261,7 +261,7 @@ Before release: run Gradle unit tests, Android lint, Room migration tests, Fireb
 3. Which languages should the initial catalog support?
 4. Will a qualified fitness/health reviewer approve exercise and weight-management content before release?
 
-Until these decisions are finalized, use safe defaults: template-driven plans, no guaranteed outcomes, optional measurements, local-first persistence, and no fake premium entitlement in production.
+Until these decisions are finalized, use safe defaults: template-driven plans, no guaranteed outcomes, optional measurements, local-first persistence, and no billing or subscription logic in the first release.
 
 
 ## Recommended program roadmap (product proposal)
