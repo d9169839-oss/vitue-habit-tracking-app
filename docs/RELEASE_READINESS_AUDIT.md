@@ -1,9 +1,9 @@
 # Vitue Habit Tracker — Release Readiness Audit
 
-**Audit date:** 17 November 2026  
+**Audit date:** 18 November 2026  
 **Repository:** `d9169839-oss/vitue-habit-tracking-app`  
 **Branch audited:** `main` after merge of PR #6  
-**Verdict:** **Not ready for public Play Store release yet.** The core Android app and local-first habit workflow are a useful MVP foundation, but account deletion, subscription security/compliance, data-sync safety, and release verification remain launch gates.
+**Verdict:** **Not ready for public Play Store release yet.** The core Android app and local-first habit workflow are a useful MVP foundation, but account deletion, data-sync safety, Firebase verification, and release verification remain launch gates. The first public release now includes all Programs free of charge and has no in-app subscription or purchase flow.
 
 This is a source-level audit. It does not claim that Firebase rules are deployed, Play Console products are configured, or the app has passed physical-device testing. The audit cannot inspect the user's Firebase/Play Console account state.
 
@@ -32,25 +32,9 @@ The app supports account creation, but the inspected app has sign-out and no acc
 - Publish an external deletion-request page that names Vitue Habit Tracker and can be used without reinstalling the app.
 - Add retention disclosures for any data that cannot legally or operationally be deleted immediately.
 
-### P0 — Google Play Billing Library is too old
+### Removed from launch scope — subscriptions and premium access
 
-The version catalog currently pins `com.android.billingclient:billing-ktx:6.2.1`. Google Play's current deprecation schedule gives Billing Library 6 a submission deadline of 31 August 2025 and Billing Library 7 a deadline of 31 August 2026. As of this audit date, new apps and updates need Billing Library 8 or newer.
-
-**Required work**
-- Migrate to a supported release (prefer the current 9.x line after reviewing its migration guide) and update removed/deprecated API calls.
-- Run purchase, restore, pending, cancellation, expiry, grace-period, refund and reconnect tests using Play license testers.
-- Do not treat a successful debug build as proof that Play Billing is compliant.
-
-### P0 — Premium entitlement is not securely verified
-
-`PremiumBillingManager` stores a `premiumCached` boolean in SharedPreferences and sets it from the client-side purchase query. There is no trusted purchase-token verification endpoint in the repository. The client also acknowledges owned purchases without first receiving a verified backend entitlement.
-
-**Required work**
-- Verify purchase tokens with the Google Play Developer API on a trusted backend.
-- Bind verified subscription entitlements to the authenticated Firebase UID; never accept a client-writable boolean as proof of payment.
-- Handle token replay, account changes, expiry, grace period, cancellation, refunds, revocation and restore.
-- Keep offline entitlement caching as a temporary UX convenience only, with a bounded and explicit stale-entitlement policy.
-- If the backend is not ready, launch the first public version without paid program access rather than shipping insecure billing.
+The first public release makes every built-in program free. Google Play Billing, premium-only program restrictions, subscription products, and trusted purchase verification are not part of this release. This removes the need for a separate subscription-verification backend. Firebase Authentication and Firestore are separate existing services used for account sign-in and cloud sync; their launch status must be decided and verified independently.
 
 ### P0 — Firestore rules must be deployed and tested
 
@@ -136,14 +120,13 @@ The visible unit-test suite focuses mainly on domain calculations, registration 
 - **Data Safety:** complete the Play Console Data safety form accurately for Firebase Authentication, profile fields, habit records, cloud sync and any future analytics/ads. Keep it consistent with the privacy policy.
 - **Privacy policy:** publish a public, accessible policy that describes data collected, purposes, storage, retention, deletion, security and support contact.
 - **Account deletion:** provide both the in-app path and external request page described above.
-- **Subscriptions:** clearly show localized price, billing period, auto-renewal terms, trial/introductory offer terms, cancellation and restore behavior before purchase.
 - **Health/wellness content:** keep claims conservative, clearly distinguish general wellness from medical advice, and have fitness content reviewed by a qualified professional before public distribution.
 - **Accessibility:** verify touch targets, content descriptions, contrast, keyboard/switch access, TalkBack order and font scaling.
 - **Localization:** validate English copy and date/time behavior; consider Urdu only after the first language is polished and tested.
 
 ## Recommended launch sequence
 
-1. **Close P0 gates:** account deletion, privacy policy/web deletion resource, Billing Library upgrade, trusted purchase verification (or disable paid access), deploy/test Firestore rules, and protect unsynced local changes.
+1. **Close P0 gates:** account deletion, privacy policy/web deletion resource, deploy/test Firestore rules, and protect unsynced local changes.
 2. **Stabilize data:** server-authoritative sync timestamps, conflict policy, visible sync status, Room schema snapshots and migration tests.
 3. **Harden the release:** launcher icon, release AAB/signing, lint + release CI, emulator rules tests, UI/accessibility/device matrix.
 4. **Internal testing:** install from a Play internal testing track on multiple Android versions and at least two accounts/devices; test fresh install, upgrade, offline, reconnect, account switch, restore purchases, notification denial and data deletion.
@@ -153,5 +136,5 @@ The visible unit-test suite focuses mainly on domain calculations, registration 
 
 - No physical device or emulator was available for this source audit.
 - Production Firebase project settings, deployed Firestore rules, OAuth fingerprints and account data were not inspected.
-- Play Console product configuration, developer account status, signing setup, Data Safety answers and store listing were not inspected.
+- Play Console developer account status, signing setup, Data Safety answers and store listing were not inspected. No subscription products or billing configuration are required for the free first release.
 - The source-level CI pass only confirms the workflow's debug unit tests and debug assembly for the merged loading-state branch; it is not a production release sign-off.
