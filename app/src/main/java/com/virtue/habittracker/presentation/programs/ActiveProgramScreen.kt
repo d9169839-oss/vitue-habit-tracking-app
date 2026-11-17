@@ -56,6 +56,7 @@ internal fun ActiveProgramScreen(
         Column(Modifier.padding(padding).padding(horizontal = 18.dp, vertical = 12.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(progress.enrollment.titleSnapshot, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(progress.enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramLavender)
+            Text("PROGRAM PROGRESS", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             LinearProgressIndicator(progress = { progress.progressPercent / 100f }, modifier = Modifier.fillMaxWidth(), color = ProgramViolet)
             Text(progress.progressPercent.toString() + "% complete · " + progress.completedCount + "/" + progress.totalCount + " activities", style = MaterialTheme.typography.bodySmall, color = ProgramMuted)
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = ProgramCard)) {
@@ -73,10 +74,14 @@ internal fun ActiveProgramScreen(
                                 }
                                 Text(if (activity.estimatedMinutes == 0) "Rest" else activity.estimatedMinutes.toString() + " min", color = ProgramLavender, style = MaterialTheme.typography.labelMedium)
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FilterChip(selected = activity.status == ProgramActivityStatus.COMPLETED, onClick = { onActivityStatus(activity.id, ProgramActivityStatus.COMPLETED) }, label = { Text("Complete") })
-                                FilterChip(selected = activity.status == ProgramActivityStatus.SKIPPED, onClick = { onActivityStatus(activity.id, ProgramActivityStatus.SKIPPED) }, label = { Text("Skip") })
-                                if (activity.status != ProgramActivityStatus.PENDING) TextButton(onClick = { onActivityStatus(activity.id, ProgramActivityStatus.PENDING) }) { Text("Reset") }
+                            if (activity.estimatedMinutes == 0) {
+                                Text("Recovery day · no workout required", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(selected = activity.status == ProgramActivityStatus.COMPLETED, onClick = { onActivityStatus(activity.id, ProgramActivityStatus.COMPLETED) }, label = { Text("Done") })
+                                    FilterChip(selected = activity.status == ProgramActivityStatus.SKIPPED, onClick = { onActivityStatus(activity.id, ProgramActivityStatus.SKIPPED) }, label = { Text("Skip") })
+                                    if (activity.status != ProgramActivityStatus.PENDING) TextButton(onClick = { onActivityStatus(activity.id, ProgramActivityStatus.PENDING) }) { Text("Reset") }
+                                }
                             }
                         }
                     }

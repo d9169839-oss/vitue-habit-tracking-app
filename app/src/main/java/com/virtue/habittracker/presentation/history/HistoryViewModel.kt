@@ -6,6 +6,8 @@ import com.virtue.habittracker.domain.model.HabitDayEntry
 import com.virtue.habittracker.domain.usecase.ObserveHabitHistoryForDayUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
+import java.time.DayOfWeek
+import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,26 +36,28 @@ class HistoryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
-     * A real seven-day series derived from the same persisted history as the daily History screen.
-     * Each point excludes unrecorded entries from its completion-rate denominator.
+     * A Monday-to-Sunday series derived from persisted habit history. Every calendar day is
+     * represented, and the percentage uses all habits active that day as its denominator.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val weeklyProgress = selectedDate
         .flatMapLatest { selected ->
-            val dates = (6 downTo 0).map { selected.minusDays(it.toLong()) }
+            val weekStart = selected.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            val dates = (0..6).map { weekStart.plusDays(it.toLong()) }
             combine(dates.map { date -> observeHistoryForDay(date.toEpochDay()) }) { dailyEntries ->
                 dates.mapIndexed { index, day ->
                     val dayEntries = dailyEntries[index]
                     val active = dayEntries.filter { it.isActiveOnDate }
                     val completed = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.COMPLETED }
                     val notCompleted = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.NOT_COMPLETED }
-                    val recorded = completed + notCompleted
+                    // Use all active habits as the denominator. A day with only one or two
+                    // recorded habits must not appear as 100% merely because few were recorded.
                     DailyProgressPoint(
                         date = day,
                         completedCount = completed,
                         notCompletedCount = notCompleted,
                         unrecordedCount = active.count { it.status == com.virtue.habittracker.domain.model.HabitDayStatus.UNRECORDED },
-                        completionRatePercent = if (recorded == 0) 0 else completed * 100 / recorded
+                        completionRatePercent = if (active.isEmpty()) 0 else completed * 100 / active.size
                     )
                 }
             }
@@ -71,17 +75,29 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    fun previousDay() {
-        selectDate(_selectedDate.value.minusDays(1))
+    /** Move through complete Monday-to-Sunday weeks; users cannot land on arbitrary dates. */
+    fun previousWeek() {
+        // Keep the daily snapshot on the same weekday while the chart moves by a full week.
+        selectDate(_selectedDate.value.minusWeeks(1))
     }
 
-    fun nextDay() {
+    fun nextWeek() {
         val current = _selectedDate.value
-        if (current.isBefore(LocalDate.now())) selectDate(current.plusDays(1))
+        val currentWeekStart = current.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val thisWeekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        if (currentWeekStart.isBefore(thisWeekStart)) {
+            selectDate(minOf(LocalDate.now(), current.plusWeeks(1)))
+        }
     }
 
-    fun goToToday() {
+    fun goToCurrentWeek() {
         selectDate(LocalDate.now())
+    }
+
+    fun canMoveToNextWeek(): Boolean {
+        val selectedWeekStart = _selectedDate.value.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val thisWeekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        return selectedWeekStart.isBefore(thisWeekStart)
     }
 }
 

@@ -14,6 +14,10 @@ The production-oriented Phase 1 implementation is committed in the repository:
 - Program enrollment and activity changes are enqueued transactionally and uploaded/pulled by the existing network-constrained WorkManager sync worker.
 - Hilt-backed ViewModel/use cases manage catalog filtering, start/pause/resume, completion/skip, progress, deletion, and durable schedule revisions.
 - Programs now use a dedicated full-screen flow: catalog → detail → personalization → plan review → active program. Android back navigation returns through the flow, and the bottom navigation is hidden while a program flow screen is open.
+- Active program cards show each program's completion percentage and progress bar. Opening a program shows today's scheduled activity and the program timeline; marking an activity Done/Skip/Reset writes the activity and its outbox operation in one Room transaction.
+- Program completion percentage counts scheduled activity days only. Zero-minute recovery/rest days remain visible in the plan but are excluded from the completion denominator.
+- Program enrollment and activity records sync through the durable WorkManager outbox to the user's Firestore subcollections. Account-scoped realtime listeners merge remote program changes back into Room, so a completion made on another signed-in device updates the local progress without waiting for the periodic pull.
+- The Programs repository waits for its initial enrollment/activity snapshots (with a bounded fallback) before exposing an empty catalogue state on a new device. Room remains the UI source of truth.
 - Active programs expose an "Adjust remaining schedule" flow. Replanning atomically updates the Room enrollment and future schedule while preserving completed/skipped history and queueing the revised rows for cloud sync.
 - Google Play Billing client loads subscription products, starts checkout, and restores owned subscriptions.
 

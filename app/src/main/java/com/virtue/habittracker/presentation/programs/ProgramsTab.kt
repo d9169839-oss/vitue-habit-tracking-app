@@ -385,7 +385,16 @@ private fun ActiveProgramSummaryCard(progress: ProgramProgress, onOpen: (Program
                 Text(progress.progressPercent.toString() + "%", color = ProgramLavender, fontWeight = FontWeight.Bold)
             }
             Text(progress.enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
-            Text("Open your plan →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { progress.progressPercent / 100f },
+                modifier = Modifier.fillMaxWidth().height(7.dp),
+                color = ProgramViolet,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${progress.completedCount}/${progress.totalCount} activities completed", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
+                Text("Open program →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
+            }
         }
     }
 }
