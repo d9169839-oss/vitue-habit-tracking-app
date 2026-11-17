@@ -2,10 +2,10 @@
 
 **Audit date:** 18 November 2026  
 **Repository:** `d9169839-oss/vitue-habit-tracking-app`  
-**Branch audited:** `main` after merge of PR #6  
+**Branch audited:** `main` after merge of PR #8  
 **Verdict:** **Not ready for public Play Store release yet.** The core Android app and local-first habit workflow are a useful MVP foundation, but account deletion, data-sync safety, Firebase verification, and release verification remain launch gates. The first public release now includes all Programs free of charge and has no in-app subscription or purchase flow.
 
-This is a source-level audit. It does not claim that Firebase rules are deployed, Play Console products are configured, or the app has passed physical-device testing. The audit cannot inspect the user's Firebase/Play Console account state.
+This is a source-level audit. It does not claim that Firebase rules are deployed or that the app has passed physical-device testing. The audit cannot inspect the user's Firebase/Play Console account state.
 
 ## What is in good shape
 
@@ -15,7 +15,7 @@ This is a source-level audit. It does not claim that Firebase rules are deployed
 - Auth session restoration, email/password and Google sign-in flows.
 - History and date-based habit status model, with completed / not completed / unrecorded states.
 - Program catalog and deterministic schedule generation are separated from Android UI code.
-- The recent startup hydration and section-loading work is merged to `main`; its GitHub Actions run passed the debug unit-test and debug-assembly job.
+- The startup hydration, program progress, realtime program sync, and weekly History changes are merged to `main`; GitHub Actions passed unit tests and debug compilation/assembly for PR #8.
 - The app targets API 36, which meets the Google Play target API requirement for new mobile apps and updates from 31 August 2026.
 
 ## Release blockers — fix before public launch
@@ -60,22 +60,20 @@ The app's domain enum includes `PERSONAL_DEVELOPMENT`, but the original Firestor
 
 ### Sync correctness and observability
 
-- Habit/check-in real-time listeners are present; program documents currently rely on WorkManager pulls/uploads rather than their own live listeners. This is acceptable for an MVP if eventual consistency is clearly communicated, but test the actual delay and recovery behavior.
+- Habit, check-in, program-enrollment, and program-activity realtime listeners are now present. The durable WorkManager outbox remains responsible for uploads and retry/catch-up. Test live updates, offline recovery, and process-death behaviour on two devices.
 - The sync implementation uses client-generated `updatedAtMillis` values as incremental cursors. Device clock skew can cause missed or repeatedly fetched updates. Prefer server-authoritative timestamps or a versioning strategy, and define a deterministic conflict policy.
 - Same-entity concurrent edits across devices still need a documented policy (for example, server version + last-write-wins with explicit local pending-write protection, or a conflict record).
 - Add a user-visible last-synced state and a recoverable sync-error state. The offline banner alone does not tell a user whether their latest change is safely backed up.
 - Add tests for outbox atomicity, retries, tombstones, stale acknowledgements, account changes, clock skew and simultaneous edits.
 
-### Progress destination is currently unreachable
+### Programs progress and History — updated in PR #8
 
-- `ProgressTab` is declared in `HistoryScreens.kt`, but the inspected `App.kt` navigation enum and bottom bar expose only Home, Programs, History and Profile. No call site for `ProgressTab` was found. The heading polish is therefore applied to the existing composable, but it will not be visible to users unless the Progress destination is intentionally restored or integrated into another screen.
-- Decide whether Progress should return as a fifth bottom-navigation destination, be integrated into History, or be removed as obsolete. Do not ship a dead screen as if it were a reachable feature.
-
-### Program progress accuracy and first-sync state
-
-- `ProgramProgress.totalCount` currently counts every generated activity, including zero-minute "Rest and reset" days, while `progressPercent` counts only completed activities. A user can follow every planned workout and still see an artificially low completion percentage. Define whether planned rest days count as completed adherence or should be excluded from the denominator, then add unit tests.
-- The Programs ViewModel considers its first Room emission to mean programs have loaded. On a fresh device, that emission can be empty while the WorkManager cloud import is still pending, so saved programs may appear late without a dedicated syncing state. Test a second-device first launch and add a program-hydration indicator/gate if the empty flash is visible.
-- Program activity/enrollment cloud synchronization currently uses WorkManager rather than real-time listeners. Set a clear expected consistency window and test process-death/reconnect recovery.
+- Program progress is integrated into Programs: active program cards show completion percentage and a progress bar; the program detail screen shows scheduled activities and their status.
+- Marking an activity Done/Skip/Reset updates Room and queues the matching Firestore operation. Account-scoped realtime listeners merge remote program changes into Room.
+- The Programs repository waits for initial program enrollment/activity snapshots, with a bounded fallback, before exposing an empty state on a new device.
+- Zero-minute rest/recovery days remain visible in a program but are excluded from the completion denominator.
+- History remains habit-only and now navigates by complete Monday–Sunday weeks. The seven-day chart is not clickable, includes zero-completion days, and calculates completion against all habits active that day.
+- PR #8 unit tests and debug compilation/assembly passed. The actual two-device sync path and production Firestore rules still require physical-device verification.
 
 ### Local database and history scale
 
@@ -129,7 +127,7 @@ The visible unit-test suite focuses mainly on domain calculations, registration 
 1. **Close P0 gates:** account deletion, privacy policy/web deletion resource, deploy/test Firestore rules, and protect unsynced local changes.
 2. **Stabilize data:** server-authoritative sync timestamps, conflict policy, visible sync status, Room schema snapshots and migration tests.
 3. **Harden the release:** launcher icon, release AAB/signing, lint + release CI, emulator rules tests, UI/accessibility/device matrix.
-4. **Internal testing:** install from a Play internal testing track on multiple Android versions and at least two accounts/devices; test fresh install, upgrade, offline, reconnect, account switch, restore purchases, notification denial and data deletion.
+4. **Internal testing:** install from a Play internal testing track on multiple Android versions and at least two accounts/devices; test fresh install, upgrade, offline, reconnect, account switch, notification denial and data deletion.
 5. **Closed testing / staged rollout:** monitor crash-free sessions, sync failures, sign-in failures, sync errors, uninstall feedback and support requests before broad rollout.
 
 ## Audit limitations
