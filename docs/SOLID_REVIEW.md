@@ -4,7 +4,7 @@
 
 ## What is already in good shape
 
-- **Dependency inversion:** `AuthRepository`, `HabitRepository`, `ProgramRepository` and are domain-facing contracts. Hilt binds data implementations to those contracts.
+- **Dependency inversion:** `AuthRepository`, `HabitRepository`, and `ProgramRepository` are domain-facing contracts. Hilt binds data implementations to those contracts.
 - **Use-case boundaries:** sign-in, registration, password reset, habit creation/completion and program actions have dedicated use cases. Validation for email/password/name lives outside Compose.
 - **ViewModel/UI separation:** authentication and the main habit/program screens expose state and user actions rather than making Firebase/Room calls directly from composables.
 - **Local-first persistence:** Room repositories persist user actions and queue durable sync operations; WorkManager performs cloud synchronization separately from the immediate UI interaction.
