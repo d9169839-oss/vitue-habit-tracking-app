@@ -1,6 +1,5 @@
 package com.virtue.habittracker.presentation.programs
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,12 +24,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,13 +35,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.android.billingclient.api.ProductDetails
-import com.virtue.habittracker.data.billing.PremiumBillingManager
 import com.virtue.habittracker.domain.model.program.ProgramCategory
 import com.virtue.habittracker.domain.model.program.ProgramEquipment
 import com.virtue.habittracker.domain.model.program.ProgramExperience
@@ -62,25 +56,18 @@ fun ProgramsTab(
     modifier: Modifier,
     visible: Boolean,
     onFullScreenChange: (Boolean) -> Unit,
-    vm: ProgramsViewModel = hiltViewModel(),
-    billingViewModel: ProgramsBillingViewModel = hiltViewModel()
+    vm: ProgramsViewModel = hiltViewModel()
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
-    val manager = billingViewModel.manager
-    val products by manager.products.collectAsState()
-    val billingMessage by manager.message.collectAsState()
-    val context = LocalContext.current
     var route by remember { mutableStateOf(ProgramRoute.CATALOG) }
     var selectedTemplateId by remember { mutableStateOf<String?>(null) }
     var selectedEnrollmentId by remember { mutableStateOf<String?>(null) }
     var draftPreferences by remember { mutableStateOf(ProgramPreferences()) }
     var draftStartEpochDay by remember { mutableStateOf(LocalDate.now().toEpochDay()) }
-    var showPremiumDialog by remember { mutableStateOf(false) }
 
     val selectedTemplate = vm.catalog.firstOrNull { it.id == selectedTemplateId }
     val selectedProgress = state.programs.firstOrNull { it.enrollment.id == selectedEnrollmentId }
 
-    LaunchedEffect(Unit) { manager.connect() }
     // Keep app navigation visible while the preview is shown over the catalogue.
     LaunchedEffect(route) { onFullScreenChange(route != ProgramRoute.CATALOG && route != ProgramRoute.DETAIL) }
 
@@ -114,7 +101,6 @@ fun ProgramsTab(
                     selectedEnrollmentId = progress.enrollment.id
                     route = ProgramRoute.ACTIVE
                 },
-                onPremium = { showPremiumDialog = true }
             )
             // Preview details are displayed in a modal overlay below.
             ProgramRoute.PERSONALIZE, ProgramRoute.ADJUST_PERSONALIZE -> selectedTemplate?.let { template ->
@@ -198,7 +184,6 @@ fun ProgramsTab(
         selectedTemplate?.let { template ->
             ProgramDetailScreen(
                 template = template,
-                isPremium = state.isPremium,
                 onBack = { route = ProgramRoute.CATALOG },
                 onPersonalize = {
                     draftPreferences = ProgramPreferences(
@@ -211,21 +196,8 @@ fun ProgramsTab(
                     draftStartEpochDay = LocalDate.now().toEpochDay()
                     route = ProgramRoute.PERSONALIZE
                 },
-                onPremium = { showPremiumDialog = true }
             )
         } ?: run { route = ProgramRoute.CATALOG }
-    }
-
-    if (showPremiumDialog) {
-        PremiumDialog(
-            products = products,
-            message = billingMessage,
-            onDismiss = { showPremiumDialog = false },
-            onRestore = manager::refreshPurchases,
-            onPurchase = { product ->
-                (context as? Activity)?.let { manager.launchPurchase(it, product) }
-            }
-        )
     }
 
     state.message?.let { message ->
@@ -244,8 +216,7 @@ private fun ProgramCatalogScreen(
     isProgramsLoading: Boolean,
     onCategory: (ProgramCategory?) -> Unit,
     onOpenTemplate: (com.virtue.habittracker.domain.model.program.ProgramTemplate) -> Unit,
-    onOpenProgram: (ProgramProgress) -> Unit,
-    onPremium: () -> Unit
+    onOpenProgram: (ProgramProgress) -> Unit
 ) {
     val visiblePrograms = state.programs
     val catalog = ProgramCatalogForUi.all
@@ -262,9 +233,7 @@ private fun ProgramCatalogScreen(
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("YOUR NEXT CHAPTER", color = ProgramLavender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 Text("A little progress, repeated.", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Choose a guided fitness, grooming, or mindfulness journey. Your plan is saved on this device first and works offline.", color = ProgramMuted)
-                if (!state.isPremium) OutlinedButton(onClick = onPremium) { Text("Explore Vitue Premium") }
-                else Text("Premium active", color = androidx.compose.ui.graphics.Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
+                Text("All guided programs are free for every user. Your plan is saved locally and syncs to your account when you are signed in and online.", color = ProgramMuted)
             }
         }
         if (isProgramsLoading) {
@@ -352,8 +321,8 @@ private fun ProgramTemplateCard(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    if (template.isPremium) "PREMIUM" else "FREE",
-                    color = if (template.isPremium) ProgramLavender else androidx.compose.ui.graphics.Color(0xFF34D399),
+                    "FREE FOR EVERYONE",
+                    color = androidx.compose.ui.graphics.Color(0xFF34D399),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -399,35 +368,3 @@ private fun ActiveProgramSummaryCard(progress: ProgramProgress, onOpen: (Program
     }
 }
 
-@Composable
-private fun PremiumDialog(
-    products: List<ProductDetails>,
-    message: String?,
-    onDismiss: () -> Unit,
-    onRestore: () -> Unit,
-    onPurchase: (ProductDetails) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Unlock Vitue Premium") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Get access to premium guided programs while keeping your existing progress and history.")
-                if (products.isEmpty()) Text("Subscription options will appear when Google Play Billing is connected and your products are available for this tester.", color = ProgramMuted)
-                products.forEach { product ->
-                    val offer = product.subscriptionOfferDetails?.firstOrNull()
-                    val price = offer?.pricingPhases?.pricingPhaseList?.lastOrNull()?.formattedPrice ?: "View price in Google Play"
-                    OutlinedButton(onClick = { onPurchase(product) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(product.name + " · " + price)
-                    }
-                }
-                if (message != null) Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) { Text("Restore purchase") }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Not now") } }
-    )
-}
-
-@dagger.hilt.android.lifecycle.HiltViewModel
-class ProgramsBillingViewModel @javax.inject.Inject constructor(val manager: PremiumBillingManager) : androidx.lifecycle.ViewModel()

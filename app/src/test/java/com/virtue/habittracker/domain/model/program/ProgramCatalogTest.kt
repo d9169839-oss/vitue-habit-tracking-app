@@ -20,7 +20,6 @@ class ProgramCatalogTest {
         assertEquals(15, template.defaultMinutesPerDay)
         assertEquals(ProgramDifficulty.BEGINNER, template.difficulty)
         assertEquals(ProgramEquipment.NONE, template.equipment)
-        assertEquals(false, template.isPremium)
         assertEquals(ProgramArtwork.FITNESS_WELLNESS, template.artwork)
         assertEquals(3, template.phases.size)
         assertEquals(1, template.phases.first().startDay)
@@ -45,6 +44,12 @@ class ProgramCatalogTest {
         assertEquals(3, template.phases.size)
         assertEquals(1, template.phases.first().startDay)
         assertEquals(30, template.phases.last().endDay)
+    }
+
+    @Test
+    fun `every built-in program is free for every user`() {
+        assertTrue(ProgramCatalog.all.isNotEmpty())
+        assertTrue(ProgramCatalog.all.none { it.isPremium })
     }
 
     @Test

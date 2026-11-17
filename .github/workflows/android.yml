@@ -55,5 +55,5 @@ jobs:
           }
           JSON
 
-      - name: Run unit tests and compile debug sources
-        run: gradle testDebugUnitTest assembleDebug
+      - name: Run unit tests, lint, debug build and release bundle
+        run: gradle testDebugUnitTest lintDebug assembleDebug bundleRelease
