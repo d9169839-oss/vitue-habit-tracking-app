@@ -101,7 +101,7 @@ The app's domain enum includes `PERSONAL_DEVELOPMENT`, but the original Firestor
 
 ### Quality gates and automated tests
 
-The current GitHub Actions workflow runs `testDebugUnitTest assembleDebug`. It does not run Android Lint, build a release bundle, run instrumentation/UI tests, validate Firestore rules in an emulator, or exercise a real Firebase/Play Billing environment.
+The current GitHub Actions workflow runs `testDebugUnitTest assembleDebug`. It does not run Android Lint, build a release bundle, run instrumentation/UI tests, validate Firestore rules in an emulator, or exercise production Firebase authentication/sync.
 
 Add CI gates for:
 1. `testDebugUnitTest`
@@ -112,7 +112,7 @@ Add CI gates for:
 6. Firestore Emulator rules tests
 7. Selected Compose UI / navigation / accessibility tests
 
-The visible unit-test suite focuses mainly on domain calculations, registration validation and program scheduling. Add repository, ViewModel, database migration, sync, billing-state and reminder tests. Run TalkBack, large font, narrow-device and dark-theme checks on physical devices.
+The visible unit-test suite focuses mainly on domain calculations, registration validation and program scheduling. Add repository, ViewModel, database migration, sync, account-deletion and reminder tests. Run TalkBack, large font, narrow-device and dark-theme checks on physical devices.
 
 ## Play Store policy and product readiness
 
@@ -130,7 +130,7 @@ The visible unit-test suite focuses mainly on domain calculations, registration 
 2. **Stabilize data:** server-authoritative sync timestamps, conflict policy, visible sync status, Room schema snapshots and migration tests.
 3. **Harden the release:** launcher icon, release AAB/signing, lint + release CI, emulator rules tests, UI/accessibility/device matrix.
 4. **Internal testing:** install from a Play internal testing track on multiple Android versions and at least two accounts/devices; test fresh install, upgrade, offline, reconnect, account switch, restore purchases, notification denial and data deletion.
-5. **Closed testing / staged rollout:** monitor crash-free sessions, sync failures, sign-in failures, billing errors, uninstall feedback and support requests before broad rollout.
+5. **Closed testing / staged rollout:** monitor crash-free sessions, sync failures, sign-in failures, sync errors, uninstall feedback and support requests before broad rollout.
 
 ## Audit limitations
 
