@@ -27,7 +27,7 @@ The app supports account creation, but the inspected app has sign-out and no acc
 **Required work**
 - Add a discoverable Delete account action with a clear irreversible-action confirmation and recent-authentication handling.
 - Delete the user's Firestore profile and all nested habit, check-in, program-enrollment and program-activity documents.
-- Remove local Room data, per-user sync state, pending work and cached entitlement data for that UID.
+- Remove local Room data, per-user sync state, pending work for that UID.
 - Delete the Firebase Authentication account after cloud data deletion succeeds; handle partial failures and retry safely.
 - Publish an external deletion-request page that names Vitue Habit Tracker and can be used without reinstalling the app.
 - Add retention disclosures for any data that cannot legally or operationally be deleted immediately.
