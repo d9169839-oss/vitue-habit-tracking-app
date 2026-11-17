@@ -2,7 +2,7 @@
 
 **Audit date:** 18 November 2026  
 **Repository:** `d9169839-oss/vitue-habit-tracking-app`  
-**Branch audited:** `main` after merge of PR #8  
+**Baseline audited:** `main` after merge of PR #8; PR #9 adds free Programs and initial release hardening.  
 **Verdict:** **Not ready for public Play Store release yet.** The core Android app and local-first habit workflow are a useful MVP foundation, but account deletion, data-sync safety, Firebase verification, and release verification remain launch gates. The first public release now includes all Programs free of charge and has no in-app subscription or purchase flow.
 
 This is a source-level audit. It does not claim that Firebase rules are deployed or that the app has passed physical-device testing. The audit cannot inspect the user's Firebase/Play Console account state.
@@ -90,16 +90,16 @@ The app's domain enum includes `PERSONAL_DEVELOPMENT`, but the original Firestor
 
 ### App identity and release configuration
 
-- The manifest does not declare `android:icon` or `android:roundIcon`. Add a production adaptive launcher icon and verify it on light/dark launchers.
-- The current app version is `versionCode 1`, `versionName 0.1.0`; increment these for each Play release.
-- The inspected Gradle configuration does not show a dedicated release verification pipeline or a documented signed AAB generation step. Configure a protected upload key / Play App Signing workflow, build a release AAB, and verify the merged release manifest.
+- PR #9 adds adaptive launcher icon resources and declares `android:icon` / `android:roundIcon`. Verify the icon visually on light/dark launchers and multiple device shapes before release.
+- PR #9 sets `versionName 1.0.0` and keeps `versionCode 1` for the first release. Confirm no higher versionCode has already been uploaded to Play Console; increment it for every subsequent upload.
+- PR #9 adds a `bundleRelease` CI task, Gradle-property-based upload-key signing, and `docs/RELEASE_BUILD.md`. A signed AAB is not verified until the owner configures the upload keystore properties and builds locally; CI intentionally has no signing secrets.
 - Add release shrinking/obfuscation only with keep rules and a tested mapping-file retention process.
 - The Google web OAuth client ID is hard-coded in Gradle. It is not a private secret, but it is environment-specific; move it to a documented build configuration property and validate production Firebase fingerprints.
 - Confirm the app has a stable package name, app icon, screenshots, feature graphic, store description, support contact and content rating before listing.
 
 ### Quality gates and automated tests
 
-The current GitHub Actions workflow runs `testDebugUnitTest assembleDebug`. It does not run Android Lint, build a release bundle, run instrumentation/UI tests, validate Firestore rules in an emulator, or exercise production Firebase authentication/sync.
+PR #9 configures GitHub Actions to run `testDebugUnitTest lintDebug assembleDebug bundleRelease`. The latest run must pass before merge. CI still does not run instrumentation/UI tests, validate Firestore rules in an emulator, or exercise production Firebase authentication/sync.
 
 Add CI gates for:
 1. `testDebugUnitTest`
