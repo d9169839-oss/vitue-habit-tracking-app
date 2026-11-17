@@ -112,6 +112,12 @@ Add CI gates for:
 
 The visible unit-test suite focuses mainly on domain calculations, registration validation and program scheduling. Add repository, ViewModel, database migration, sync, account-deletion and reminder tests. Run TalkBack, large font, narrow-device and dark-theme checks on physical devices.
 
+## Conditional Google Play production-access gate
+
+- Personal developer accounts created after 13 November 2023 must complete a closed test with at least 12 testers opted in continuously for 14 days before applying for production access.
+- Internal testing can still be used while preparing the release, but it does not replace this closed-testing requirement.
+- Confirm the developer account type/creation date and whether the 14-day tester period has already been completed before promising a public production date.
+
 ## Play Store policy and product readiness
 
 - **Target API:** `targetSdk = 36` is aligned with Google's requirement for new mobile apps and updates starting 31 August 2026.
