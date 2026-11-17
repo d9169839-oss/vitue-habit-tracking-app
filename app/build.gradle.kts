@@ -6,6 +6,16 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
 }
+
+// Keep upload-key material outside the repository. These Gradle properties can live in
+// ~/.gradle/gradle.properties on a developer machine or in protected CI secrets.
+val uploadStoreFile = providers.gradleProperty("VITUE_UPLOAD_STORE_FILE").orNull
+val uploadStorePassword = providers.gradleProperty("VITUE_UPLOAD_STORE_PASSWORD").orNull
+val uploadKeyAlias = providers.gradleProperty("VITUE_UPLOAD_KEY_ALIAS").orNull
+val uploadKeyPassword = providers.gradleProperty("VITUE_UPLOAD_KEY_PASSWORD").orNull
+val hasUploadSigning = listOf(uploadStoreFile, uploadStorePassword, uploadKeyAlias, uploadKeyPassword)
+    .all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.virtue.habittracker"
     compileSdk = 36
@@ -17,6 +27,24 @@ android {
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"720151151343-rugitfne5oksl9l2jn4m93s3rmujt7oo.apps.googleusercontent.com\"")
+    }
+    signingConfigs {
+        create("release") {
+            if (hasUploadSigning) {
+                storeFile = file(uploadStoreFile!!)
+                storePassword = uploadStorePassword
+                keyAlias = uploadKeyAlias
+                keyPassword = uploadKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            // Keep shrinking disabled until release keep rules and mapping retention are tested.
+            isMinifyEnabled = false
+            // CI can compile the release bundle without secrets; Play uploads must use the upload key.
+            if (hasUploadSigning) signingConfig = signingConfigs.getByName("release")
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
