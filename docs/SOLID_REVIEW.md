@@ -4,7 +4,7 @@
 
 ## What is already in good shape
 
-- **Dependency inversion:** `AuthRepository`, `HabitRepository`, `ProgramRepository` and `PremiumEntitlementProvider` are domain-facing contracts. Hilt binds data implementations to those contracts.
+- **Dependency inversion:** `AuthRepository`, `HabitRepository`, `ProgramRepository` and are domain-facing contracts. Hilt binds data implementations to those contracts.
 - **Use-case boundaries:** sign-in, registration, password reset, habit creation/completion and program actions have dedicated use cases. Validation for email/password/name lives outside Compose.
 - **ViewModel/UI separation:** authentication and the main habit/program screens expose state and user actions rather than making Firebase/Room calls directly from composables.
 - **Local-first persistence:** Room repositories persist user actions and queue durable sync operations; WorkManager performs cloud synchronization separately from the immediate UI interaction.
@@ -17,7 +17,6 @@
 | SRP | `presentation/App.kt` is approximately 730 lines and owns app-shell navigation, connectivity monitoring, banners, Home, History and Profile UI/form behaviour. | **Needs refactoring.** Split app shell/connectivity, Home, History and Profile into focused files/composables. Keep the root shell responsible only for destination selection and shared chrome. |
 | SRP | `FirebaseAuthRepository` performs Firebase Authentication and also prepares Firestore profile/cache state and schedules habit sync after sign-in/register. | **Some responsibility leakage.** Introduce a post-authentication bootstrap coordinator/use case so the repository only translates authentication operations and auth state. |
 | SRP / ISP | `HabitCloudDataSource` handles several cloud record families (profile, habits, check-ins and program records) and their sync rules. | **Too broad for long-term growth.** Extract focused cloud data sources or sync handlers by aggregate while retaining one orchestration worker. Avoid splitting until contract tests cover conflict/tombstone behaviour. |
-| SRP | `PremiumBillingManager` owns BillingClient lifecycle, product discovery, checkout, purchase updates, acknowledgement and cached entitlement state. | **Multiple reasons to change.** Separate Play Billing transport from entitlement policy/cache and add tests around pending, cancelled, expired and restored purchases. |
 | DIP / testability | `GoogleButton` constructs `GoogleCredentialClient` inside the composable. | **Platform coupling at UI boundary.** Move credential acquisition behind a small interface/factory supplied by Hilt (or a UI launcher abstraction) so screen tests can provide a fake. |
 | OCP | Some UI and data mapping use explicit `when`/enum/string branches for status/category handling. | **Acceptable for closed enums today.** Keep status-specific behaviour behind domain mapping/policy functions as variants grow; avoid a generic plugin framework prematurely. |
 | LSP / ISP | The repository and entitlement contracts are relatively small and purpose-specific; no clear substitutability violation was identified in the reviewed interfaces. | **No confirmed violation.** Keep interfaces consumer-focused and avoid adding unrelated methods to them. |
