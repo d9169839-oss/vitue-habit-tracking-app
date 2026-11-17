@@ -19,9 +19,9 @@ The production-oriented Phase 1 implementation is committed in the repository:
 - Program enrollment and activity records sync through the durable WorkManager outbox to the user's Firestore subcollections. Account-scoped realtime listeners merge remote program changes back into Room, so a completion made on another signed-in device updates the local progress without waiting for the periodic pull.
 - The Programs repository waits for its initial enrollment/activity snapshots (with a bounded fallback) before exposing an empty catalogue state on a new device. Room remains the UI source of truth.
 - Active programs expose an "Adjust remaining schedule" flow. Replanning atomically updates the Room enrollment and future schedule while preserving completed/skipped history and queueing the revised rows for cloud sync.
-- Google Play Billing client loads subscription products, starts checkout, and restores owned subscriptions.
+- All eight built-in templates are available free to every user; there is no purchase or subscription flow.
 
-This is an initial implementation, not a release certification. Android compilation has been verified by running the project build locally; the remaining release work is integration/device validation. The product IDs `vitue_premium_monthly` and `vitue_premium_yearly` are placeholders. Before production, configure real Play Console product IDs, validate purchase tokens on a trusted backend, and derive durable entitlements from server-verified state. Fitness content is conservative starter content and still needs qualified review. Firestore rules must explicitly protect the new `programEnrollments` and `programActivities` subcollections.
+This is an implementation specification, not a release certification. The first public release deliberately makes all bundled programs free and excludes Google Play Billing, subscription products, and paid-user entitlements. Firebase Authentication and Firestore remain separate account and cloud-sync services. Fitness content is conservative starter content and still needs qualified review. Firestore rules must explicitly protect the `programEnrollments` and `programActivities` subcollections.
 
 The first release should combine **curated, versioned templates** with **deterministic personalization rules**. Do not ask an AI model to invent a complete health or spiritual plan without reviewed constraints. AI can be added later to explain or rephrase a reviewed plan, but it must not bypass safety rules.
 
@@ -33,7 +33,7 @@ The first release should combine **curated, versioned templates** with **determi
 - Show one clear “Today” checklist and a phase/milestone view.
 - Persist progress locally immediately and synchronize it in the background.
 - Support offline use and process death.
-- Gate premium-only programs using a real entitlement source, not a hard-coded UI boolean.
+- Make every bundled program available to every user without a subscription or paid account.
 - Keep program progress separate from ordinary habits, while optionally offering a user-controlled “add activity as a habit” integration.
 
 ## Information architecture
@@ -42,14 +42,14 @@ The first release should combine **curated, versioned templates** with **determi
    - Hero: “Build a better routine, one day at a time.”
    - Category filters: All, Fitness, Self-Grooming, Mindfulness/Spiritual.
    - Featured, beginner-friendly, and short-time-commitment collections.
-   - Cards show goal, duration, difficulty, minutes/day, equipment, and Free/Premium label.
+   - Cards show goal, duration, difficulty, minutes/day, equipment, and a clear Free for everyone label.
    - Filters and categories must be accessible and scrollable.
 
 2. **Program detail**
    - Purpose, intended audience, duration, time/day, equipment, difficulty, and phase outline.
    - “What you’ll do” list and realistic expectations.
    - Safety notes and exclusions for health-related programs.
-   - Free/Premium entitlement and “Personalize plan” action.
+   - Free access and “Personalize plan” action.
 
 3. **Personalization wizard**
    - Step 1: Goal, duration, experience.
@@ -137,7 +137,7 @@ For pregnancy, known relevant medical conditions, injury, eating-disorder concer
 Keep the domain independent from Android, Room, Compose, and Firebase.
 
 Suggested types:
-- `ProgramTemplate`: stable ID, version, title, category, description, duration, difficulty, minutes/day, premium requirement, equipment, phases, activities, safety metadata.
+- `ProgramTemplate`: stable ID, version, title, category, description, duration, difficulty, minutes/day, free availability, equipment, phases, activities, safety metadata.
 - `ProgramPhaseTemplate`: phase number, title, start/end day, goal, activity references.
 - `ProgramActivityTemplate`: stable ID, title, instructions, type, estimated minutes, optional equipment, safe substitutions, completion rule.
 - `ProgramEnrollment`: stable ID, user ID, template ID/version, selected start date, planned duration, status, personalized settings, immutable content snapshot, created/updated timestamps.
@@ -201,11 +201,11 @@ users/{uid}/programCompletions/{completionId}
 users/{uid}/programCheckIns/{checkInId}     # only with explicit opt-in
 ```
 
-Each document should include schemaVersion, updatedAtMillis, and a stable ID. Do not copy full immutable template text into every completion document; enrollment stores the versioned snapshot needed to render a historic plan. Use server-side validation/entitlement verification for premium content and sensitive actions. Firestore rules must enforce `request.auth.uid == uid` and validate allowed document paths/fields. Deploy and test rules in Firebase Emulator Suite; a rules file in GitHub does not deploy itself.
+Each document should include schemaVersion, updatedAtMillis, and a stable ID. Do not copy full immutable template text into every completion document; enrollment stores the versioned snapshot needed to render a historic plan. Use Firestore rules to validate document ownership, allowed paths, fields, types, and sizes. Firestore rules must enforce `request.auth.uid == uid` and validate allowed document paths/fields. Deploy and test rules in Firebase Emulator Suite; a rules file in GitHub does not deploy itself.
 
-## Premium access and billing
+## Access model
 
-All built-in programs are free in the first public release. There is no subscription, premium entitlement, or purchase flow. Program access is independent from billing so every user can start and retain every program without a paid account.
+Every built-in program is free to start, personalize, pause, resume, and complete. There are no subscription products, in-app purchases, premium-only templates, or paid-account requirements in the first release.
 
 ## Privacy, consent, and trust
 
@@ -226,7 +226,7 @@ All built-in programs are free in the first public release. There is no subscrip
 - Progress percentage and milestone calculation, including zero activities.
 - Pause/resume/replan does not erase completed work.
 - Template version changes do not mutate active enrollment snapshots.
-- Premium access states: active, expired, grace, unavailable/offline, and restored.
+- Verify that all catalog templates remain accessible without a network connection or purchase state.
 
 ### Room and sync tests
 - Local completion persists while offline and survives process death.
@@ -241,7 +241,7 @@ All built-in programs are free in the first public release. There is no subscrip
 - Browse categories, filter programs, open detail, complete the wizard, review and start.
 - Activity completion updates progress immediately offline.
 - Pause/resume, skip, replan, and completed-history flows.
-- Premium lock and restore states.
+- All program details and personalization actions are available without a purchase.
 - TalkBack labels, minimum touch targets, scalable text, contrast, and loading/error/empty states.
 
 Before release: run Gradle unit tests, Android lint, Room migration tests, Firebase Emulator rules tests, and a manual airplane-mode/account-switch test matrix. Do not mark a release build verified until CI actually passes.
@@ -252,16 +252,14 @@ Before release: run Gradle unit tests, Android lint, Room migration tests, Fireb
 2. **Browse and start:** catalog, category filters, detail, personalization wizard, review, enrollment creation.
 3. **Daily plan:** activity checklist, completion, pause/resume/skip/replan, local progress and reminders.
 4. **Cloud sync:** outbox operations, per-user Firestore rules, migration/conflict handling, sync status.
-5. **Premium:** Play Billing purchase/restore, backend verification, grace/cancellation behavior.
-6. **Content and polish:** professionally review fitness content, accessibility, analytics minimization, privacy/delete/export, release testing.
+5. **Content and release polish:** professionally review fitness content, accessibility, analytics minimization, privacy/delete/export, and release testing.
 
-## Decisions to confirm before production billing/content
+## Decisions to confirm before production content
 
-1. Is Google Play Billing the intended premium entitlement source, and is any subscription implementation already in this repository?
-2. Should version one be curated templates + deterministic personalization (recommended), with no generative AI writing health plans?
-3. Should spiritual programs be general mindfulness/reflection by default, with explicitly selected religious content as an optional category?
-4. Which languages should the initial catalog support?
-5. Will a qualified fitness/health reviewer approve exercise and weight-management content before release?
+1. Should version one remain curated templates + deterministic personalization, with no generative AI writing health plans?
+2. Should spiritual programs be general mindfulness/reflection by default, with explicitly selected religious content as an optional category?
+3. Which languages should the initial catalog support?
+4. Will a qualified fitness/health reviewer approve exercise and weight-management content before release?
 
 Until these decisions are finalized, use safe defaults: template-driven plans, no guaranteed outcomes, optional measurements, local-first persistence, and no fake premium entitlement in production.
 
@@ -272,13 +270,13 @@ The bundled catalog currently contains eight templates. Keep the initial experie
 
 ### Already in the bundled catalog
 - **Beginner Movement Foundations** — 30 days; free.
-- **Home Strength Foundations** — 60 days; premium.
-- **Everyday Stamina** — 60 days; premium.
-- **Sustainable Wellness Habits** — 90 days; premium; no calorie prescriptions or promised weight change.
+- **Home Strength Foundations** — 60 days; free.
+- **Everyday Stamina** — 60 days; free.
+- **Sustainable Wellness Habits** — 90 days; free; no calorie prescriptions or promised weight change.
 - **Everyday Grooming Routine** — 30 days; free.
-- **Simple Skincare Consistency** — 30 days; premium.
+- **Simple Skincare Consistency** — 30 days; free.
 - **Mindfulness Foundations** — 30 days; free.
-- **Gratitude and Reflection** — 30 days; premium.
+- **Gratitude and Reflection** — 30 days; free.
 
 ### Best next programs to add
 Prioritize these after responsive UI and release-quality testing. Each should have a reviewed template, distinct phase content, and real schedule activities—not just a new title over the same generic steps.
@@ -309,7 +307,7 @@ Prioritize these after responsive UI and release-quality testing. Each should ha
 - **Release 1.2:** Confidence and Communication, Hair-Care Routine, and expanded walking/cardio options after content review.
 - **Later:** 90-day gym/strength and user-selected spiritual paths only after appropriate review and user research.
 
-Premium should be based on deeper structure, progress insights and additional reviewed templates—not on withholding basic safety information. Do not gate a user's saved history when a subscription expires.
+The first release has no premium tier. Keep every user's saved plans, activities, and history available without payment.
 
 
 ## Built-in templates added for the next catalog revision
