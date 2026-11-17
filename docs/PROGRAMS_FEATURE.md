@@ -205,9 +205,7 @@ Each document should include schemaVersion, updatedAtMillis, and a stable ID. Do
 
 ## Premium access and billing
 
-Do not treat a local boolean or a Firestore field writable by the client as proof of payment. Use Google Play Billing for Play-distributed Android subscriptions and verify purchases/entitlements using a trusted backend. The app may cache entitlement state for offline UX, but it must refresh/verify when online and must not grant durable premium access based only on a client edit. Define grace period, cancellation, refund, account restore, and offline behavior. Avoid hiding user data or deleting progress when a subscription expires; restrict starting/accessing premium-only content according to the product policy, but let users retain their history.
-
-For the first implementation, use an injectable `PremiumEntitlementProvider` interface and a clearly labeled development implementation. Do not ship a fake provider as production billing.
+All built-in programs are free in the first public release. There is no subscription, premium entitlement, or purchase flow. Program access is independent from billing so every user can start and retain every program without a paid account.
 
 ## Privacy, consent, and trust
 
