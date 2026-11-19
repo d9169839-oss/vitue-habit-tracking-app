@@ -1,7 +1,12 @@
 package com.virtue.habittracker.presentation
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -59,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.virtue.habittracker.BuildConfig
@@ -87,6 +93,13 @@ fun ProfileTab(
     val reminderScheduler = remember(context) { HabitReminderScheduler(context.applicationContext) }
     var remindersEnabled by remember { mutableStateOf(reminderScheduler.isRemindersEnabled()) }
     var reminderHour by remember { mutableIntStateOf(reminderScheduler.getReminderTime().hour) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        remindersEnabled = granted
+        reminderScheduler.setRemindersEnabled(granted)
+    }
 
     var showSignOutDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
@@ -452,8 +465,21 @@ fun ProfileTab(
                         Switch(
                             checked = remindersEnabled,
                             onCheckedChange = { enabled ->
-                                remindersEnabled = enabled
-                                reminderScheduler.setRemindersEnabled(enabled)
+                                if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    val hasPermission = ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    if (!hasPermission) {
+                                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        remindersEnabled = true
+                                        reminderScheduler.setRemindersEnabled(true)
+                                    }
+                                } else {
+                                    remindersEnabled = enabled
+                                    reminderScheduler.setRemindersEnabled(enabled)
+                                }
                             }
                         )
                     }

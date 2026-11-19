@@ -99,6 +99,9 @@ interface HabitDao {
     @Query("UPDATE habits SET inactiveFromEpochDay = NULL, createdEpochDay = :newCreatedEpochDay WHERE id = :habitId")
     suspend fun reactivateHabitFreshStart(habitId: String, newCreatedEpochDay: Long)
 
+    @Query("UPDATE habits SET title = :title, description = :description WHERE id = :habitId")
+    suspend fun updateHabitDetails(habitId: String, title: String, description: String)
+
     /**
      * Each local mutation and its outbox entry commit together. A crash cannot leave a
      * successful local edit with no durable instruction to upload it.
@@ -107,6 +110,12 @@ interface HabitDao {
     suspend fun saveHabitAndQueue(habit: HabitEntity) {
         insertHabit(habit)
         queueOperation("habit:${habit.id}", "HABIT", habit.id, "UPSERT")
+    }
+
+    @Transaction
+    suspend fun updateHabitDetailsAndQueue(habitId: String, title: String, description: String) {
+        updateHabitDetails(habitId, title, description)
+        queueOperation("habit:$habitId", "HABIT", habitId, "UPSERT")
     }
 
     @Transaction

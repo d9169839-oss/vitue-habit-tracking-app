@@ -91,7 +91,8 @@ service cloud.firestore {
             'id', 'templateId', 'templateVersion', 'titleSnapshot', 'category',
             'durationDays', 'startEpochDay', 'status', 'availableMinutesPerDay',
             'availableDaysPerWeek', 'experience', 'workActivityLevel', 'equipment',
-            'isPremium', 'createdAtMillis', 'updatedAtMillis', 'deleted'
+            'isPremium', 'createdAtMillis', 'updatedAtMillis', 'deleted',
+            'completedDayIndices', 'skippedDayIndices', 'lastCompletedDayIndex'
           ])
           && request.resource.data.id == enrollmentId
           && request.resource.data.updatedAtMillis is int

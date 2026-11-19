@@ -19,14 +19,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -54,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -70,6 +76,12 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 private enum class HabitFilter { ACTIVE, ARCHIVED }
+
+private data class AggregateInsightStyle(
+    val badgeText: String,
+    val badgeColor: Color,
+    val headlineText: String
+)
 
 @Composable
 fun HistoryTab(
@@ -105,6 +117,39 @@ fun HistoryTab(
         label = "historyOverallProgress"
     )
 
+    val insightStyle = remember(rangeSummary.totalRecordedDays, rangeSummary.overallPercentage) {
+        when {
+            rangeSummary.totalRecordedDays == 0 -> AggregateInsightStyle(
+                badgeText = "No Data",
+                badgeColor = Color(0xFF8E8AA7),
+                headlineText = "Complete your first check-in to unlock insights"
+            )
+            rangeSummary.overallPercentage >= 80 -> AggregateInsightStyle(
+                badgeText = "Optimal",
+                badgeColor = Color(0xFF00DC82),
+                headlineText = "Elite consistency across focal rituals"
+            )
+            rangeSummary.overallPercentage >= 50 -> AggregateInsightStyle(
+                badgeText = "Building",
+                badgeColor = Color(0xFFA78BFA),
+                headlineText = "Steady momentum across your routines"
+            )
+            else -> AggregateInsightStyle(
+                badgeText = "Recovering",
+                badgeColor = Color(0xFFFBBF24),
+                headlineText = "Room to sharpen your daily rhythm"
+            )
+        }
+    }
+
+    val rangeDescription = when (selectedRange) {
+        HistoryRange.SEVEN_DAYS -> "Last 7 days"
+        HistoryRange.THIRTY_DAYS -> "Last 30 days"
+        HistoryRange.NINETY_DAYS -> "Last 90 days"
+        HistoryRange.ALL_TIME -> "All recorded history"
+        HistoryRange.SPECIFIC_DATE -> customDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")) ?: "Selected date"
+    }
+
     Box(
         modifier = modifier
             .offset(x = if (visible) 0.dp else 10_000.dp)
@@ -117,31 +162,79 @@ fun HistoryTab(
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Top Filter Tabs (7 days, 30 days, 90 days, All time, Choose date)
+            // Editorial Screen Header (matching Home & Profile tabs)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "PERFORMANCE & ANALYTICS",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF8E8AA7),
+                        letterSpacing = 1.4.sp
+                    )
+                    Text(
+                        text = "Your History",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color(0xFF1E1C2B),
+                    border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.35f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(insightStyle.badgeColor, CircleShape)
+                        )
+                        Text(
+                            text = rangeDescription,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFC4B5FD),
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+
+            // Top Filter Tabs (7D, 30D, 90D, All, Custom Date)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 HistoryTabChip(
-                    label = "7 days",
+                    label = "7D",
                     selected = selectedRange == HistoryRange.SEVEN_DAYS,
                     onClick = { vm.selectRange(HistoryRange.SEVEN_DAYS) },
                     modifier = Modifier.weight(1f)
                 )
                 HistoryTabChip(
-                    label = "30 days",
+                    label = "30D",
                     selected = selectedRange == HistoryRange.THIRTY_DAYS,
                     onClick = { vm.selectRange(HistoryRange.THIRTY_DAYS) },
                     modifier = Modifier.weight(1f)
                 )
                 HistoryTabChip(
-                    label = "90 days",
+                    label = "90D",
                     selected = selectedRange == HistoryRange.NINETY_DAYS,
                     onClick = { vm.selectRange(HistoryRange.NINETY_DAYS) },
                     modifier = Modifier.weight(1f)
                 )
                 HistoryTabChip(
-                    label = "All time",
+                    label = "All",
                     selected = selectedRange == HistoryRange.ALL_TIME,
                     onClick = { vm.selectRange(HistoryRange.ALL_TIME) },
                     modifier = Modifier.weight(1f)
@@ -150,11 +243,12 @@ fun HistoryTab(
                     label = if (selectedRange == HistoryRange.SPECIFIC_DATE && customDate != null) {
                         customDate!!.format(DateTimeFormatter.ofPattern("MMM d"))
                     } else {
-                        "Choose date"
+                        "Date"
                     },
+                    showCalendarIcon = true,
                     selected = selectedRange == HistoryRange.SPECIFIC_DATE,
                     onClick = { showDatePicker = true },
-                    modifier = Modifier.weight(1.2f)
+                    modifier = Modifier.weight(1.35f)
                 )
             }
 
@@ -205,10 +299,30 @@ fun HistoryTab(
                                 color = Color.White
                             )
                         }
-                        Text("🏁", fontSize = 20.sp)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            insightStyle.badgeColor.copy(alpha = 0.28f),
+                                            Color(0xFF252036)
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Insights,
+                                contentDescription = null,
+                                tint = insightStyle.badgeColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
 
-                    // Gauge + Text insight
+                    // Gauge + Dynamic Text insight
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -216,11 +330,11 @@ fun HistoryTab(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(84.dp)
+                                .size(86.dp)
                                 .background(
                                     brush = Brush.radialGradient(
                                         colors = listOf(
-                                            Color(0xFF00DC82).copy(alpha = 0.14f),
+                                            insightStyle.badgeColor.copy(alpha = 0.16f),
                                             Color.Transparent
                                         )
                                     ),
@@ -231,7 +345,7 @@ fun HistoryTab(
                             CircularProgressIndicator(
                                 progress = { animatedOverallProgress },
                                 modifier = Modifier.fillMaxSize(),
-                                color = Color(0xFF00DC82),
+                                color = insightStyle.badgeColor,
                                 trackColor = Color(0xFF14131C),
                                 strokeWidth = 9.dp
                             )
@@ -243,17 +357,17 @@ fun HistoryTab(
                                     color = Color.White
                                 )
                                 Text(
-                                    text = if (rangeSummary.overallPercentage >= 75) "Optimal" else "Building",
+                                    text = insightStyle.badgeText,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF00DC82)
+                                    color = insightStyle.badgeColor
                                 )
                             }
                         }
 
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "Strong consistency across focal rituals",
+                                text = insightStyle.headlineText,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -298,6 +412,14 @@ fun HistoryTab(
 
             // Your consistency Bar Chart Card
             val selectedPoint = weeklyProgress.find { it.date == selectedChartDay } ?: weeklyProgress.lastOrNull()
+            val weekRangeLabel = if (weeklyProgress.isNotEmpty()) {
+                val firstDay = weeklyProgress.first().date.format(DateTimeFormatter.ofPattern("MMM d"))
+                val lastDay = weeklyProgress.last().date.format(DateTimeFormatter.ofPattern("MMM d"))
+                "$firstDay – $lastDay • Tap a bar to inspect"
+            } else {
+                "Tap a bar to inspect that day's history"
+            }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1C2A)),
@@ -315,7 +437,7 @@ fun HistoryTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Your consistency",
                                 style = MaterialTheme.typography.titleLarge,
@@ -323,12 +445,60 @@ fun HistoryTab(
                                 color = Color.White
                             )
                             Text(
-                                text = "Tap a bar to inspect that day's history",
+                                text = weekRangeLabel,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF8E8AA7)
                             )
                         }
-                        Text("📊", fontSize = 20.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (vm.canMoveToNextWeek()) {
+                                Surface(
+                                    onClick = { vm.goToCurrentWeek() },
+                                    shape = RoundedCornerShape(50),
+                                    color = Color(0xFF29233B),
+                                    border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.45f))
+                                ) {
+                                    Text(
+                                        text = "Today",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFC4B5FD),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                            Surface(
+                                onClick = { vm.previousWeek() },
+                                shape = CircleShape,
+                                color = Color(0xFF282438),
+                                border = BorderStroke(1.dp, Color(0xFF3A3550)),
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("‹", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                }
+                            }
+                            Surface(
+                                onClick = { vm.nextWeek() },
+                                enabled = vm.canMoveToNextWeek(),
+                                shape = CircleShape,
+                                color = if (vm.canMoveToNextWeek()) Color(0xFF282438) else Color(0xFF1A1826),
+                                border = BorderStroke(1.dp, Color(0xFF3A3550)),
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        "›",
+                                        color = if (vm.canMoveToNextWeek()) Color(0xFFC4B5FD) else Color(0xFF5A5570),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     // Selected Bar Information Banner
@@ -355,56 +525,97 @@ fun HistoryTab(
                         }
                     }
 
-                    // Bar Chart Rendering
+                    // Bar Chart Rendering with Honest 0% Stub & Two-Line Day/Date Labels
                     if (weeklyProgress.isNotEmpty()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(140.dp)
-                                .padding(top = 10.dp),
+                                .height(160.dp)
+                                .padding(top = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.Bottom
                         ) {
                             weeklyProgress.forEach { point ->
                                 val isSelected = point.date == selectedChartDay
-                                val targetRatio = (point.completionRatePercent / 100f).coerceIn(0.15f, 1f)
+                                val isToday = point.date == LocalDate.now()
+                                val hasCompletions = point.completedCount > 0
+                                val targetRatio = if (!hasCompletions) {
+                                    0.12f
+                                } else {
+                                    (point.completionRatePercent / 100f).coerceIn(0.22f, 1f)
+                                }
                                 val barHeightRatio by animateFloatAsState(
                                     targetValue = targetRatio,
                                     animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
                                     label = "barHeight"
                                 )
-                                val barColor = if (isSelected) Color(0xFF00DC82) else Color(0xFF10B981).copy(alpha = 0.55f)
+                                val barColor = when {
+                                    !hasCompletions && isSelected -> Color(0xFF3E3856)
+                                    !hasCompletions -> Color(0xFF282538)
+                                    isSelected -> Color(0xFF00DC82)
+                                    else -> Color(0xFF10B981).copy(alpha = 0.58f)
+                                }
 
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clickable { vm.selectChartDay(point.date) },
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { vm.selectChartDay(point.date) }
+                                        .padding(vertical = 2.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Bottom
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth(0.75f)
-                                            .height((100 * barHeightRatio).dp)
-                                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                                            .fillMaxWidth(0.76f)
+                                            .height((96 * barHeightRatio).dp)
+                                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
                                             .background(barColor),
                                         contentAlignment = Alignment.BottomCenter
                                     ) {
+                                        if (hasCompletions) {
+                                            Text(
+                                                text = point.completedCount.toString(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) Color(0xFF05291A) else Color.White,
+                                                modifier = Modifier.padding(bottom = 3.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = point.date.format(DateTimeFormatter.ofPattern("EEE")),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = when {
+                                            isSelected -> Color(0xFF00DC82)
+                                            isToday -> Color(0xFFC4B5FD)
+                                            else -> Color(0xFF8E8AA7)
+                                        }
+                                    )
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = when {
+                                            isSelected -> Color(0xFF00DC82).copy(alpha = 0.18f)
+                                            isToday -> Color(0xFFA78BFA).copy(alpha = 0.18f)
+                                            else -> Color.Transparent
+                                        }
+                                    ) {
                                         Text(
-                                            text = point.completedCount.toString(),
+                                            text = point.date.dayOfMonth.toString(),
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) Color(0xFF05291A) else Color.White,
-                                            modifier = Modifier.padding(bottom = 4.dp)
+                                            fontWeight = if (isSelected || isToday) FontWeight.ExtraBold else FontWeight.Medium,
+                                            fontSize = 10.sp,
+                                            color = when {
+                                                isSelected -> Color(0xFF00DC82)
+                                                isToday -> Color(0xFFC4B5FD)
+                                                else -> Color(0xFF6E6A85)
+                                            },
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                         )
                                     }
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        text = point.date.format(DateTimeFormatter.ofPattern("EE")).take(1),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color(0xFF00DC82) else Color(0xFF8E8AA7)
-                                    )
                                 }
                             }
                         }
@@ -547,7 +758,7 @@ fun HistoryTab(
         )
     }
 
-    // Date Picker Dialog when tapping "Choose date"
+    // Date Picker Dialog when tapping "Date"
     if (showDatePicker) {
         val initialMillis = (customDate ?: LocalDate.now()).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
@@ -581,7 +792,8 @@ private fun HistoryTabChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showCalendarIcon: Boolean = false
 ) {
     Surface(
         onClick = onClick,
@@ -590,15 +802,26 @@ private fun HistoryTabChip(
         color = if (selected) Color(0xFF9E86E7) else Color(0xFF1E1C2A),
         border = if (selected) null else BorderStroke(1.dp, Color(0xFF2E2C3D))
     ) {
-        Box(
-            modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
+            if (showCalendarIcon) {
+                Icon(
+                    imageVector = Icons.Filled.CalendarMonth,
+                    contentDescription = null,
+                    tint = if (selected) Color.White else Color(0xFF8E8AA7),
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+            }
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (selected) Color.White else Color(0xFF8E8AA7)
+                color = if (selected) Color.White else Color(0xFF8E8AA7),
+                maxLines = 1
             )
         }
     }
@@ -655,6 +878,11 @@ private fun HabitPerformanceCard(
     )
     val isArchived = item.entry.habit.inactiveFromEpochDay != null
     var expanded by remember { mutableStateOf(false) }
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+        label = "chevronRotation"
+    )
     val (icon, iconColor) = habitVisualForTitle(item.entry.habit.title)
 
     Card(
@@ -755,10 +983,10 @@ private fun HabitPerformanceCard(
                     )
                 }
 
-                // Completion Percentage & Dropdown Chevron
+                // Completion Percentage & Animated Rotating Vector Chevron
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = "${item.completionPercentage}%",
@@ -766,10 +994,13 @@ private fun HabitPerformanceCard(
                         fontWeight = FontWeight.ExtraBold,
                         color = if (isArchived) Color(0xFFC4B5FD) else Color(0xFF00DC82)
                     )
-                    Text(
-                        text = if (expanded) "▲" else "▼",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isArchived) Color(0xFFC4B5FD) else Color(0xFF8E8AA7)
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowDown,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        tint = if (isArchived) Color(0xFFC4B5FD) else Color(0xFF8E8AA7),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .rotate(chevronRotation)
                     )
                 }
             }
@@ -820,8 +1051,14 @@ private fun HabitPerformanceCard(
                                 border = BorderStroke(1.dp, Color(0xFF00DC82).copy(alpha = 0.45f)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Restore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
                                 Text(
-                                    text = "🔄 Keep old count",
+                                    text = "Keep old count",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -840,8 +1077,14 @@ private fun HabitPerformanceCard(
                                 border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.45f)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Bolt,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
                                 Text(
-                                    text = "⚡ Start from zero",
+                                    text = "Start from zero",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )

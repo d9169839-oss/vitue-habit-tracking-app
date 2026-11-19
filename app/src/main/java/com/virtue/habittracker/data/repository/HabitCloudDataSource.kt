@@ -13,6 +13,13 @@ import com.virtue.habittracker.data.local.SyncOperationEntity
 import com.virtue.habittracker.data.local.ProgramDao
 import com.virtue.habittracker.data.local.ProgramEnrollmentEntity
 import com.virtue.habittracker.data.local.ProgramActivityEntity
+import com.virtue.habittracker.domain.model.program.ProgramActivityStatus
+import com.virtue.habittracker.domain.model.program.ProgramCatalog
+import com.virtue.habittracker.domain.model.program.ProgramEquipment
+import com.virtue.habittracker.domain.model.program.ProgramExperience
+import com.virtue.habittracker.domain.model.program.ProgramPreferences
+import com.virtue.habittracker.domain.model.program.WorkActivityLevel
+import com.virtue.habittracker.domain.service.ProgramPersonalizationEngine
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
@@ -37,6 +44,7 @@ class HabitCloudDataSource @Inject constructor(
     private val dao: HabitDao,
     private val programDao: ProgramDao
 ) {
+    private val personalizationEngine = ProgramPersonalizationEngine()
     private fun userIdOrNull(): String? = auth.currentUser?.uid
 
     private val _initialRealtimeSnapshotReady = MutableStateFlow(false)
@@ -288,10 +296,13 @@ class HabitCloudDataSource @Inject constructor(
                         "PROGRAM_ACTIVITY" -> {
                             val ref = userRef.collection("programActivities").document(operation.entityId)
                             val activity = programDao.getActivity(operation.entityId)
-                            if (activity == null) {
+                            if (operation.operationType == "DELETE" || activity == null) {
                                 batch.set(ref, mapOf("id" to operation.entityId, "deleted" to true,
                                     "updatedAtMillis" to System.currentTimeMillis()), SetOptions.merge())
-                            } else {
+                                hasWrites = true
+                            } else if (activity.status != ProgramActivityStatus.PENDING.name) {
+                                // Never upload generated PENDING days to Firestore; only sync
+                                // user progress (COMPLETED or SKIPPED).
                                 batch.set(ref, mapOf(
                                     "id" to activity.id, "enrollmentId" to activity.enrollmentId,
                                     "dayIndex" to activity.dayIndex, "epochDay" to activity.epochDay,
@@ -301,8 +312,8 @@ class HabitCloudDataSource @Inject constructor(
                                     "updatedAtMillis" to maxOf(activity.updatedAtMillis, System.currentTimeMillis()),
                                     "deleted" to false
                                 ), SetOptions.merge())
+                                hasWrites = true
                             }
-                            hasWrites = true
                             operationsToAcknowledge += operation
                         }
                         "CHECK_IN" -> {
@@ -439,13 +450,19 @@ class HabitCloudDataSource @Inject constructor(
                 updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
             )
             programDao.upsertEnrollment(entity)
+            ensureLocalProgramScheduleAndProgress(
+                enrollment = entity,
+                completedDayIndices = extractDayIndexSet(document.get("completedDayIndices")),
+                skippedDayIndices = extractDayIndexSet(document.get("skippedDayIndices")),
+                lastCompletedDayIndex = (document.getLong("lastCompletedDayIndex") ?: 0L).toInt()
+            )
         }
 
         for (document in activitiesSnapshot.documents) {
             val id = document.getString("id") ?: document.id
             if (dao.hasPendingSyncOperation("program-activity:$id")) continue
             if (document.getBoolean("deleted") == true) {
-                programDao.deleteActivityRow(id)
+                resetOrDeleteActivityFromCloud(id)
                 continue
             }
             val enrollmentId = document.getString("enrollmentId") ?: continue
@@ -474,6 +491,89 @@ class HabitCloudDataSource @Inject constructor(
             markInitialProgramSnapshotReady(uid, PROGRAM_ENROLLMENTS_COLLECTION)
             markInitialProgramSnapshotReady(uid, PROGRAM_ACTIVITIES_COLLECTION)
         }
+    }
+
+    /**
+     * Deterministically reconstructs the local 30/60/90-day schedule in Room from the synced
+     * enrollment preferences, and preserves or auto-applies user progress so we never need to
+     * store all PENDING program days in Firestore.
+     */
+    private suspend fun ensureLocalProgramScheduleAndProgress(
+        enrollment: ProgramEnrollmentEntity,
+        completedDayIndices: Set<Int> = emptySet(),
+        skippedDayIndices: Set<Int> = emptySet(),
+        lastCompletedDayIndex: Int = 0
+    ) {
+        val template = ProgramCatalog.find(enrollment.templateId) ?: return
+        val preferences = ProgramPreferences(
+            availableMinutesPerDay = enrollment.availableMinutesPerDay,
+            availableDaysPerWeek = enrollment.availableDaysPerWeek,
+            experience = runCatching { ProgramExperience.valueOf(enrollment.experience) }
+                .getOrDefault(ProgramExperience.BEGINNER),
+            workActivityLevel = runCatching { WorkActivityLevel.valueOf(enrollment.workActivityLevel) }
+                .getOrDefault(WorkActivityLevel.MIXED),
+            equipment = runCatching { ProgramEquipment.valueOf(enrollment.equipment) }
+                .getOrDefault(ProgramEquipment.NONE)
+        )
+        val generated = personalizationEngine.buildSchedule(
+            template = template,
+            enrollmentId = enrollment.id,
+            startEpochDay = enrollment.startEpochDay,
+            preferences = preferences,
+            createdAtMillis = enrollment.updatedAtMillis
+        )
+        val existingById = programDao.getActivitiesForEnrollment(enrollment.id).associateBy { it.id }
+        val merged = generated.map { item ->
+            val existing = existingById[item.id]
+            val resolvedStatus = when {
+                item.dayIndex in completedDayIndices -> ProgramActivityStatus.COMPLETED.name
+                item.dayIndex in skippedDayIndices -> ProgramActivityStatus.SKIPPED.name
+                completedDayIndices.isEmpty() &&
+                    skippedDayIndices.isEmpty() &&
+                    lastCompletedDayIndex > 0 &&
+                    item.dayIndex <= lastCompletedDayIndex &&
+                    item.estimatedMinutes > 0 -> ProgramActivityStatus.COMPLETED.name
+                existing != null && existing.status != ProgramActivityStatus.PENDING.name -> existing.status
+                else -> ProgramActivityStatus.PENDING.name
+            }
+            ProgramActivityEntity(
+                id = item.id,
+                enrollmentId = item.enrollmentId,
+                dayIndex = item.dayIndex,
+                epochDay = item.epochDay,
+                phaseTitle = item.phaseTitle,
+                title = item.title,
+                instructions = item.instructions,
+                estimatedMinutes = item.estimatedMinutes,
+                status = resolvedStatus,
+                updatedAtMillis = existing?.updatedAtMillis ?: item.updatedAtMillis
+            )
+        }
+        programDao.upsertActivities(merged)
+    }
+
+    /**
+     * When a progress record is deleted/tombstoned in Firestore (because the user reset that day
+     * back to PENDING), keep the local schedule row in Room with PENDING status instead of deleting
+     * the day from the timeline.
+     */
+    private suspend fun resetOrDeleteActivityFromCloud(activityId: String) {
+        val existing = programDao.getActivity(activityId)
+        if (existing != null && programDao.getEnrollment(existing.enrollmentId) != null) {
+            programDao.upsertActivity(
+                existing.copy(
+                    status = ProgramActivityStatus.PENDING.name,
+                    updatedAtMillis = System.currentTimeMillis()
+                )
+            )
+        } else {
+            programDao.deleteActivityRow(activityId)
+        }
+    }
+
+    private fun extractDayIndexSet(raw: Any?): Set<Int> {
+        val list = raw as? List<*> ?: return emptySet()
+        return list.mapNotNull { (it as? Number)?.toInt() }.toSet()
     }
 
     /**
@@ -629,25 +729,30 @@ class HabitCloudDataSource @Inject constructor(
                             } else {
                                 val title = document.getString("titleSnapshot") ?: return@runCatching
                                 val templateId = document.getString("templateId") ?: return@runCatching
-                                programDao.upsertEnrollment(
-                                    ProgramEnrollmentEntity(
-                                        id = enrollmentId,
-                                        templateId = templateId,
-                                        templateVersion = (document.getLong("templateVersion") ?: 1L).toInt(),
-                                        titleSnapshot = title,
-                                        category = document.getString("category") ?: "FITNESS",
-                                        durationDays = (document.getLong("durationDays") ?: 30L).toInt(),
-                                        startEpochDay = document.getLong("startEpochDay") ?: return@runCatching,
-                                        status = document.getString("status") ?: "ACTIVE",
-                                        availableMinutesPerDay = (document.getLong("availableMinutesPerDay") ?: 15L).toInt(),
-                                        availableDaysPerWeek = (document.getLong("availableDaysPerWeek") ?: 5L).toInt(),
-                                        experience = document.getString("experience") ?: "BEGINNER",
-                                        workActivityLevel = document.getString("workActivityLevel") ?: "MIXED",
-                                        equipment = document.getString("equipment") ?: "NONE",
-                                        isPremium = document.getBoolean("isPremium") ?: false,
-                                        createdAtMillis = document.getLong("createdAtMillis") ?: 0L,
-                                        updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
-                                    )
+                                val entity = ProgramEnrollmentEntity(
+                                    id = enrollmentId,
+                                    templateId = templateId,
+                                    templateVersion = (document.getLong("templateVersion") ?: 1L).toInt(),
+                                    titleSnapshot = title,
+                                    category = document.getString("category") ?: "FITNESS",
+                                    durationDays = (document.getLong("durationDays") ?: 30L).toInt(),
+                                    startEpochDay = document.getLong("startEpochDay") ?: return@runCatching,
+                                    status = document.getString("status") ?: "ACTIVE",
+                                    availableMinutesPerDay = (document.getLong("availableMinutesPerDay") ?: 15L).toInt(),
+                                    availableDaysPerWeek = (document.getLong("availableDaysPerWeek") ?: 5L).toInt(),
+                                    experience = document.getString("experience") ?: "BEGINNER",
+                                    workActivityLevel = document.getString("workActivityLevel") ?: "MIXED",
+                                    equipment = document.getString("equipment") ?: "NONE",
+                                    isPremium = document.getBoolean("isPremium") ?: false,
+                                    createdAtMillis = document.getLong("createdAtMillis") ?: 0L,
+                                    updatedAtMillis = document.getLong("updatedAtMillis") ?: 0L
+                                )
+                                programDao.upsertEnrollment(entity)
+                                ensureLocalProgramScheduleAndProgress(
+                                    enrollment = entity,
+                                    completedDayIndices = extractDayIndexSet(document.get("completedDayIndices")),
+                                    skippedDayIndices = extractDayIndexSet(document.get("skippedDayIndices")),
+                                    lastCompletedDayIndex = (document.getLong("lastCompletedDayIndex") ?: 0L).toInt()
                                 )
                             }
                         }
@@ -678,7 +783,7 @@ class HabitCloudDataSource @Inject constructor(
                             if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED ||
                                 document.getBoolean("deleted") == true
                             ) {
-                                programDao.deleteActivityRow(activityId)
+                                resetOrDeleteActivityFromCloud(activityId)
                             } else {
                                 val enrollmentId = document.getString("enrollmentId") ?: return@runCatching
                                 val dayIndex = (document.getLong("dayIndex") ?: return@runCatching).toInt()

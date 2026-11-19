@@ -103,6 +103,7 @@ fun HomeTab(
     val scope = rememberCoroutineScope()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var editingHabitId by remember { mutableStateOf<String?>(null) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var formError by remember { mutableStateOf<String?>(null) }
@@ -148,26 +149,60 @@ fun HomeTab(
                         color = Color.White
                     )
                     Spacer(Modifier.height(6.dp))
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFF1E1C2A),
-                        border = BorderStroke(1.dp, Color(0xFF343048))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            onClick = { vm.previousDay() },
+                            shape = CircleShape,
+                            color = Color(0xFF1E1C2A),
+                            border = BorderStroke(1.dp, Color(0xFF343048)),
+                            modifier = Modifier.size(30.dp)
                         ) {
-                            Text(
-                                text = "🗓",
-                                fontSize = 13.sp
-                            )
-                            Text(
-                                text = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMM d")),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFFE2E8F0)
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("‹", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
+                        }
+                        Surface(
+                            onClick = { vm.selectDate(LocalDate.now()) },
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFF1E1C2A),
+                            border = BorderStroke(1.dp, Color(0xFF343048))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "🗓",
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = if (date == LocalDate.now()) {
+                                        "Today, " + date.format(DateTimeFormatter.ofPattern("MMM d"))
+                                    } else {
+                                        date.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFE2E8F0)
+                                )
+                            }
+                        }
+                        if (date.isBefore(LocalDate.now())) {
+                            Surface(
+                                onClick = { vm.nextDay() },
+                                shape = CircleShape,
+                                color = Color(0xFF1E1C2A),
+                                border = BorderStroke(1.dp, Color(0xFF343048)),
+                                modifier = Modifier.size(30.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("›", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+                            }
                         }
                     }
                 }
@@ -407,7 +442,13 @@ fun HomeTab(
                     }
                 }
                 Button(
-                    onClick = { title = ""; description = ""; formError = null; showAddDialog = true },
+                    onClick = {
+                        editingHabitId = null
+                        title = ""
+                        description = ""
+                        formError = null
+                        showAddDialog = true
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFC4B5FD),
                         contentColor = Color(0xFF171020)
@@ -461,7 +502,13 @@ fun HomeTab(
                         )
                         Spacer(Modifier.height(4.dp))
                         Button(
-                            onClick = { title = ""; description = ""; formError = null; showAddDialog = true },
+                            onClick = {
+                                editingHabitId = null
+                                title = ""
+                                description = ""
+                                formError = null
+                                showAddDialog = true
+                            },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF00DC82),
                                 contentColor = Color(0xFF06291A)
@@ -507,6 +554,13 @@ fun HomeTab(
                                 onClear = {
                                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     vm.clearCompletion(entry)
+                                },
+                                onEdit = {
+                                    editingHabitId = entry.habit.id
+                                    title = entry.habit.title
+                                    description = entry.habit.description
+                                    formError = null
+                                    showAddDialog = true
                                 }
                             )
                         }
@@ -537,12 +591,20 @@ fun HomeTab(
         )
 
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
+            onDismissRequest = {
+                showAddDialog = false
+                editingHabitId = null
+            },
             containerColor = Color(0xFF1E1C2A),
             titleContentColor = Color.White,
             textContentColor = Color(0xFF9E98B3),
             shape = RoundedCornerShape(24.dp),
-            title = { Text("Create a habit", fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    if (editingHabitId != null) "Edit habit" else "Create a habit",
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
@@ -602,12 +664,25 @@ fun HomeTab(
                             cleanTitle.length > 60 -> formError = "Habit names must be 60 characters or fewer."
                             description.length > 240 -> formError = "Descriptions must be 240 characters or fewer."
                             else -> {
-                                vm.addHabit(
-                                    title = cleanTitle,
-                                    description = description.trim(),
-                                    onError = { formError = it },
-                                    onSuccess = { showAddDialog = false }
-                                )
+                                val targetId = editingHabitId
+                                if (targetId != null) {
+                                    vm.updateHabit(
+                                        habitId = targetId,
+                                        title = cleanTitle,
+                                        description = description.trim(),
+                                        onSuccess = {
+                                            showAddDialog = false
+                                            editingHabitId = null
+                                        }
+                                    )
+                                } else {
+                                    vm.addHabit(
+                                        title = cleanTitle,
+                                        description = description.trim(),
+                                        onError = { formError = it },
+                                        onSuccess = { showAddDialog = false }
+                                    )
+                                }
                             }
                         }
                     },
@@ -617,11 +692,19 @@ fun HomeTab(
                         contentColor = Color(0xFF06291A)
                     )
                 ) {
-                    Text("Create habit", fontWeight = FontWeight.Bold)
+                    Text(
+                        if (editingHabitId != null) "Save changes" else "Create habit",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
+                TextButton(
+                    onClick = {
+                        showAddDialog = false
+                        editingHabitId = null
+                    }
+                ) {
                     Text("Cancel", color = Color(0xFFC4B5FD))
                 }
             }
@@ -637,7 +720,8 @@ private fun HabitCard(
     onToggle: () -> Unit,
     onMarkNotCompleted: () -> Unit,
     onArchive: () -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    onEdit: () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
     val (icon, iconColor) = habitVisualForTitle(entry.habit.title)
@@ -926,7 +1010,16 @@ private fun HabitCard(
                             }
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            TextButton(
+                                onClick = {
+                                    onEdit()
+                                    expanded = false
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("Edit", color = Color(0xFFE2E8F0), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
                             if (entry.status != HabitDayStatus.UNRECORDED) {
                                 TextButton(
                                     onClick = {

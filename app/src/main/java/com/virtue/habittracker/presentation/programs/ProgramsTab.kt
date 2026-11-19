@@ -1,13 +1,17 @@
 package com.virtue.habittracker.presentation.programs
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,16 +24,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,10 +53,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,20 +66,25 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.virtue.habittracker.domain.model.program.ProgramExperience
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
-import com.virtue.habittracker.domain.model.program.ProgramStatus
-import com.virtue.habittracker.presentation.SectionLoading
 import com.virtue.habittracker.domain.model.program.WorkActivityLevel
+import com.virtue.habittracker.presentation.SectionLoading
 import java.time.LocalDate
 
 private enum class ProgramRoute { CATALOG, DETAIL, PERSONALIZE, REVIEW, ACTIVE, ADJUST_PERSONALIZE, ADJUST_REVIEW }
+
+data class ProgramFeatureTag(
+    val label: String,
+    val icon: ImageVector
+)
 
 data class PrimaryFocusProgram(
     val id: String,
     val title: String,
     val description: String,
-    val icon: String,
+    val iconVector: ImageVector,
+    val accentColor: Color,
     val isRecommended: Boolean = false,
-    val tags: List<String>,
+    val tags: List<ProgramFeatureTag>,
     val templateId: String
 )
 
@@ -78,36 +93,56 @@ val focusPrograms = listOf(
         id = "build-lean-muscle",
         title = "Build Lean Muscle",
         description = "Progressive overload focused on hypertrophic adaptation, structural density, and functional power.",
-        icon = "🏋️",
+        iconVector = Icons.Filled.FitnessCenter,
+        accentColor = Color(0xFFA78BFA),
         isRecommended = true,
-        tags = listOf("📅 4–5 days/wk", "🥩 Hypertrophic Macros", "⏳ 3–6 months"),
+        tags = listOf(
+            ProgramFeatureTag("4–5 days/wk", Icons.Filled.CalendarMonth),
+            ProgramFeatureTag("Hypertrophic Macros", Icons.Filled.Restaurant),
+            ProgramFeatureTag("3–6 months", Icons.Filled.Schedule)
+        ),
         templateId = "home-strength-60"
     ),
     PrimaryFocusProgram(
         id = "calm-recomposition",
         title = "Calm Recomposition",
         description = "Simultaneous fat loss and muscle retention with precise caloric partitioning and steady, controlled volume.",
-        icon = "⚖️",
+        iconVector = Icons.Filled.MonitorWeight,
+        accentColor = Color(0xFF00DC82),
         isRecommended = false,
-        tags = listOf("📅 3–4 days/wk", "🍽️ High-Protein Fueling", "⏳ 16–24 weeks"),
+        tags = listOf(
+            ProgramFeatureTag("3–4 days/wk", Icons.Filled.CalendarMonth),
+            ProgramFeatureTag("High-Protein Fueling", Icons.Filled.Restaurant),
+            ProgramFeatureTag("16–24 weeks", Icons.Filled.Schedule)
+        ),
         templateId = "weight-habits-90"
     ),
     PrimaryFocusProgram(
         id = "aerobic-engine",
         title = "Aerobic Engine & Vitality",
         description = "Cardiovascular resilience, metabolic conditioning, and sustained baseline energy for demanding workdays.",
-        icon = "⚡",
+        iconVector = Icons.Filled.Bolt,
+        accentColor = Color(0xFFFBBF24),
         isRecommended = false,
-        tags = listOf("📅 3–5 days/wk", "⚡ Balanced Glycogen"),
+        tags = listOf(
+            ProgramFeatureTag("3–5 days/wk", Icons.Filled.CalendarMonth),
+            ProgramFeatureTag("Balanced Glycogen", Icons.Filled.Bolt),
+            ProgramFeatureTag("60-day cycle", Icons.Filled.Schedule)
+        ),
         templateId = "stamina-60"
     ),
     PrimaryFocusProgram(
         id = "longevity-movement",
         title = "Longevity & Movement Health",
         description = "Joint articulation, thoracic mobility, active tissue recovery, and sustainable low-fatigue functional movement.",
-        icon = "🧘",
+        iconVector = Icons.Filled.SelfImprovement,
+        accentColor = Color(0xFF38BDF8),
         isRecommended = false,
-        tags = listOf("📅 3–4 days/wk", "🪴 Maintenance & Vitality"),
+        tags = listOf(
+            ProgramFeatureTag("3–4 days/wk", Icons.Filled.CalendarMonth),
+            ProgramFeatureTag("Maintenance & Vitality", Icons.Filled.SelfImprovement),
+            ProgramFeatureTag("30-day cycle", Icons.Filled.Schedule)
+        ),
         templateId = "movement-30"
     )
 )
@@ -128,6 +163,22 @@ fun ProgramsTab(
 
     val selectedTemplate = vm.catalog.firstOrNull { it.id == selectedTemplateId }
     val selectedProgress = state.programs.firstOrNull { it.enrollment.id == selectedEnrollmentId }
+
+    val openPersonalizeForTemplate: (String) -> Unit = { templateId ->
+        selectedTemplateId = templateId
+        val template = vm.catalog.firstOrNull { it.id == templateId }
+        if (template != null) {
+            draftPreferences = ProgramPreferences(
+                availableMinutesPerDay = template.defaultMinutesPerDay.coerceIn(5, 90),
+                availableDaysPerWeek = 5,
+                experience = ProgramExperience.BEGINNER,
+                workActivityLevel = WorkActivityLevel.MIXED,
+                equipment = template.equipment
+            )
+        }
+        draftStartEpochDay = LocalDate.now().toEpochDay()
+        route = ProgramRoute.PERSONALIZE
+    }
 
     // Keep app navigation visible while the preview is shown over the catalogue.
     LaunchedEffect(route) { onFullScreenChange(route != ProgramRoute.CATALOG && route != ProgramRoute.DETAIL) }
@@ -151,28 +202,27 @@ fun ProgramsTab(
             .then(if (visible) Modifier else Modifier.padding(start = 10_000.dp))
     ) {
         when (route) {
-            ProgramRoute.CATALOG, ProgramRoute.DETAIL -> PrimaryFocusProgramScreen(
-                state = state,
-                onOpenTemplate = { templateId ->
-                    selectedTemplateId = templateId
-                    val template = vm.catalog.firstOrNull { it.id == templateId }
-                    if (template != null) {
-                        draftPreferences = ProgramPreferences(
-                            availableMinutesPerDay = template.defaultMinutesPerDay.coerceIn(5, 90),
-                            availableDaysPerWeek = 5,
-                            experience = ProgramExperience.BEGINNER,
-                            workActivityLevel = WorkActivityLevel.MIXED,
-                            equipment = template.equipment
-                        )
+            ProgramRoute.CATALOG, ProgramRoute.DETAIL -> {
+                PrimaryFocusProgramScreen(
+                    state = state,
+                    onOpenTemplate = openPersonalizeForTemplate,
+                    onPreviewTemplate = { templateId ->
+                        selectedTemplateId = templateId
+                        route = ProgramRoute.DETAIL
+                    },
+                    onOpenProgram = { progress ->
+                        selectedEnrollmentId = progress.enrollment.id
+                        route = ProgramRoute.ACTIVE
                     }
-                    draftStartEpochDay = LocalDate.now().toEpochDay()
-                    route = ProgramRoute.PERSONALIZE
-                },
-                onOpenProgram = { progress ->
-                    selectedEnrollmentId = progress.enrollment.id
-                    route = ProgramRoute.ACTIVE
+                )
+                if (route == ProgramRoute.DETAIL && selectedTemplate != null) {
+                    ProgramDetailScreen(
+                        template = selectedTemplate,
+                        onBack = { route = ProgramRoute.CATALOG },
+                        onPersonalize = { openPersonalizeForTemplate(selectedTemplate.id) }
+                    )
                 }
-            )
+            }
             ProgramRoute.PERSONALIZE, ProgramRoute.ADJUST_PERSONALIZE -> selectedTemplate?.let { template ->
                 ProgramPersonalizationScreen(
                     template = template,
@@ -185,7 +235,7 @@ fun ProgramsTab(
                     onContinue = { preferences, startEpochDay, _ ->
                         draftPreferences = preferences
                         draftStartEpochDay = startEpochDay
-                        route = if (route == ProgramRoute.ADJUST_REVIEW) ProgramRoute.ADJUST_REVIEW else ProgramRoute.REVIEW
+                        route = if (route == ProgramRoute.ADJUST_PERSONALIZE) ProgramRoute.ADJUST_REVIEW else ProgramRoute.REVIEW
                     }
                 )
             }
@@ -269,6 +319,7 @@ fun ProgramsTab(
 private fun PrimaryFocusProgramScreen(
     state: ProgramsUiState,
     onOpenTemplate: (String) -> Unit,
+    onPreviewTemplate: (String) -> Unit,
     onOpenProgram: (ProgramProgress) -> Unit
 ) {
     val activeEnrollment = state.programs.firstOrNull()
@@ -281,16 +332,24 @@ private fun PrimaryFocusProgramScreen(
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // Step Indicator Pill + Segmented Progress Bar Row
+        // Top Header Row with Eyebrow on left and "Progress" pill on top right
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = "PERIODIZED TRAINING",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF8E8AA7),
+                letterSpacing = 1.4.sp
+            )
+
             Surface(
                 shape = RoundedCornerShape(50),
                 color = Color(0xFF1E1C2B),
-                border = BorderStroke(1.dp, Color(0xFF2E2C3E))
+                border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.4f))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -303,38 +362,24 @@ private fun PrimaryFocusProgramScreen(
                             .background(Color(0xFFA78BFA), CircleShape)
                     )
                     Text(
-                        text = "STEP 1 OF 4",
+                        text = "Progress",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = Color(0xFFC4B5FD),
                         fontSize = 11.sp,
-                        letterSpacing = 1.sp
-                    )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(
-                    modifier = Modifier
-                        .width(26.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color(0xFFA78BFA))
-                )
-                repeat(3) {
-                    Box(
-                        modifier = Modifier
-                            .width(16.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFF282536))
+                        letterSpacing = 0.8.sp
                     )
                 }
             }
         }
 
-        // Ongoing Program Summary Card (matching home screen gradient)
+        // Ongoing Program Summary Hero Card
         if (activeEnrollment != null) {
+            val animatedPercent by animateFloatAsState(
+                targetValue = (activeEnrollment.progressPercent / 100f).coerceIn(0f, 1f),
+                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+                label = "ongoingProgramProgress"
+            )
             Card(
                 onClick = { onOpenProgram(activeEnrollment) },
                 modifier = Modifier.fillMaxWidth(),
@@ -350,34 +395,95 @@ private fun PrimaryFocusProgramScreen(
                             shape = RoundedCornerShape(24.dp)
                         )
                         .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "ONGOING PROGRAM: ${activeEnrollment.enrollment.titleSnapshot}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.SansSerif,
-                            color = Color.White
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFF0D3325),
+                            border = BorderStroke(1.dp, Color(0xFF00DC82).copy(alpha = 0.45f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(Color(0xFF00DC82), CircleShape)
+                                )
+                                Text(
+                                    text = "ACTIVE ENROLLMENT",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF00DC82),
+                                    fontSize = 10.sp,
+                                    letterSpacing = 0.8.sp
+                                )
+                            }
+                        }
+
                         Text(
                             text = "${activeEnrollment.progressPercent}%",
+                            style = MaterialTheme.typography.titleMedium,
                             color = Color(0xFF00DC82),
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
                             fontFamily = FontFamily.SansSerif
                         )
                     }
+
                     Text(
-                        text = "Open active routine schedule →",
-                        color = Color(0xFFC4B5FD),
-                        fontWeight = FontWeight.SemiBold,
+                        text = activeEnrollment.enrollment.titleSnapshot,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.SansSerif,
-                        style = MaterialTheme.typography.labelLarge
+                        color = Color.White
                     )
+
+                    LinearProgressIndicator(
+                        progress = { animatedPercent },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(7.dp)
+                            .clip(RoundedCornerShape(50)),
+                        color = Color(0xFF00DC82),
+                        trackColor = Color(0xFF171522)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${activeEnrollment.completedCount}/${activeEnrollment.totalCount} sessions completed",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFB5AFC7)
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Open schedule",
+                                color = Color(0xFFC4B5FD),
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.SansSerif,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = Color(0xFFC4B5FD),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -406,9 +512,8 @@ private fun PrimaryFocusProgramScreen(
             focusPrograms.forEach { program ->
                 FocusProgramCard(
                     program = program,
-                    onClick = {
-                        onOpenTemplate(program.templateId)
-                    }
+                    onClick = { onOpenTemplate(program.templateId) },
+                    onPreviewClick = { onPreviewTemplate(program.templateId) }
                 )
             }
         }
@@ -421,7 +526,12 @@ private fun PrimaryFocusProgramScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("🛡️", fontSize = 14.sp)
+            Icon(
+                imageVector = Icons.Filled.VerifiedUser,
+                contentDescription = null,
+                tint = Color(0xFFA78BFA),
+                modifier = Modifier.size(15.dp)
+            )
             Spacer(Modifier.width(6.dp))
             Text(
                 text = "Adaptive periodization • Auto-syncs to your rhythm",
@@ -439,7 +549,8 @@ private fun PrimaryFocusProgramScreen(
 @Composable
 private fun FocusProgramCard(
     program: PrimaryFocusProgram,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPreviewClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
@@ -461,7 +572,7 @@ private fun FocusProgramCard(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Top Row: Icon + Recommended Badge (flexibly weighted) + Action Arrow Indicator
+            // Top Row: Radial-Glow Vector Icon + Recommended Badge + Preview / Action Affordances
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -474,21 +585,31 @@ private fun FocusProgramCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(Color(0xFF29233A), RoundedCornerShape(12.dp)),
+                            .size(46.dp)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        program.accentColor.copy(alpha = 0.28f),
+                                        Color(0xFF252036)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(14.dp)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = program.icon,
-                            fontSize = 20.sp,
-                            fontFamily = FontFamily.SansSerif
+                        Icon(
+                            imageVector = program.iconVector,
+                            contentDescription = null,
+                            tint = program.accentColor,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
                     if (program.isRecommended) {
                         Surface(
                             shape = RoundedCornerShape(50),
-                            color = Color(0xFF392B58)
+                            color = Color(0xFF392B58),
+                            border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.4f))
                         ) {
                             Text(
                                 text = "RECOMMENDED",
@@ -496,26 +617,57 @@ private fun FocusProgramCard(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFC4B5FD),
                                 fontFamily = FontFamily.SansSerif,
+                                letterSpacing = 0.7.sp,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                             )
                         }
                     }
                 }
 
-                // Action Arrow Affordance
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(Color(0xFF2E283E), CircleShape),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "→",
-                        color = Color(0xFFC4B5FD),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        fontFamily = FontFamily.SansSerif
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF242132),
+                        border = BorderStroke(1.dp, Color(0xFF3A344E)),
+                        modifier = Modifier.clickable(onClick = onPreviewClick)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Info,
+                                contentDescription = "Preview phases",
+                                tint = Color(0xFFB5AFC7),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "Phases",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFB5AFC7)
+                            )
+                        }
+                    }
+
+                    // Action Arrow Affordance
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(Color(0xFF2E283E), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Personalize program",
+                            tint = Color(0xFFC4B5FD),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
 
@@ -538,7 +690,7 @@ private fun FocusProgramCard(
                 lineHeight = 20.sp
             )
 
-            // Tags Row (FlowRow prevents overlapping on any device width or font scale)
+            // Vector-Icon Tags Row
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -547,41 +699,30 @@ private fun FocusProgramCard(
                 program.tags.forEach { tag ->
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF242132)
+                        color = Color(0xFF221F30),
+                        border = BorderStroke(1.dp, Color(0xFF312C44))
                     ) {
-                        Text(
-                            text = tag,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.SansSerif,
-                            color = Color(0xFFC4B5FD),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Icon(
+                                imageVector = tag.icon,
+                                contentDescription = null,
+                                tint = program.accentColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = tag.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = FontFamily.SansSerif,
+                                color = Color(0xFFD7CEFC)
+                            )
+                        }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActiveProgramSummaryCard(progress: ProgramProgress, onOpen: (ProgramProgress) -> Unit) {
-    Card(onClick = { onOpen(progress) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(progress.enrollment.titleSnapshot, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(progress.progressPercent.toString() + "%", color = ProgramLavender, fontWeight = FontWeight.Bold)
-            }
-            Text(progress.enrollment.status.name.lowercase().replaceFirstChar { it.uppercase() }, color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
-            androidx.compose.material3.LinearProgressIndicator(
-                progress = { progress.progressPercent / 100f },
-                modifier = Modifier.fillMaxWidth().height(7.dp),
-                color = ProgramViolet,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${progress.completedCount}/${progress.totalCount} activities completed", color = ProgramMuted, style = MaterialTheme.typography.bodySmall)
-                Text("Open program →", color = ProgramLavender, style = MaterialTheme.typography.labelLarge)
             }
         }
     }

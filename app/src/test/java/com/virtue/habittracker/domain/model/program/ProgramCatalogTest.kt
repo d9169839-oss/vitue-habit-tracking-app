@@ -1,11 +1,12 @@
 package com.virtue.habittracker.domain.model.program
 
+import com.virtue.habittracker.domain.service.ProgramPersonalizationEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Protects the two bundled starter templates from accidental catalog regressions. */
+/** Protects the bundled program templates and ensures every program has distinct content. */
 class ProgramCatalogTest {
 
     @Test
@@ -54,8 +55,7 @@ class ProgramCatalogTest {
 
     @Test
     fun `all template phases cover their duration without gaps or overlaps`() {
-        listOf("fitness-wellness-60", "personal-development-30").forEach { id ->
-            val template = requireNotNull(ProgramCatalog.find(id))
+        ProgramCatalog.all.forEach { template ->
             var expectedStartDay = 1
 
             template.phases.forEach { phase ->
@@ -65,6 +65,48 @@ class ProgramCatalogTest {
             }
 
             assertEquals(template.durationDays + 1, expectedStartDay)
+        }
+    }
+
+    @Test
+    fun `every catalog program has distinct phase titles and activity content`() {
+        val phaseSignatures = ProgramCatalog.all.map { template ->
+            template.phases.joinToString("|") { "${it.title}:${it.activityTitle}:${it.instructions}" }
+        }
+        assertEquals(
+            "Every program in ProgramCatalog must have its own unique phase and activity content",
+            ProgramCatalog.all.size,
+            phaseSignatures.distinct().size
+        )
+    }
+
+    @Test
+    fun `each primary focus program generates varied daily sessions across the week`() {
+        val engine = ProgramPersonalizationEngine()
+        val focusTemplateIds = listOf("home-strength-60", "weight-habits-90", "stamina-60", "movement-30")
+
+        focusTemplateIds.forEach { templateId ->
+            val template = requireNotNull(ProgramCatalog.find(templateId))
+            val schedule = engine.buildSchedule(
+                template = template,
+                enrollmentId = "enrollment-$templateId",
+                startEpochDay = 20_000L,
+                preferences = ProgramPreferences(
+                    availableMinutesPerDay = 30,
+                    availableDaysPerWeek = 5,
+                    equipment = template.equipment
+                )
+            )
+            val firstWeekActiveTitles = schedule.take(7)
+                .filter { it.estimatedMinutes > 0 }
+                .map { it.title }
+
+            assertEquals(5, firstWeekActiveTitles.size)
+            assertEquals(
+                "Active workouts in week 1 of $templateId should have distinct daily focus modules",
+                5,
+                firstWeekActiveTitles.distinct().size
+            )
         }
     }
 }

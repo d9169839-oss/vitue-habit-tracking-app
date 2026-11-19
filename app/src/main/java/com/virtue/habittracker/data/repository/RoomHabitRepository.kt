@@ -87,6 +87,11 @@ class RoomHabitRepository @Inject constructor(
         syncScheduler.enqueueSync()
     }
 
+    override suspend fun updateHabit(habitId: String, title: String, description: String) {
+        dao.updateHabitDetailsAndQueue(habitId, title, description)
+        syncScheduler.enqueueSync()
+    }
+
     override suspend fun setCompletion(habitId: String, epochDay: Long, completed: Boolean) {
         val checkIn = HabitCheckInEntity(habitId, epochDay, completed, System.currentTimeMillis())
         dao.saveCheckInAndQueue(checkIn)

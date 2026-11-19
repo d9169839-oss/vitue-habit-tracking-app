@@ -54,18 +54,29 @@ interface ProgramDao {
     @Query("SELECT queuedAtMillis FROM sync_operations WHERE operationKey = :key LIMIT 1")
     suspend fun pendingRevision(key: String): Long?
 
+    @Query("UPDATE program_enrollments SET updatedAtMillis = :updatedAtMillis WHERE id = :enrollmentId")
+    suspend fun touchEnrollmentTimestamp(enrollmentId: String, updatedAtMillis: Long)
+
     @Transaction
     suspend fun saveEnrollmentAndSchedule(enrollment: ProgramEnrollmentEntity, activities: List<ProgramActivityEntity>) {
         upsertEnrollment(enrollment)
         upsertActivities(activities)
+        // Store the schedule locally in Room, and queue only the single enrollment document
+        // instead of 60-90 individual PENDING activity writes.
         queue("program-enrollment:${enrollment.id}", "PROGRAM_ENROLLMENT", enrollment.id)
-        activities.forEach { queue("program-activity:${it.id}", "PROGRAM_ACTIVITY", it.id) }
     }
 
     @Transaction
     suspend fun updateActivityAndQueue(activity: ProgramActivityEntity) {
         upsertActivity(activity)
-        queue("program-activity:${activity.id}", "PROGRAM_ACTIVITY", activity.id)
+        if (activity.status == "PENDING") {
+            // If the user resets an activity back to PENDING, delete the cloud record (or skip if never synced).
+            queue("program-activity:${activity.id}", "PROGRAM_ACTIVITY", activity.id, "DELETE")
+        } else {
+            // Only sync COMPLETED or SKIPPED progress days to Firestore.
+            queue("program-activity:${activity.id}", "PROGRAM_ACTIVITY", activity.id)
+        }
+        touchEnrollmentTimestamp(activity.enrollmentId, activity.updatedAtMillis)
     }
 
     @Transaction
@@ -85,8 +96,8 @@ interface ProgramDao {
     ) {
         upsertEnrollment(enrollment)
         upsertActivities(activities)
+        // Only queue the single enrollment document on replan instead of re-uploading all 60-90 days.
         queue("program-enrollment:${enrollment.id}", "PROGRAM_ENROLLMENT", enrollment.id)
-        activities.forEach { queue("program-activity:${it.id}", "PROGRAM_ACTIVITY", it.id) }
     }
     @Transaction
     suspend fun deleteEnrollmentAndQueue(enrollmentId: String) {

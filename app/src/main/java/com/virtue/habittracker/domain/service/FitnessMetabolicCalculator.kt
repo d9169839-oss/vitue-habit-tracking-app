@@ -48,10 +48,10 @@ object FitnessMetabolicCalculator {
 
         // Caloric Target Surplus/Deficit Multiplier
         val surplusDeficitMultiplier = when (focusProgramId) {
-            "build-lean-muscle" -> 1.10 // 10% Surplus
-            "calm-recomposition" -> 0.85 // 15% Deficit
-            "aerobic-engine" -> 1.00 // Maintenance
-            "longevity-movement" -> 1.00 // Maintenance
+            "build-lean-muscle", "home-strength-60" -> 1.10 // 10% Surplus
+            "calm-recomposition", "weight-habits-90" -> 0.85 // 15% Deficit
+            "aerobic-engine", "stamina-60" -> 1.00 // Maintenance
+            "longevity-movement", "movement-30", "fitness-wellness-60" -> 1.00 // Maintenance
             else -> 1.05
         }
 
@@ -59,10 +59,10 @@ object FitnessMetabolicCalculator {
 
         // Protein (g / kg body weight)
         val proteinPerKg = when (focusProgramId) {
-            "build-lean-muscle" -> 2.0
-            "calm-recomposition" -> 2.2
-            "aerobic-engine" -> 1.8
-            "longevity-movement" -> 1.6
+            "build-lean-muscle", "home-strength-60" -> 2.0
+            "calm-recomposition", "weight-habits-90" -> 2.2
+            "aerobic-engine", "stamina-60" -> 1.8
+            "longevity-movement", "movement-30", "fitness-wellness-60" -> 1.6
             else -> 1.8
         }
         val proteinGrams = (weightKg * proteinPerKg).toInt()

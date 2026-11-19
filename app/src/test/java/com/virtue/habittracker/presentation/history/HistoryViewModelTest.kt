@@ -76,6 +76,7 @@ class HistoryViewModelTest {
             }
 
             override suspend fun createHabit(title: String, description: String, createdEpochDay: Long) {}
+            override suspend fun updateHabit(habitId: String, title: String, description: String) {}
             override suspend fun setCompletion(habitId: String, epochDay: Long, completed: Boolean) {}
             override suspend fun clearCompletion(habitId: String, epochDay: Long) {}
             override suspend fun archiveHabit(habitId: String, inactiveFromEpochDay: Long) {}
@@ -115,6 +116,7 @@ class HistoryViewModelTest {
             override fun observeHabitsForDay(epochDay: Long): Flow<List<HabitDayEntry>> = flowOf(emptyList())
             override fun observeHistoryForDay(epochDay: Long): Flow<List<HabitDayEntry>> = flowOf(emptyList())
             override suspend fun createHabit(title: String, description: String, createdEpochDay: Long) {}
+            override suspend fun updateHabit(habitId: String, title: String, description: String) {}
             override suspend fun setCompletion(habitId: String, epochDay: Long, completed: Boolean) {}
             override suspend fun clearCompletion(habitId: String, epochDay: Long) {}
             override suspend fun archiveHabit(habitId: String, inactiveFromEpochDay: Long) {}
