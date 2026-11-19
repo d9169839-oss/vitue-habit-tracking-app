@@ -39,8 +39,12 @@ android {
     }
     buildTypes {
         getByName("release") {
-            // Keep shrinking disabled until release keep rules and mapping retention are tested.
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             // CI can compile the release bundle without secrets; Play uploads must use the upload key.
             if (hasUploadSigning) signingConfig = signingConfigs.getByName("release")
         }

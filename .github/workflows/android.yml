@@ -22,8 +22,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -46,7 +44,7 @@ jobs:
             "client": [{
               "client_info": {
                 "mobilesdk_app_id": "1:123456789:android:123456789",
-                "android_client_info": { "package_name": "com.virtue.habittracker" }
+                "android_client_info": { "package_name": "com.ytron.virtuhabit" }
               },
               "api_key": [{ "current_key": "ci-placeholder" }],
               "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
@@ -56,4 +54,4 @@ jobs:
           JSON
 
       - name: Run unit tests, lint, debug build and release bundle
-        run: gradle testDebugUnitTest lintDebug assembleDebug bundleRelease
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug bundleRelease

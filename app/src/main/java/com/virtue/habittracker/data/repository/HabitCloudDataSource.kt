@@ -112,18 +112,75 @@ class HabitCloudDataSource @Inject constructor(
     private fun syncPreferences(uid: String) =
         context.getSharedPreferences("habit_sync_state_$uid", Context.MODE_PRIVATE)
 
+    private suspend fun clearLocalTables() {
+        dao.deleteAllSyncOperations()
+        dao.deleteAllCheckIns()
+        dao.deleteAllHabits()
+        programDao.deleteAllActivities()
+        programDao.deleteAllEnrollments()
+    }
+
     private suspend fun ensureLocalOwner(uid: String) {
         val preferences = context.getSharedPreferences("habit_cache_owner", Context.MODE_PRIVATE)
         val previousUid = preferences.getString("uid", null)
         if (previousUid != null && previousUid != uid) {
             // Never expose one account's cache or queued operations to another account.
-            dao.deleteAllSyncOperations()
-            dao.deleteAllCheckIns()
-            dao.deleteAllHabits()
-            programDao.deleteAllActivities()
-            programDao.deleteAllEnrollments()
+            clearLocalTables()
         }
         preferences.edit().putString("uid", uid).apply()
+    }
+
+    /**
+     * Flush any pending offline changes while the user is still authenticated, then clear
+     * the local cache so shared devices do not retain the previous account's data.
+     */
+    suspend fun flushAndClearLocalCacheForSignOut() {
+        val uid = userIdOrNull()
+        if (uid != null && hasValidatedInternet()) {
+            runCatching { syncPendingChanges() }
+            runCatching { syncProfileIfPending() }
+        }
+        removeRealtimeRegistrations()
+        clearLocalTables()
+        context.getSharedPreferences("habit_cache_owner", Context.MODE_PRIVATE)
+            .edit().remove("uid").apply()
+    }
+
+    /**
+     * Permanently deletes all cloud documents under `users/{uid}` in Firestore before
+     * the Firebase Auth user is deleted.
+     */
+    suspend fun deleteRemoteUserData() {
+        val uid = userIdOrNull() ?: return
+        removeRealtimeRegistrations()
+        val userRef = userDocument(uid)
+        val subcollections = listOf(
+            HABITS_COLLECTION,
+            CHECK_INS_COLLECTION,
+            PROGRAM_ENROLLMENTS_COLLECTION,
+            PROGRAM_ACTIVITIES_COLLECTION,
+            "dailySummaries"
+        )
+        for (collection in subcollections) {
+            val snapshot = userRef.collection(collection).get().await()
+            snapshot.documents.chunked(350).forEach { chunk ->
+                val batch = firestore.batch()
+                chunk.forEach { doc -> batch.delete(doc.reference) }
+                batch.commit().await()
+            }
+        }
+        userRef.delete().await()
+    }
+
+    /** Clears all local Room tables and preferences after account deletion succeeds. */
+    suspend fun clearAllLocalUserData(uid: String?) {
+        removeRealtimeRegistrations()
+        clearLocalTables()
+        context.getSharedPreferences("habit_cache_owner", Context.MODE_PRIVATE)
+            .edit().clear().apply()
+        if (uid != null) {
+            syncPreferences(uid).edit().clear().apply()
+        }
     }
 
     /** Clear a previous account's local cache before exposing data; this method is local-only. */

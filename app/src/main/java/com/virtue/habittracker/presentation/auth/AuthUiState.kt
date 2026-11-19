@@ -12,4 +12,5 @@ data class AuthUiState(
 
 sealed interface AuthEvent {
     data object Authenticated : AuthEvent
+    data object AccountDeleted : AuthEvent
 }

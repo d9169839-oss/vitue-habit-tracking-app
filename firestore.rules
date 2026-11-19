@@ -2,30 +2,105 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isOptionalString(field, maxLen) {
+      return !(field in request.resource.data)
+        || request.resource.data[field] == null
+        || (request.resource.data[field] is string && request.resource.data[field].size() <= maxLen);
+    }
+
+    function isOptionalInt(field) {
+      return !(field in request.resource.data)
+        || request.resource.data[field] == null
+        || request.resource.data[field] is int;
+    }
+
     // Every account can read and write only its own profile and nested habit data.
     // Firebase Authentication handles passwords; they must never be stored here.
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'name', 'email', 'photoUrl', 'createdAtMillis', 'updatedAtMillis'
+        ])
+        && request.resource.data.uid == userId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && isOptionalString('photoUrl', 1024)
+        && request.resource.data.createdAtMillis is int
+        && request.resource.data.updatedAtMillis is int;
+      allow delete: if isOwner(userId);
 
       match /habits/{habitId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'id', 'title', 'description', 'createdEpochDay', 'inactiveFromEpochDay', 'updatedAtMillis'
+          ])
+          && request.resource.data.id == habitId
+          && request.resource.data.id.size() > 0
+          && request.resource.data.id.size() <= 128
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 160
+          && request.resource.data.description is string
+          && request.resource.data.description.size() <= 2000
+          && request.resource.data.createdEpochDay is int
+          && isOptionalInt('inactiveFromEpochDay')
+          && request.resource.data.updatedAtMillis is int;
+        allow delete: if isOwner(userId);
       }
 
       match /habitCheckIns/{checkInId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'habitId', 'epochDay', 'completed', 'deleted', 'updatedAtMillis'
+          ])
+          && request.resource.data.habitId is string
+          && request.resource.data.habitId.size() > 0
+          && request.resource.data.habitId.size() <= 128
+          && request.resource.data.epochDay is int
+          && request.resource.data.updatedAtMillis is int
+          && (
+            request.resource.data.deleted == true
+            || (
+              request.resource.data.completed is bool
+              && (!('deleted' in request.resource.data) || request.resource.data.deleted == false)
+            )
+          );
+        allow delete: if isOwner(userId);
       }
 
       // Program documents are isolated by authenticated UID. The client writes a compact
       // tombstone for deletions, or a validated snapshot for active records.
       match /programEnrollments/{enrollmentId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow create, update: if request.auth != null && request.auth.uid == userId
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'id', 'templateId', 'templateVersion', 'titleSnapshot', 'category',
+            'durationDays', 'startEpochDay', 'status', 'availableMinutesPerDay',
+            'availableDaysPerWeek', 'experience', 'workActivityLevel', 'equipment',
+            'isPremium', 'createdAtMillis', 'updatedAtMillis', 'deleted'
+          ])
           && request.resource.data.id == enrollmentId
           && request.resource.data.updatedAtMillis is int
           && (
             request.resource.data.deleted == true
             || (
               request.resource.data.templateId is string
+              && request.resource.data.templateId.size() > 0
+              && request.resource.data.templateId.size() <= 128
               && request.resource.data.templateVersion is int
               && request.resource.data.titleSnapshot is string
               && request.resource.data.titleSnapshot.size() > 0
@@ -47,24 +122,33 @@ service cloud.firestore {
               && request.resource.data.createdAtMillis is int
             )
           );
-        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow delete: if isOwner(userId);
       }
 
       match /programActivities/{activityId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow create, update: if request.auth != null && request.auth.uid == userId
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'id', 'enrollmentId', 'dayIndex', 'epochDay', 'phaseTitle',
+            'title', 'instructions', 'estimatedMinutes', 'status',
+            'updatedAtMillis', 'deleted'
+          ])
           && request.resource.data.id == activityId
           && request.resource.data.updatedAtMillis is int
           && (
             request.resource.data.deleted == true
             || (
               request.resource.data.enrollmentId is string
+              && request.resource.data.enrollmentId.size() > 0
+              && request.resource.data.enrollmentId.size() <= 128
               && request.resource.data.dayIndex is int
               && request.resource.data.dayIndex >= 1
               && request.resource.data.dayIndex <= 90
               && request.resource.data.epochDay is int
               && request.resource.data.phaseTitle is string
+              && request.resource.data.phaseTitle.size() <= 160
               && request.resource.data.title is string
+              && request.resource.data.title.size() > 0
               && request.resource.data.title.size() <= 160
               && request.resource.data.instructions is string
               && request.resource.data.instructions.size() <= 4000
@@ -74,12 +158,24 @@ service cloud.firestore {
               && request.resource.data.status in ['PENDING', 'COMPLETED', 'SKIPPED']
             )
           );
-        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow delete: if isOwner(userId);
       }
 
       // Optional future optimization. The app currently derives summaries from check-ins.
       match /dailySummaries/{dateKey} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'dateKey', 'completedCount', 'totalCount', 'updatedAtMillis'
+          ])
+          && request.resource.data.dateKey == dateKey
+          && request.resource.data.dateKey.size() <= 32
+          && request.resource.data.completedCount is int
+          && request.resource.data.completedCount >= 0
+          && request.resource.data.totalCount is int
+          && request.resource.data.totalCount >= 0
+          && request.resource.data.updatedAtMillis is int;
+        allow delete: if isOwner(userId);
       }
     }
   }

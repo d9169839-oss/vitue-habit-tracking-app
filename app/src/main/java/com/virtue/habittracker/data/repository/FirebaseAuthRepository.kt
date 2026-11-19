@@ -58,6 +58,12 @@ class FirebaseAuthRepository @Inject constructor(
         firebaseAuth.sendPasswordResetEmail(email).await()
     }
 
+    override suspend fun deleteAccount(): Result<Unit> = runCatching {
+        val user = firebaseAuth.currentUser
+            ?: throw IllegalStateException("No authenticated user found.")
+        user.delete().await()
+    }
+
     override suspend fun signOut() = firebaseAuth.signOut()
 
     private fun currentUser(): AuthOutcome {

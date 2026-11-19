@@ -1,4 +1,5 @@
 package com.virtue.habittracker.presentation.home
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.virtue.habittracker.domain.model.HabitDayEntry
@@ -14,8 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -32,6 +33,7 @@ class HomeViewModel @Inject constructor(
     private val _hasLoadedInitialData = MutableStateFlow(false)
     val hasLoadedInitialData = _hasLoadedInitialData.asStateFlow()
     val selectedDate = _selectedDate.asStateFlow()
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val habits = selectedDate.flatMapLatest { observeHabitsForDay(it.toEpochDay()) }
         // The first Room emission (including a legitimate empty list) completes loading.
@@ -48,17 +50,29 @@ class HomeViewModel @Inject constructor(
             _selectedDate.value = safeDate
         }
     }
-    fun previousDay() { selectDate(_selectedDate.value.minusDays(1)) }
+
+    fun previousDay() {
+        selectDate(_selectedDate.value.minusDays(1))
+    }
+
     fun nextDay() {
         val current = _selectedDate.value
         if (current.isBefore(LocalDate.now())) selectDate(current.plusDays(1))
     }
-    fun addHabit(title: String, description: String, onError: (String) -> Unit) {
+
+    fun addHabit(
+        title: String,
+        description: String,
+        onError: (String) -> Unit,
+        onSuccess: () -> Unit = {}
+    ) {
         viewModelScope.launch {
             createHabit(title, description, LocalDate.now().toEpochDay())
+                .onSuccess { onSuccess() }
                 .onFailure { onError(it.message ?: "Could not create habit.") }
         }
     }
+
     fun clearCompletion(entry: HabitDayEntry) {
         viewModelScope.launch { clearHabitCheckInUseCase(entry.habit.id, selectedDate.value.toEpochDay()) }
     }

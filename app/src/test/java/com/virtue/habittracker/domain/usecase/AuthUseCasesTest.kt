@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,9 +16,12 @@ class AuthUseCasesTest {
 
     private class FakeAuthRepository : AuthRepository {
         var returnOutcome: AuthOutcome = AuthOutcome.Success(User("u1", "test@example.com", "Test"))
+        var deleteOutcome: Result<Unit> = Result.success(Unit)
         var lastEmail: String? = null
         var lastPassword: String? = null
         var lastToken: String? = null
+        var signedOut: Boolean = false
+        var deletedAccount: Boolean = false
 
         override val authState: Flow<User?> = emptyFlow()
 
@@ -39,13 +43,37 @@ class AuthUseCasesTest {
         }
 
         override suspend fun sendPasswordReset(email: String): Result<Unit> = Result.success(Unit)
-        override suspend fun signOut() = Unit
+
+        override suspend fun deleteAccount(): Result<Unit> {
+            deletedAccount = true
+            return deleteOutcome
+        }
+
+        override suspend fun signOut() {
+            signedOut = true
+        }
     }
 
     private class RecordingSessionCoordinator : AuthSessionCoordinator {
         var bootstrappedUser: User? = null
+        var beforeSignOutCalled = false
+        var deleteAccountDataCalled = false
+        var accountDeletedCalled = false
+
         override suspend fun onSessionStarted(user: User) {
             bootstrappedUser = user
+        }
+
+        override suspend fun onBeforeSignOut() {
+            beforeSignOutCalled = true
+        }
+
+        override suspend fun onDeleteAccountData() {
+            deleteAccountDataCalled = true
+        }
+
+        override suspend fun onAccountDeleted() {
+            accountDeletedCalled = true
         }
     }
 
@@ -138,5 +166,47 @@ class AuthUseCasesTest {
         assertTrue(outcome is AuthOutcome.Success)
         assertEquals("valid_token_xyz", repo.lastToken)
         assertEquals(testUser, coordinator.bootstrappedUser)
+    }
+
+    @Test
+    fun signOut_flushesPendingDataBeforeSigningOut() = runTest {
+        val repo = FakeAuthRepository()
+        val coordinator = RecordingSessionCoordinator()
+        val useCase = SignOutUseCase(repo, coordinator)
+
+        useCase()
+
+        assertTrue(coordinator.beforeSignOutCalled)
+        assertTrue(repo.signedOut)
+    }
+
+    @Test
+    fun deleteAccount_success_deletesDataAndAuthAndClearsLocal() = runTest {
+        val repo = FakeAuthRepository()
+        val coordinator = RecordingSessionCoordinator()
+        val useCase = DeleteAccountUseCase(repo, coordinator)
+
+        val result = useCase()
+
+        assertTrue(result.isSuccess)
+        assertTrue(coordinator.deleteAccountDataCalled)
+        assertTrue(repo.deletedAccount)
+        assertTrue(coordinator.accountDeletedCalled)
+    }
+
+    @Test
+    fun deleteAccount_authFailure_doesNotClearLocalState() = runTest {
+        val repo = FakeAuthRepository().apply {
+            deleteOutcome = Result.failure(IllegalStateException("REQUIRES_RECENT_LOGIN"))
+        }
+        val coordinator = RecordingSessionCoordinator()
+        val useCase = DeleteAccountUseCase(repo, coordinator)
+
+        val result = useCase()
+
+        assertTrue(result.isFailure)
+        assertTrue(coordinator.deleteAccountDataCalled)
+        assertTrue(repo.deletedAccount)
+        assertFalse(coordinator.accountDeletedCalled)
     }
 }

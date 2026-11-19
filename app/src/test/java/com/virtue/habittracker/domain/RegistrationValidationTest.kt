@@ -22,6 +22,7 @@ class RegistrationValidationTest {
         }
         override suspend fun signInWithGoogle(idToken: String) = AuthOutcome.Failure("not called")
         override suspend fun sendPasswordReset(email: String) = Result.success(Unit)
+        override suspend fun deleteAccount() = Result.success(Unit)
         override suspend fun signOut() = Unit
     }
 

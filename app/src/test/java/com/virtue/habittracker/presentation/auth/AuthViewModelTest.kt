@@ -4,6 +4,7 @@ import com.virtue.habittracker.domain.model.AuthOutcome
 import com.virtue.habittracker.domain.model.User
 import com.virtue.habittracker.domain.repository.AuthRepository
 import com.virtue.habittracker.domain.repository.AuthSessionCoordinator
+import com.virtue.habittracker.domain.usecase.DeleteAccountUseCase
 import com.virtue.habittracker.domain.usecase.GoogleSignInUseCase
 import com.virtue.habittracker.domain.usecase.RegisterUseCase
 import com.virtue.habittracker.domain.usecase.SendPasswordResetUseCase
@@ -34,13 +35,19 @@ class AuthViewModelTest {
     private class FakeAuthRepository : AuthRepository {
         var returnOutcome: AuthOutcome = AuthOutcome.Success(User("1", "test@test.com", "Test"))
         var resetResult: Result<Unit> = Result.success(Unit)
+        var deleteResult: Result<Unit> = Result.success(Unit)
         var signedOut = false
+        var accountDeleted = false
 
         override val authState: Flow<User?> = emptyFlow()
         override suspend fun signIn(email: String, password: String): AuthOutcome = returnOutcome
         override suspend fun register(name: String, email: String, password: String): AuthOutcome = returnOutcome
         override suspend fun signInWithGoogle(idToken: String): AuthOutcome = returnOutcome
         override suspend fun sendPasswordReset(email: String): Result<Unit> = resetResult
+        override suspend fun deleteAccount(): Result<Unit> {
+            accountDeleted = true
+            return deleteResult
+        }
         override suspend fun signOut() { signedOut = true }
     }
 
@@ -52,13 +59,16 @@ class AuthViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         fakeRepository = FakeAuthRepository()
-        sessionCoordinator = AuthSessionCoordinator { }
+        sessionCoordinator = object : AuthSessionCoordinator {
+            override suspend fun onSessionStarted(user: User) = Unit
+        }
         viewModel = AuthViewModel(
             signInUseCase = SignInUseCase(fakeRepository, sessionCoordinator),
             registerUseCase = RegisterUseCase(fakeRepository, sessionCoordinator),
             googleSignInUseCase = GoogleSignInUseCase(fakeRepository, sessionCoordinator),
             sendPasswordResetUseCase = SendPasswordResetUseCase(fakeRepository),
-            signOutUseCase = SignOutUseCase(fakeRepository)
+            signOutUseCase = SignOutUseCase(fakeRepository, sessionCoordinator),
+            deleteAccountUseCase = DeleteAccountUseCase(fakeRepository, sessionCoordinator)
         )
     }
 
@@ -151,5 +161,35 @@ class AuthViewModelTest {
 
         assertEquals(AuthEvent.Authenticated, receivedEvent)
         job.cancel()
+    }
+
+    @Test
+    fun deleteAccount_success_emitsAccountDeletedAndInvokesCallback() = runTest {
+        var callbackInvoked = false
+        var receivedEvent: AuthEvent? = null
+        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.events.collect { receivedEvent = it }
+        }
+
+        viewModel.deleteAccount(onDeleted = { callbackInvoked = true })
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(fakeRepository.accountDeleted)
+        assertTrue(callbackInvoked)
+        assertEquals(AuthEvent.AccountDeleted, receivedEvent)
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.errorMessage)
+        job.cancel()
+    }
+
+    @Test
+    fun deleteAccount_requiresRecentLogin_showsFriendlyReauthMessage() = runTest {
+        fakeRepository.deleteResult = Result.failure(RuntimeException("REQUIRES_RECENT_LOGIN"))
+
+        viewModel.deleteAccount()
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.errorMessage?.contains("sign out, sign back in") == true)
+        assertFalse(viewModel.uiState.value.isLoading)
     }
 }

@@ -395,7 +395,7 @@ private fun Step1AboutYou(
             Text("🔒", fontSize = 13.sp)
             Spacer(Modifier.width(6.dp))
             Text(
-                text = "Encrypted on-device · Used solely for metabolic math",
+                text = "Processed on-device · Used solely for metabolic calibration",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF8E8AA7)
             )

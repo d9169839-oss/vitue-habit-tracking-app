@@ -5,24 +5,31 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Centralized Virtue palette. Screen-specific accents should reuse these semantic colors.
+// Centralized Virtue palette with glowing accents and unified obsidian-violet surfaces.
 private val VirtueColors = darkColorScheme(
     primary = Color(0xFFA78BFA),
-    onPrimary = Color(0xFF171020),
-    primaryContainer = Color(0xFF302643),
+    onPrimary = Color(0xFF140E21),
+    primaryContainer = Color(0xFF2E2448),
     onPrimaryContainer = Color(0xFFEDE5FF),
-    secondary = Color(0xFF34D399),
-    onSecondary = Color(0xFF062B20),
-    secondaryContainer = Color(0xFF15392F),
+    secondary = Color(0xFF00DC82),
+    onSecondary = Color(0xFF05291A),
+    secondaryContainer = Color(0xFF0D3325),
     onSecondaryContainer = Color(0xFFB8F7DF),
-    background = Color(0xFF100D18),
-    surface = Color(0xFF211B30),
-    surfaceVariant = Color(0xFF29213A),
+    tertiary = Color(0xFFFBBF24),
+    onTertiary = Color(0xFF2B1D00),
+    tertiaryContainer = Color(0xFF362812),
+    onTertiaryContainer = Color(0xFFFDE68A),
+    background = Color(0xFF12111A),
+    surface = Color(0xFF1E1C2A),
+    surfaceVariant = Color(0xFF282538),
+    onBackground = Color(0xFFF8F5FF),
     onSurface = Color(0xFFF8F5FF),
-    onSurfaceVariant = Color(0xFFAAA2BB),
-    outline = Color(0xFF393047),
-    error = Color(0xFFFB7185),
-    onError = Color(0xFF3B0714)
+    onSurfaceVariant = Color(0xFF9E98B3),
+    outline = Color(0xFF36324A),
+    error = Color(0xFFFF5252),
+    onError = Color(0xFF3B0714),
+    errorContainer = Color(0xFF381418),
+    onErrorContainer = Color(0xFFFFB4AB)
 )
 
 @Composable

@@ -1,5 +1,10 @@
 package com.virtue.habittracker.presentation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -12,9 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,57 +82,77 @@ fun App(
     }
 
     Box(Modifier.fillMaxSize()) {
-      Column(
-          Modifier
-              .fillMaxSize()
-              .background(MaterialTheme.colorScheme.background)
-              .statusBarsPadding()
-              .padding(top = 3.dp)
-      ) {
-        // Keep the offline banner persistent; briefly confirm reconnection as before.
-        if (!isOnline) {
-            ConnectivityBanner(text = "Device offline", background = androidx.compose.ui.graphics.Color(0xFFC62828))
-        } else if (showOnlineBanner) {
-            ConnectivityBanner(text = "Internet available", background = androidx.compose.ui.graphics.Color(0xFF2E7D32))
-        }
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(Color(0xFF12111A))
+                .statusBarsPadding()
+                .padding(top = 3.dp)
+        ) {
+            // Smoothly animated offline / online connectivity banners
+            AnimatedVisibility(
+                visible = !isOnline,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                ConnectivityBanner(
+                    text = "Offline mode • Local changes will sync automatically",
+                    background = Color(0xFF381418),
+                    accent = Color(0xFFFF5252)
+                )
+            }
+            AnimatedVisibility(
+                visible = isOnline && showOnlineBanner,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                ConnectivityBanner(
+                    text = "Back online • Cloud sync active",
+                    background = Color(0xFF0D3325),
+                    accent = Color(0xFF00DC82)
+                )
+            }
 
-        // All destinations stay composed to preserve their state and fast tab switching.
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            HomeTab(
-                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HOME) 1f else 0f),
-                visible = selectedTab == AppTab.HOME,
-                vm = homeViewModel,
-                authViewModel = authViewModel,
-                historyViewModel = historyViewModel,
-                onOpenHistory = { selectedTab = AppTab.HISTORY },
-                onSignOut = onSignOut
-            )
-            HistoryTab(
-                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HISTORY) 1f else 0f),
-                visible = selectedTab == AppTab.HISTORY,
-                vm = historyViewModel
-            )
-            ProgramsTab(
-                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
-                visible = selectedTab == AppTab.PROGRAMS,
-                onFullScreenChange = { programsFullScreen = it }
-            )
-            ProfileTab(
-                modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
-                visible = selectedTab == AppTab.PROFILE,
-                onSignOut = { authViewModel.signOut(); onSignOut() }
-            )
-        }
+            // All destinations stay composed to preserve their state and fast tab switching.
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                HomeTab(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HOME) 1f else 0f),
+                    visible = selectedTab == AppTab.HOME,
+                    vm = homeViewModel,
+                    authViewModel = authViewModel,
+                    historyViewModel = historyViewModel,
+                    onOpenHistory = { selectedTab = AppTab.HISTORY },
+                    onSignOut = onSignOut
+                )
+                HistoryTab(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HISTORY) 1f else 0f),
+                    visible = selectedTab == AppTab.HISTORY,
+                    vm = historyViewModel
+                )
+                ProgramsTab(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
+                    visible = selectedTab == AppTab.PROGRAMS,
+                    onFullScreenChange = { programsFullScreen = it }
+                )
+                ProfileTab(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
+                    visible = selectedTab == AppTab.PROFILE,
+                    onSignOut = { authViewModel.signOut(onComplete = onSignOut) },
+                    onOpenHistory = { selectedTab = AppTab.HISTORY },
+                    onOpenPrograms = { selectedTab = AppTab.PROGRAMS },
+                    authViewModel = authViewModel
+                )
+            }
 
-        if (!programsFullScreen) {
-            AppBottomNavigation(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it }
-            )
+            if (!programsFullScreen) {
+                AppBottomNavigation(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+            }
         }
-      }
-      // Cover the complete app (including navigation) only for the first local data load.
-      if (!hasLoadedInitialHomeData) VitueSplashScreen()
+        // Cover the complete app (including navigation) only for the first local data load.
+        if (!hasLoadedInitialHomeData) VitueSplashScreen()
     }
 }
 
@@ -135,11 +162,19 @@ private fun AppBottomNavigation(
     onTabSelected: (AppTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val itemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = Color(0xFFC4B5FD),
+        selectedTextColor = Color(0xFFC4B5FD),
+        indicatorColor = Color(0xFF2E2448),
+        unselectedIconColor = Color(0xFF8E8AA7),
+        unselectedTextColor = Color(0xFF8E8AA7)
+    )
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        color = Color(0xFF1A1825),
+        border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.22f)),
         tonalElevation = 6.dp
     ) {
         NavigationBar(
@@ -151,8 +186,9 @@ private fun AppBottomNavigation(
                 modifier = itemModifier,
                 selected = selectedTab == AppTab.HOME,
                 onClick = { onTabSelected(AppTab.HOME) },
+                colors = itemColors,
                 icon = {
-                    androidx.compose.material3.Icon(
+                    Icon(
                         painter = painterResource(R.drawable.ic_home),
                         contentDescription = "Home",
                         modifier = Modifier.size(20.dp)
@@ -162,7 +198,7 @@ private fun AppBottomNavigation(
                     Text(
                         "Home",
                         fontSize = 11.sp,
-                        fontWeight = if (selectedTab == AppTab.HOME) FontWeight.SemiBold else FontWeight.Medium
+                        fontWeight = if (selectedTab == AppTab.HOME) FontWeight.Bold else FontWeight.Medium
                     )
                 }
             )
@@ -170,8 +206,9 @@ private fun AppBottomNavigation(
                 modifier = itemModifier,
                 selected = selectedTab == AppTab.PROGRAMS,
                 onClick = { onTabSelected(AppTab.PROGRAMS) },
+                colors = itemColors,
                 icon = {
-                    androidx.compose.material3.Icon(
+                    Icon(
                         painter = painterResource(R.drawable.ic_program),
                         contentDescription = "Programs",
                         modifier = Modifier.size(20.dp)
@@ -181,7 +218,7 @@ private fun AppBottomNavigation(
                     Text(
                         "Programs",
                         fontSize = 11.sp,
-                        fontWeight = if (selectedTab == AppTab.PROGRAMS) FontWeight.SemiBold else FontWeight.Medium
+                        fontWeight = if (selectedTab == AppTab.PROGRAMS) FontWeight.Bold else FontWeight.Medium
                     )
                 }
             )
@@ -189,8 +226,9 @@ private fun AppBottomNavigation(
                 modifier = itemModifier,
                 selected = selectedTab == AppTab.HISTORY,
                 onClick = { onTabSelected(AppTab.HISTORY) },
+                colors = itemColors,
                 icon = {
-                    androidx.compose.material3.Icon(
+                    Icon(
                         painter = painterResource(R.drawable.ic_history),
                         contentDescription = "History",
                         modifier = Modifier.size(20.dp)
@@ -200,7 +238,7 @@ private fun AppBottomNavigation(
                     Text(
                         "History",
                         fontSize = 11.sp,
-                        fontWeight = if (selectedTab == AppTab.HISTORY) FontWeight.SemiBold else FontWeight.Medium
+                        fontWeight = if (selectedTab == AppTab.HISTORY) FontWeight.Bold else FontWeight.Medium
                     )
                 }
             )
@@ -208,8 +246,9 @@ private fun AppBottomNavigation(
                 modifier = itemModifier,
                 selected = selectedTab == AppTab.PROFILE,
                 onClick = { onTabSelected(AppTab.PROFILE) },
+                colors = itemColors,
                 icon = {
-                    androidx.compose.material3.Icon(
+                    Icon(
                         painter = painterResource(R.drawable.ic_profile),
                         contentDescription = "Profile",
                         modifier = Modifier.size(20.dp)
@@ -219,7 +258,7 @@ private fun AppBottomNavigation(
                     Text(
                         "Profile",
                         fontSize = 11.sp,
-                        fontWeight = if (selectedTab == AppTab.PROFILE) FontWeight.SemiBold else FontWeight.Medium
+                        fontWeight = if (selectedTab == AppTab.PROFILE) FontWeight.Bold else FontWeight.Medium
                     )
                 }
             )
@@ -227,7 +266,7 @@ private fun AppBottomNavigation(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF100D18)
+@Preview(showBackground = true, backgroundColor = 0xFF12111A)
 @Composable
 private fun AppBottomNavigationPreview() {
     VirtueHabitTheme {

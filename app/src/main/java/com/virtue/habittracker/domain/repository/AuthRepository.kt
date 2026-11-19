@@ -11,5 +11,6 @@ interface AuthRepository {
     suspend fun register(name: String, email: String, password: String): AuthOutcome
     suspend fun signInWithGoogle(idToken: String): AuthOutcome
     suspend fun sendPasswordReset(email: String): Result<Unit>
+    suspend fun deleteAccount(): Result<Unit>
     suspend fun signOut()
 }

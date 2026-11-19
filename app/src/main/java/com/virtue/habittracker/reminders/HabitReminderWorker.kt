@@ -25,7 +25,8 @@ class HabitReminderWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         // Schedule tomorrow first so a temporary database/notification failure doesn't stop
         // the reminder cycle permanently.
-        scheduler.scheduleFor(LocalDate.now().plusDays(1).atTime(20, 0))
+        if (!scheduler.isRemindersEnabled()) return Result.success()
+        scheduler.scheduleFor(LocalDate.now().plusDays(1).atTime(scheduler.getReminderTime()))
 
         return try {
             val today = LocalDate.now().toEpochDay()
