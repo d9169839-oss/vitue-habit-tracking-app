@@ -119,10 +119,9 @@ fun App(
                     modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HOME) 1f else 0f),
                     visible = selectedTab == AppTab.HOME,
                     vm = homeViewModel,
-                    authViewModel = authViewModel,
                     historyViewModel = historyViewModel,
                     onOpenHistory = { selectedTab = AppTab.HISTORY },
-                    onSignOut = onSignOut
+                    onOpenPrograms = { selectedTab = AppTab.PROGRAMS }
                 )
                 HistoryTab(
                     modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HISTORY) 1f else 0f),

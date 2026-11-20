@@ -3,17 +3,14 @@ package com.virtue.habittracker.presentation.programs
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.virtue.habittracker.domain.model.program.ProgramCategory
 import com.virtue.habittracker.domain.model.program.ProgramArtwork
-import com.virtue.habittracker.domain.model.program.ProgramTemplate
-import com.virtue.habittracker.domain.model.program.ProgramDifficulty
+import com.virtue.habittracker.domain.model.program.ProgramCategory
 import com.virtue.habittracker.domain.model.program.ProgramEquipment
 import com.virtue.habittracker.domain.model.program.ProgramExperience
+import com.virtue.habittracker.domain.model.program.ProgramTemplate
 import com.virtue.habittracker.domain.model.program.WorkActivityLevel
 
-internal val ProgramViolet = Color(0xFFA78BFA)
 internal val ProgramLavender = Color(0xFFC4B5FD)
-internal val ProgramCard = Color(0xFF211B30)
 internal val ProgramMuted = Color(0xFFAAA2BB)
 
 /**
@@ -34,11 +31,6 @@ internal fun ProgramCategory.displayName(): String = when (this) {
     ProgramCategory.SELF_GROOMING -> "SELF-GROOMING"
     ProgramCategory.MINDFULNESS -> "MINDFULNESS"
     ProgramCategory.PERSONAL_DEVELOPMENT -> "PERSONAL DEVELOPMENT"
-}
-
-internal fun ProgramDifficulty.displayName(): String = when (this) {
-    ProgramDifficulty.BEGINNER -> "Beginner"
-    ProgramDifficulty.INTERMEDIATE -> "Intermediate"
 }
 
 internal fun ProgramExperience.displayName(): String = when (this) {

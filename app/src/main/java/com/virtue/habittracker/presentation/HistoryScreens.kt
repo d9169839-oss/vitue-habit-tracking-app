@@ -1123,16 +1123,3 @@ private fun HabitPerformanceCard(
         }
     }
 }
-
-/**
- * ProgressTab for historical progression review.
- */
-@Composable
-fun ProgressTab(
-    modifier: Modifier,
-    visible: Boolean,
-    vm: HistoryViewModel,
-    onOpenHistory: () -> Unit
-) {
-    HistoryTab(modifier = modifier, visible = visible, vm = vm)
-}

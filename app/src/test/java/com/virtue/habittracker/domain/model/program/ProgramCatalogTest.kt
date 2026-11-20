@@ -81,15 +81,14 @@ class ProgramCatalogTest {
     }
 
     @Test
-    fun `each primary focus program generates varied daily sessions across the week`() {
+    fun `every program in catalog generates distinct varied daily sessions across the week`() {
         val engine = ProgramPersonalizationEngine()
-        val focusTemplateIds = listOf("home-strength-60", "weight-habits-90", "stamina-60", "movement-30")
+        val allFirstDayTitles = mutableSetOf<String>()
 
-        focusTemplateIds.forEach { templateId ->
-            val template = requireNotNull(ProgramCatalog.find(templateId))
+        ProgramCatalog.all.forEach { template ->
             val schedule = engine.buildSchedule(
                 template = template,
-                enrollmentId = "enrollment-$templateId",
+                enrollmentId = "enrollment-${template.id}",
                 startEpochDay = 20_000L,
                 preferences = ProgramPreferences(
                     availableMinutesPerDay = 30,
@@ -103,10 +102,58 @@ class ProgramCatalogTest {
 
             assertEquals(5, firstWeekActiveTitles.size)
             assertEquals(
-                "Active workouts in week 1 of $templateId should have distinct daily focus modules",
+                "Active sessions in week 1 of ${template.id} should have distinct daily focus modules",
                 5,
                 firstWeekActiveTitles.distinct().size
             )
+            allFirstDayTitles += firstWeekActiveTitles.first()
         }
+
+        assertEquals(
+            "No two programs in ProgramCatalog should share the same Day 1 session title",
+            ProgramCatalog.all.size,
+            allFirstDayTitles.size
+        )
+    }
+
+    @Test
+    fun `every program definition has unique onboarding steps and bespoke diagnostic summary`() {
+        val step1Signatures = mutableSetOf<String>()
+        val step2Signatures = mutableSetOf<String>()
+        val diagnosticHeadlines = mutableSetOf<String>()
+
+        ProgramCatalog.definitions.forEach { definition ->
+            val onboarding = definition.onboarding
+            assertTrue(onboarding.step1Title.isNotBlank())
+            assertTrue(onboarding.step2Title.isNotBlank())
+            assertTrue(onboarding.step3Title.isNotBlank())
+            assertTrue(onboarding.step2PrimaryOptions.size >= 3)
+            assertTrue(onboarding.step2SecondaryOptions.size >= 3)
+
+            step1Signatures += "${onboarding.step1Title}|${onboarding.step1PrimaryQuestionLabel}"
+            step2Signatures += "${onboarding.step2Title}|${onboarding.step2PrimaryQuestionLabel}"
+
+            val diagnostic = definition.buildDiagnosticSummary(
+                preferences = ProgramPreferences(
+                    availableMinutesPerDay = definition.template.defaultMinutesPerDay,
+                    availableDaysPerWeek = 5,
+                    equipment = definition.template.equipment
+                ),
+                step1PrimaryIndex = 0,
+                step1SecondaryIndex = 0,
+                step2PrimaryIndex = 0,
+                step2SecondaryIndex = 0
+            )
+            assertTrue(diagnostic.step4Headline.isNotBlank())
+            assertEquals(3, diagnostic.metrics.size)
+            assertEquals(3, diagnostic.segments.size)
+            assertTrue(diagnostic.prescriptionHeadline.isNotBlank())
+            assertTrue(diagnostic.prescriptionDetail.isNotBlank())
+            diagnosticHeadlines += diagnostic.step4Headline
+        }
+
+        assertEquals(ProgramCatalog.definitions.size, step1Signatures.size)
+        assertEquals(ProgramCatalog.definitions.size, step2Signatures.size)
+        assertEquals(ProgramCatalog.definitions.size, diagnosticHeadlines.size)
     }
 }

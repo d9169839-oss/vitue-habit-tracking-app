@@ -74,30 +74,56 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.virtue.habittracker.domain.model.HabitDayEntry
 import com.virtue.habittracker.domain.model.HabitDayStatus
+import com.virtue.habittracker.domain.model.program.ProgramActivityStatus
+import com.virtue.habittracker.domain.model.program.ProgramStatus
 import com.virtue.habittracker.domain.model.summarizeHabitDay
-import com.virtue.habittracker.presentation.auth.AuthViewModel
 import com.virtue.habittracker.presentation.history.HistoryViewModel
 import com.virtue.habittracker.presentation.home.HomeViewModel
+import com.virtue.habittracker.presentation.programs.ProgramsViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
+private data class StarterHabitPreset(
+    val title: String,
+    val description: String
+)
+
+private val StarterHabitPresets = listOf(
+    StarterHabitPreset("Morning Hydration (500ml)", "Drink a full glass of water within 15 minutes of waking"),
+    StarterHabitPreset("10-Min Morning Sunlight", "Step outside for natural daylight to anchor circadian rhythm"),
+    StarterHabitPreset("20-Min Deep Reading", "Read 10+ pages of non-fiction or skill-building material"),
+    StarterHabitPreset("8,000 Daily Steps Walk", "Complete a brisk outdoor walk for metabolic and mental clarity"),
+    StarterHabitPreset("Digital Sunset (No Screens)", "Put phone away 30 minutes before sleep window"),
+    StarterHabitPreset("5-Min Evening Reflection", "Write down 3 wins and tomorrow's #1 priority")
+)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeTab(
     modifier: Modifier,
     visible: Boolean,
     vm: HomeViewModel,
-    authViewModel: AuthViewModel,
     historyViewModel: HistoryViewModel,
     onOpenHistory: () -> Unit,
-    onSignOut: () -> Unit
+    onOpenPrograms: () -> Unit = {},
+    programsViewModel: ProgramsViewModel = hiltViewModel()
 ) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val habits by vm.habits.collectAsStateWithLifecycle()
     val isLoading by vm.isLoading.collectAsStateWithLifecycle()
+    val programsState by programsViewModel.uiState.collectAsStateWithLifecycle()
+    val activeProgram = remember(programsState.programs) {
+        programsState.programs.firstOrNull { it.enrollment.status == ProgramStatus.ACTIVE }
+    }
     val haptics = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -411,6 +437,152 @@ fun HomeTab(
                 )
             }
 
+            // Active Program Today Spotlight Card (Connects Programs directly to Home screen)
+            if (activeProgram != null) {
+                val activeDayActivity = activeProgram.activities.firstOrNull { it.epochDay == date.toEpochDay() }
+                    ?: activeProgram.todayActivities.firstOrNull()
+                Card(
+                    onClick = onOpenPrograms,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    border = BorderStroke(1.2.dp, Color(0xFFA78BFA).copy(alpha = 0.55f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFF2B2440),
+                                        Color(0xFF1F1B2E),
+                                        Color(0xFF181624)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(22.dp)
+                            )
+                            .padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = Color(0xFF0D3325),
+                                border = BorderStroke(1.dp, Color(0xFF00DC82).copy(alpha = 0.45f))
+                            ) {
+                                Text(
+                                    text = "ACTIVE PROGRAM • ${activeProgram.progressPercent}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFF00DC82),
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Open Protocol",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFC4B5FD)
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = Color(0xFFC4B5FD),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = activeProgram.enrollment.titleSnapshot,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+
+                        if (activeDayActivity != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text(
+                                        text = "Day ${activeDayActivity.dayIndex} · ${activeDayActivity.title}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFD5CFE8),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = if (activeDayActivity.estimatedMinutes == 0) {
+                                            "Active recovery day"
+                                        } else {
+                                            "${activeDayActivity.estimatedMinutes} min scheduled session"
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF9E98B3)
+                                    )
+                                }
+
+                                if (activeDayActivity.estimatedMinutes > 0) {
+                                    val isSessionDone = activeDayActivity.status == ProgramActivityStatus.COMPLETED
+                                    Surface(
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            programsViewModel.setActivityStatus(
+                                                activeDayActivity.id,
+                                                if (isSessionDone) ProgramActivityStatus.PENDING
+                                                else ProgramActivityStatus.COMPLETED
+                                            )
+                                        },
+                                        shape = RoundedCornerShape(50),
+                                        color = if (isSessionDone) Color(0xFF0D3325) else Color(0xFF28223C),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSessionDone) Color(0xFF00DC82) else Color(0xFFA78BFA).copy(alpha = 0.5f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = null,
+                                                tint = if (isSessionDone) Color(0xFF00DC82) else Color(0xFFC4B5FD),
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Text(
+                                                text = if (isSessionDone) "Done" else "Log Done",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = if (isSessionDone) Color(0xFF00DC82) else Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Habits List Header & Add Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -472,9 +644,9 @@ fun HomeTab(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(22.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Box(
                             modifier = Modifier
@@ -496,11 +668,42 @@ fun HomeTab(
                             color = Color.White
                         )
                         Text(
-                            text = "Add a habit you want to practice consistently every day.",
+                            text = "Tap a science-backed starter habit below to add it in one tap, or create your own custom routine.",
                             color = Color(0xFF9E98B3),
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        Spacer(Modifier.height(4.dp))
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            StarterHabitPresets.take(4).forEach { preset ->
+                                Surface(
+                                    onClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        vm.addHabit(
+                                            title = preset.title,
+                                            description = preset.description,
+                                            onError = {}
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFF262238),
+                                    border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.4f))
+                                ) {
+                                    Text(
+                                        text = "+ ${preset.title}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFE0D7FF),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(2.dp))
                         Button(
                             onClick = {
                                 editingHabitId = null
@@ -515,7 +718,7 @@ fun HomeTab(
                             ),
                             shape = RoundedCornerShape(14.dp)
                         ) {
-                            Text("+ Create your first habit", fontWeight = FontWeight.Bold)
+                            Text("+ Create custom habit", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -607,6 +810,44 @@ fun HomeTab(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (editingHabitId == null) {
+                        Text(
+                            text = "QUICK-FILL TEMPLATES",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFC4B5FD),
+                            letterSpacing = 0.8.sp
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            StarterHabitPresets.forEach { preset ->
+                                Surface(
+                                    onClick = {
+                                        title = preset.title
+                                        description = preset.description
+                                        formError = null
+                                    },
+                                    shape = RoundedCornerShape(50),
+                                    color = if (title == preset.title) Color(0xFF362B54) else Color(0xFF161421),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (title == preset.title) Color(0xFFA78BFA) else Color(0xFF343048)
+                                    )
+                                ) {
+                                    Text(
+                                        text = preset.title,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFD5CFE8),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it; formError = null },

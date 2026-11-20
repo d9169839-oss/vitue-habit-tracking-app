@@ -55,7 +55,11 @@ data class ProgramPreferences(
     val availableDaysPerWeek: Int = 4,
     val experience: ProgramExperience = ProgramExperience.BEGINNER,
     val workActivityLevel: WorkActivityLevel = WorkActivityLevel.MOSTLY_SEATED,
-    val equipment: ProgramEquipment = ProgramEquipment.NONE
+    val equipment: ProgramEquipment = ProgramEquipment.NONE,
+    val step1PrimaryIndex: Int = 0,
+    val step1SecondaryIndex: Int = 0,
+    val step2PrimaryIndex: Int = 0,
+    val step2SecondaryIndex: Int = 0
 )
 
 data class ProgramEnrollment(

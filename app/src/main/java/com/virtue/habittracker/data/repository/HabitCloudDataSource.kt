@@ -38,7 +38,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 @Singleton
 class HabitCloudDataSource @Inject constructor(
-    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
+    @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val dao: HabitDao,

@@ -523,29 +523,8 @@ fun ProfileTab(
     }
 
     if (showPrivacyDialog) {
-        AlertDialog(
-            onDismissRequest = { showPrivacyDialog = false },
-            containerColor = Color(0xFF1E1C2A),
-            titleContentColor = Color.White,
-            textContentColor = Color(0xFF9E98B3),
-            title = { Text("Privacy & Health Notice", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        "Data & Privacy: Virtue Habit Tracker stores your habits, daily check-ins, and program enrollments locally on your device and syncs them securely over HTTPS to your private Firebase account so you can access them across devices. Biometric calibration inputs (age, sex, height, weight) are used solely to calculate your personalized program parameters. You can permanently delete your account and all cloud data at any time from this Profile tab.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Text(
-                        "Health & Fitness Disclaimer: Program plans, BMR/TDEE calorie estimates, and activity guidelines are for educational and informational purposes only and do not constitute medical advice. Consult a qualified healthcare professional before beginning any new fitness or nutrition program.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showPrivacyDialog = false }) {
-                    Text("Close", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold)
-                }
-            }
+        PrivacyAndHealthPolicyDialog(
+            onDismiss = { showPrivacyDialog = false }
         )
     }
 }

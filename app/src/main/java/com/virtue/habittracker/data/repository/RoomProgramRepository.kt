@@ -25,13 +25,22 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.Locale
+
 @Singleton
 class RoomProgramRepository @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val dao: ProgramDao,
     private val cloud: HabitCloudDataSource,
     private val syncScheduler: HabitSyncScheduler,
     private val personalizationEngine: ProgramPersonalizationEngine
 ) : ProgramRepository {
+
+    private val onboardingPrefs by lazy {
+        context.getSharedPreferences("virtue_program_onboarding_prefs", Context.MODE_PRIVATE)
+    }
 
     override fun observePrograms(): Flow<List<ProgramProgress>> = channelFlow {
         // Clear another account's local cache before exposing program data, then sync in background.
@@ -68,10 +77,11 @@ class RoomProgramRepository @Inject constructor(
             experience = preferences.experience.name,
             workActivityLevel = preferences.workActivityLevel.name,
             equipment = preferences.equipment.name,
-            isPremium = template.isPremium,
+            isPremium = false,
             createdAtMillis = now,
             updatedAtMillis = now
         )
+        saveOnboardingCalibration(enrollmentId, preferences)
         val schedule = personalizationEngine.buildSchedule(template, enrollmentId, startEpochDay, preferences, createdAtMillis = now)
         dao.saveEnrollmentAndSchedule(enrollment, schedule.map { it.toEntity() })
         syncScheduler.enqueueSync()
@@ -103,6 +113,7 @@ class RoomProgramRepository @Inject constructor(
             equipment = preferences.equipment.name,
             updatedAtMillis = now
         )
+        saveOnboardingCalibration(enrollmentId, preferences)
         val regenerated = personalizationEngine.buildSchedule(
             template = template,
             enrollmentId = enrollmentId,
@@ -123,25 +134,79 @@ class RoomProgramRepository @Inject constructor(
         dao.replanEnrollmentAndQueue(updatedEnrollment, revised)
         syncScheduler.enqueueSync()
     }
+
     override suspend fun deleteEnrollment(enrollmentId: String) {
+        onboardingPrefs.edit().remove("calib_$enrollmentId").apply()
         dao.deleteEnrollmentAndQueue(enrollmentId)
         syncScheduler.enqueueSync()
     }
 
-    private fun ProgramEnrollmentEntity.toDomain() = ProgramEnrollment(
-        id, templateId, templateVersion, titleSnapshot,
-        runCatching { ProgramCategory.valueOf(category) }.getOrDefault(ProgramCategory.FITNESS),
-        durationDays, startEpochDay,
-        runCatching { ProgramStatus.valueOf(status) }.getOrDefault(ProgramStatus.ACTIVE),
-        ProgramPreferences(
-            availableMinutesPerDay = availableMinutesPerDay,
-            availableDaysPerWeek = availableDaysPerWeek,
-            experience = runCatching { ProgramExperience.valueOf(experience) }.getOrDefault(ProgramExperience.BEGINNER),
-            workActivityLevel = runCatching { WorkActivityLevel.valueOf(workActivityLevel) }.getOrDefault(WorkActivityLevel.MIXED),
-            equipment = runCatching { ProgramEquipment.valueOf(equipment) }.getOrDefault(ProgramEquipment.NONE)
-        ),
-        isPremium, createdAtMillis, updatedAtMillis
-    )
+    private fun saveOnboardingCalibration(enrollmentId: String, preferences: ProgramPreferences) {
+        val serialized = listOf(
+            preferences.biometrics.sex.name,
+            preferences.biometrics.age.toString(),
+            "%.1f".format(Locale.US, preferences.biometrics.heightCm),
+            "%.1f".format(Locale.US, preferences.biometrics.weightKg),
+            preferences.step1PrimaryIndex.toString(),
+            preferences.step1SecondaryIndex.toString(),
+            preferences.step2PrimaryIndex.toString(),
+            preferences.step2SecondaryIndex.toString()
+        ).joinToString("|")
+        onboardingPrefs.edit().putString("calib_$enrollmentId", serialized).apply()
+    }
+
+    private fun ProgramEnrollmentEntity.toDomain(): ProgramEnrollment {
+        val calibRaw = onboardingPrefs.getString("calib_$id", null)?.split("|")
+        val sex = calibRaw?.getOrNull(0)?.let {
+            runCatching { com.virtue.habittracker.domain.model.program.BiologicalSex.valueOf(it) }.getOrNull()
+        } ?: com.virtue.habittracker.domain.model.program.BiologicalSex.MALE
+        val age = calibRaw?.getOrNull(1)?.toIntOrNull() ?: 25
+        val heightCm = calibRaw?.getOrNull(2)?.toDoubleOrNull() ?: 178.0
+        val weightKg = calibRaw?.getOrNull(3)?.toDoubleOrNull() ?: 72.0
+        val step1Primary = calibRaw?.getOrNull(4)?.toIntOrNull() ?: 0
+        val step1Secondary = calibRaw?.getOrNull(5)?.toIntOrNull() ?: 0
+        val step2Primary = calibRaw?.getOrNull(6)?.toIntOrNull() ?: 0
+        val step2Secondary = calibRaw?.getOrNull(7)?.toIntOrNull() ?: 0
+
+        val resolvedWork = runCatching { WorkActivityLevel.valueOf(workActivityLevel) }.getOrDefault(WorkActivityLevel.MIXED)
+        val occupation = when (resolvedWork) {
+            WorkActivityLevel.MOSTLY_SEATED -> com.virtue.habittracker.domain.model.program.DailyOccupation.DESK
+            WorkActivityLevel.MIXED -> com.virtue.habittracker.domain.model.program.DailyOccupation.LIGHT
+            WorkActivityLevel.PHYSICALLY_ACTIVE -> com.virtue.habittracker.domain.model.program.DailyOccupation.PHYSICAL
+        }
+
+        return ProgramEnrollment(
+            id = id,
+            templateId = templateId,
+            templateVersion = templateVersion,
+            titleSnapshot = titleSnapshot,
+            category = runCatching { ProgramCategory.valueOf(category) }.getOrDefault(ProgramCategory.FITNESS),
+            durationDays = durationDays,
+            startEpochDay = startEpochDay,
+            status = runCatching { ProgramStatus.valueOf(status) }.getOrDefault(ProgramStatus.ACTIVE),
+            preferences = ProgramPreferences(
+                biometrics = com.virtue.habittracker.domain.model.program.Biometrics(
+                    sex = sex,
+                    age = age,
+                    heightCm = heightCm,
+                    weightKg = weightKg,
+                    occupation = occupation
+                ),
+                availableMinutesPerDay = availableMinutesPerDay,
+                availableDaysPerWeek = availableDaysPerWeek,
+                experience = runCatching { ProgramExperience.valueOf(experience) }.getOrDefault(ProgramExperience.BEGINNER),
+                workActivityLevel = resolvedWork,
+                equipment = runCatching { ProgramEquipment.valueOf(equipment) }.getOrDefault(ProgramEquipment.NONE),
+                step1PrimaryIndex = step1Primary,
+                step1SecondaryIndex = step1Secondary,
+                step2PrimaryIndex = step2Primary,
+                step2SecondaryIndex = step2Secondary
+            ),
+            isPremium = false,
+            createdAtMillis = createdAtMillis,
+            updatedAtMillis = updatedAtMillis
+        )
+    }
 
     private fun ProgramActivityEntity.toDomain() = ScheduledProgramActivity(
         id, enrollmentId, dayIndex, epochDay, phaseTitle, title, instructions, estimatedMinutes,

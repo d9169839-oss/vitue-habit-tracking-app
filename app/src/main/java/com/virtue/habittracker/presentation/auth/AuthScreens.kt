@@ -436,13 +436,32 @@ private fun AuthScaffold(
                 content()
             }
         }
-        Spacer(Modifier.height(20.dp))
-        Text(
-            "Your progress is personal. Your account keeps it yours.",
+        Spacer(Modifier.height(16.dp))
+        var showPolicyDialog by remember { mutableStateOf(false) }
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF817991),
-            style = MaterialTheme.typography.bodySmall
-        )
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "Your progress is personal. Your account keeps it yours.",
+                color = Color(0xFF817991),
+                style = MaterialTheme.typography.bodySmall
+            )
+            TextButton(onClick = { showPolicyDialog = true }) {
+                Text(
+                    "Privacy Policy, Data Safety & Health Disclaimer (HTTPS)",
+                    color = Color(0xFFC4B5FD),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+        if (showPolicyDialog) {
+            com.virtue.habittracker.presentation.PrivacyAndHealthPolicyDialog(
+                onDismiss = { showPolicyDialog = false }
+            )
+        }
     }
 }
 

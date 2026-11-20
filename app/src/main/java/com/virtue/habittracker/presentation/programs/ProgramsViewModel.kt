@@ -9,23 +9,19 @@ import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramProgress
 import com.virtue.habittracker.domain.model.program.ProgramStatus
 import com.virtue.habittracker.domain.repository.ProgramRepository
-import com.virtue.habittracker.domain.usecase.program.StartProgramUseCase
-import com.virtue.habittracker.domain.usecase.program.SetProgramActivityStatusUseCase
-import com.virtue.habittracker.domain.usecase.program.SetProgramStatusUseCase
 import com.virtue.habittracker.domain.usecase.program.DeleteProgramUseCase
 import com.virtue.habittracker.domain.usecase.program.ReplanProgramUseCase
-import com.virtue.habittracker.domain.service.ProgramPersonalizationEngine
-import com.virtue.habittracker.domain.model.program.ProgramTemplate
-import com.virtue.habittracker.domain.model.program.ScheduledProgramActivity
+import com.virtue.habittracker.domain.usecase.program.SetProgramActivityStatusUseCase
+import com.virtue.habittracker.domain.usecase.program.SetProgramStatusUseCase
+import com.virtue.habittracker.domain.usecase.program.StartProgramUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class ProgramsUiState(
@@ -33,18 +29,17 @@ data class ProgramsUiState(
     val programs: List<ProgramProgress> = emptyList(),
     val isStarting: Boolean = false,
     val message: String? = null,
-    val isInitialLoading: Boolean = true
+    val isInitialLoading: Boolean = true,
 )
 
 @HiltViewModel
 class ProgramsViewModel @Inject constructor(
-    private val repository: ProgramRepository,
+    repository: ProgramRepository,
     private val startProgramUseCase: StartProgramUseCase,
     private val setActivityStatusUseCase: SetProgramActivityStatusUseCase,
     private val setProgramStatusUseCase: SetProgramStatusUseCase,
     private val deleteProgramUseCase: DeleteProgramUseCase,
     private val replanProgramUseCase: ReplanProgramUseCase,
-    private val personalizationEngine: ProgramPersonalizationEngine
 ) : ViewModel() {
     private val selectedCategory = MutableStateFlow<ProgramCategory?>(null)
     private val message = MutableStateFlow<String?>(null)
@@ -103,15 +98,4 @@ class ProgramsViewModel @Inject constructor(
             isStarting.value = false
         }
     }
-
-    fun previewSchedule(
-        template: ProgramTemplate,
-        startEpochDay: Long,
-        preferences: ProgramPreferences
-    ): List<ScheduledProgramActivity> = personalizationEngine.buildSchedule(
-        template = template,
-        enrollmentId = "preview-" + template.id,
-        startEpochDay = startEpochDay,
-        preferences = preferences
-    )
 }

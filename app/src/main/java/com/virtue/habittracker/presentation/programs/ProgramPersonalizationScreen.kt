@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,27 +36,26 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Female
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Male
 import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -76,23 +77,32 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.virtue.habittracker.domain.model.program.BiologicalSex
 import com.virtue.habittracker.domain.model.program.Biometrics
 import com.virtue.habittracker.domain.model.program.DailyOccupation
+import com.virtue.habittracker.domain.model.program.ProgramCatalog
 import com.virtue.habittracker.domain.model.program.ProgramEquipment
-import com.virtue.habittracker.domain.model.program.ProgramExperience
 import com.virtue.habittracker.domain.model.program.ProgramPreferences
 import com.virtue.habittracker.domain.model.program.ProgramTemplate
+import com.virtue.habittracker.domain.model.program.ScheduledProgramActivity
 import com.virtue.habittracker.domain.model.program.WorkActivityLevel
-import com.virtue.habittracker.domain.service.FitnessMetabolicCalculator
+import com.virtue.habittracker.domain.model.program.catalog.AssessmentOptionSpec
+import com.virtue.habittracker.domain.model.program.catalog.BuildLeanMuscleProgram
+import com.virtue.habittracker.domain.model.program.catalog.ProgramDiagnosticSummary
+import com.virtue.habittracker.domain.model.program.catalog.ProgramOnboardingSpec
+import com.virtue.habittracker.domain.service.ProgramPersonalizationEngine
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val StepSectionTitles = listOf("Baseline", "Focus", "Cadence", "Blueprint")
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -101,35 +111,85 @@ internal fun ProgramPersonalizationScreen(
     initialPreferences: ProgramPreferences,
     initialStartEpochDay: Long,
     isAdjusting: Boolean,
+    isSaving: Boolean = false,
     onBack: () -> Unit,
     onContinue: (ProgramPreferences, Long, Boolean) -> Unit
 ) {
-    var currentStep by remember { mutableIntStateOf(1) }
+    val definition = remember(template.id) {
+        ProgramCatalog.findDefinition(template.id) ?: BuildLeanMuscleProgram
+    }
+    val onboarding = definition.onboarding
+    val accentColor = Color(definition.accentHex)
+    val previewEngine = remember { ProgramPersonalizationEngine() }
+
+    var currentStep by remember(template.id) { mutableIntStateOf(1) }
     val haptics = LocalHapticFeedback.current
 
-    // Step 1: Biometrics
-    var sex by remember(initialPreferences) { mutableStateOf(initialPreferences.biometrics.sex) }
-    var age by remember(initialPreferences) { mutableIntStateOf(initialPreferences.biometrics.age) }
-    var heightCm by remember(initialPreferences) { mutableStateOf(initialPreferences.biometrics.heightCm) }
-    var weightKg by remember(initialPreferences) { mutableStateOf(initialPreferences.biometrics.weightKg) }
+    // Biometrics state (used when onboarding.usesBiometricPhysicalStep1 == true)
+    var sex by remember(initialPreferences, template.id) { mutableStateOf(initialPreferences.biometrics.sex) }
+    var age by remember(initialPreferences, template.id) { mutableIntStateOf(initialPreferences.biometrics.age) }
+    var heightCm by remember(initialPreferences, template.id) { mutableStateOf(initialPreferences.biometrics.heightCm) }
+    var weightKg by remember(initialPreferences, template.id) { mutableStateOf(initialPreferences.biometrics.weightKg) }
 
-    // Step 2: Experience & Occupation
-    var experience by remember(initialPreferences) { mutableStateOf(initialPreferences.experience) }
-    var occupation by remember(initialPreferences) { mutableStateOf(initialPreferences.biometrics.occupation) }
+    // Bespoke Step 1 & Step 2 option indices for this program (persisted in ProgramPreferences)
+    var step1PrimaryIndex by remember(initialPreferences, template.id) {
+        mutableIntStateOf(
+            initialPreferences.step1PrimaryIndex.coerceIn(
+                0,
+                (onboarding.step1PrimaryOptions.size - 1).coerceAtLeast(0)
+            )
+        )
+    }
+    var step1SecondaryIndex by remember(initialPreferences, template.id) {
+        mutableIntStateOf(
+            initialPreferences.step1SecondaryIndex.coerceIn(
+                0,
+                (onboarding.step1SecondaryOptions.size - 1).coerceAtLeast(0)
+            )
+        )
+    }
+    var step2PrimaryIndex by remember(initialPreferences, template.id) {
+        val maxIdx = (onboarding.step2PrimaryOptions.size - 1).coerceAtLeast(0)
+        val savedIdx = initialPreferences.step2PrimaryIndex.coerceIn(0, maxIdx)
+        val mappedIdx = onboarding.step2PrimaryOptions.indexOfFirst { it.mappedExperience == initialPreferences.experience }
+        mutableIntStateOf(if (savedIdx != 0 || mappedIdx < 0) savedIdx else mappedIdx)
+    }
+    var step2SecondaryIndex by remember(initialPreferences, template.id) {
+        val maxIdx = (onboarding.step2SecondaryOptions.size - 1).coerceAtLeast(0)
+        val savedIdx = initialPreferences.step2SecondaryIndex.coerceIn(0, maxIdx)
+        val mappedIdx = onboarding.step2SecondaryOptions.indexOfFirst { it.mappedWorkLevel == initialPreferences.workActivityLevel }
+        mutableIntStateOf(if (savedIdx != 0 || mappedIdx < 0) savedIdx else mappedIdx)
+    }
 
-    // Step 3: Availability & Equipment
-    var minutes by remember(initialPreferences) { mutableIntStateOf(initialPreferences.availableMinutesPerDay) }
-    var days by remember(initialPreferences) { mutableIntStateOf(initialPreferences.availableDaysPerWeek) }
-    var equipment by remember(initialPreferences) { mutableStateOf(initialPreferences.equipment) }
-    var startEpochDay by remember(initialStartEpochDay) { mutableStateOf(initialStartEpochDay) }
+    // Core scheduling preferences updated dynamically by the program's bespoke options
+    var experience by remember(initialPreferences, template.id) { mutableStateOf(initialPreferences.experience) }
+    var workActivityLevel by remember(initialPreferences, template.id) { mutableStateOf(initialPreferences.workActivityLevel) }
+    var minutes by remember(initialPreferences, template.id) {
+        val defaultMin = if (initialPreferences.availableMinutesPerDay in onboarding.step3MinuteChoices) {
+            initialPreferences.availableMinutesPerDay
+        } else {
+            template.defaultMinutesPerDay
+        }
+        mutableIntStateOf(defaultMin)
+    }
+    var days by remember(initialPreferences, template.id) {
+        val defaultDays = if (initialPreferences.availableDaysPerWeek in onboarding.step3DayChoices) {
+            initialPreferences.availableDaysPerWeek
+        } else {
+            onboarding.step3DayChoices.getOrElse(1) { 5 }
+        }
+        mutableIntStateOf(defaultDays)
+    }
+    var equipment by remember(initialPreferences, template.id) { mutableStateOf(initialPreferences.equipment) }
+    var startEpochDay by remember(initialStartEpochDay, template.id) { mutableStateOf(initialStartEpochDay) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val biometrics = Biometrics(sex, age, heightCm, weightKg, occupation)
-    val workActivityLevel = when (occupation) {
-        DailyOccupation.DESK -> WorkActivityLevel.MOSTLY_SEATED
-        DailyOccupation.LIGHT, DailyOccupation.ON_FEET -> WorkActivityLevel.MIXED
-        DailyOccupation.PHYSICAL -> WorkActivityLevel.PHYSICALLY_ACTIVE
+    val occupation = when (workActivityLevel) {
+        WorkActivityLevel.MOSTLY_SEATED -> DailyOccupation.DESK
+        WorkActivityLevel.MIXED -> DailyOccupation.LIGHT
+        WorkActivityLevel.PHYSICALLY_ACTIVE -> DailyOccupation.PHYSICAL
     }
+    val biometrics = Biometrics(sex, age, heightCm, weightKg, occupation)
 
     val currentPreferences = ProgramPreferences(
         biometrics = biometrics,
@@ -137,217 +197,485 @@ internal fun ProgramPersonalizationScreen(
         availableDaysPerWeek = days,
         experience = experience,
         workActivityLevel = workActivityLevel,
-        equipment = equipment
+        equipment = equipment,
+        step1PrimaryIndex = step1PrimaryIndex,
+        step1SecondaryIndex = step1SecondaryIndex,
+        step2PrimaryIndex = step2PrimaryIndex,
+        step2SecondaryIndex = step2SecondaryIndex
     )
 
-    val metabolicProfile = FitnessMetabolicCalculator.calculate(
-        biometrics = biometrics,
-        experience = experience,
-        focusProgramId = template.id
-    )
+    val applyOptionMappings: (AssessmentOptionSpec) -> Unit = { spec ->
+        spec.mappedExperience?.let { experience = it }
+        spec.mappedWorkLevel?.let { workActivityLevel = it }
+        spec.mappedEquipment?.let { equipment = it }
+    }
 
-    Column(
+    val diagnosticSummary = remember(
+        definition,
+        currentPreferences,
+        step1PrimaryIndex,
+        step1SecondaryIndex,
+        step2PrimaryIndex,
+        step2SecondaryIndex
+    ) {
+        definition.buildDiagnosticSummary(
+            preferences = currentPreferences,
+            step1PrimaryIndex = step1PrimaryIndex,
+            step1SecondaryIndex = step1SecondaryIndex,
+            step2PrimaryIndex = step2PrimaryIndex,
+            step2SecondaryIndex = step2SecondaryIndex
+        )
+    }
+
+    val previewActivities = remember(template, startEpochDay, currentPreferences, isAdjusting) {
+        val generated = previewEngine.buildSchedule(
+            template = template,
+            enrollmentId = "preview-${template.id}",
+            startEpochDay = startEpochDay,
+            preferences = currentPreferences
+        )
+        if (isAdjusting) {
+            generated.filter { it.epochDay >= LocalDate.now().toEpochDay() }.take(7)
+        } else {
+            generated.take(7)
+        }
+    }
+
+    val ctaLabel = when (currentStep) {
+        1 -> "Continue to ${StepSectionTitles[1]}"
+        2 -> "Continue to ${StepSectionTitles[2]}"
+        3 -> "Generate My Blueprint"
+        else -> if (isAdjusting) "Apply Recalibrated Schedule" else "Start Free ${template.durationDays}-Day Program"
+    }
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF12111A))
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
-        // Top Header Bar (Back button, Calibration Title, Selected Program Pill)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.weight(1f, fill = false),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                IconButton(
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        if (currentStep > 1) currentStep-- else onBack()
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        accentColor.copy(alpha = 0.11f),
+                        Color(0xFF12111A),
+                        Color(0xFF100E18)
                     )
-                }
-
-                Text(
-                    text = if (isAdjusting) "Recalibrate Plan" else "Program Calibration",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
-            }
-
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = Color(0xFF221F30),
-                border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.35f))
-            ) {
-                Text(
-                    text = template.title,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFFC4B5FD),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-            }
-        }
-
-        // Step Badge & Progress Percentage
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = Color(0xFF1E1C2B),
-                border = BorderStroke(1.dp, Color(0xFF2E2C3E))
-            ) {
-                Text(
-                    text = "STEP $currentStep OF 4",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFC4B5FD),
-                    fontSize = 11.sp,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-            }
-
-            Text(
-                text = "${currentStep * 25}% Complete",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF8E8AA7)
             )
+    ) {
+        val isCompactWidth = maxWidth < 360.dp
+        val isExpandedWidth = maxWidth >= 600.dp
+        val horizontalPadding: Dp = when {
+            isCompactWidth -> 14.dp
+            isExpandedWidth -> 28.dp
+            else -> 20.dp
         }
 
-        // 4-Segment Animated Progress Bar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 680.dp)
+                .align(Alignment.TopCenter)
         ) {
-            (1..4).forEach { stepIndex ->
-                val segmentColor by animateColorAsState(
-                    targetValue = if (stepIndex <= currentStep) Color(0xFFA78BFA) else Color(0xFF282536),
-                    animationSpec = tween(durationMillis = 300),
-                    label = "stepSegmentColor"
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(segmentColor)
-                )
-            }
-        }
+            // =========================================================================
+            // 1. PINNED LUXURY TOP HEADER + INTERACTIVE 4-STAGE STEPPER
+            // =========================================================================
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = horizontalPadding,
+                        end = horizontalPadding,
+                        top = if (isCompactWidth) 12.dp else 16.dp,
+                        bottom = 12.dp
+                    ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                if (currentStep > 1) currentStep-- else onBack()
+                            },
+                            shape = CircleShape,
+                            color = Color(0xFF1E1B2B),
+                            border = BorderStroke(1.dp, Color(0xFF332E47)),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                        }
 
-        // ANIMATED STEP CONTENT SWITCHER
-        AnimatedContent(
-            targetState = currentStep,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> width / 3 } + fadeIn(tween(260)))
-                        .togetherWith(slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> -width / 3 } + fadeOut(tween(200)))
-                } else {
-                    (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> -width / 3 } + fadeIn(tween(260)))
-                        .togetherWith(slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> width / 3 } + fadeOut(tween(200)))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isAdjusting) "RECALIBRATE PROTOCOL" else "PERSONALIZED CALIBRATION",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = accentColor,
+                                letterSpacing = 1.1.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = template.title,
+                                style = if (isCompactWidth) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF0D3325),
+                        border = BorderStroke(1.dp, Color(0xFF00DC82).copy(alpha = 0.45f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(Color(0xFF00DC82), CircleShape)
+                            )
+                            Text(
+                                text = "100% FREE",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF00DC82),
+                                fontSize = 10.sp,
+                                letterSpacing = 0.6.sp
+                            )
+                        }
+                    }
                 }
-            },
-            label = "calibrationStepTransition"
-        ) { step ->
-            when (step) {
-                1 -> Step1AboutYou(
-                    sex = sex,
-                    onSexChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        sex = it
-                    },
-                    age = age,
-                    onAgeChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        age = it
-                    },
-                    heightCm = heightCm,
-                    onHeightChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        heightCm = it
-                    },
-                    weightKg = weightKg,
-                    onWeightChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        weightKg = it
-                    },
-                    onContinue = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        currentStep = 2
+
+                // Interactive 4-Stage Pill Stepper (tap any visited step to jump back)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(if (isCompactWidth) 6.dp else 8.dp)
+                ) {
+                    StepSectionTitles.forEachIndexed { idx, label ->
+                        val stepNumber = idx + 1
+                        val isCurrent = currentStep == stepNumber
+                        val isCompleted = currentStep > stepNumber
+                        val bgColor by animateColorAsState(
+                            targetValue = when {
+                                isCurrent -> accentColor.copy(alpha = 0.22f)
+                                isCompleted -> Color(0xFF1A2A27)
+                                else -> Color(0xFF191724)
+                            },
+                            animationSpec = tween(250),
+                            label = "stepperBg"
+                        )
+                        val borderColor by animateColorAsState(
+                            targetValue = when {
+                                isCurrent -> accentColor
+                                isCompleted -> Color(0xFF00DC82).copy(alpha = 0.55f)
+                                else -> Color(0xFF2B273C)
+                            },
+                            animationSpec = tween(250),
+                            label = "stepperBorder"
+                        )
+
+                        Surface(
+                            onClick = {
+                                if (stepNumber < currentStep) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    currentStep = stepNumber
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            color = bgColor,
+                            border = BorderStroke(if (isCurrent) 1.5.dp else 1.dp, borderColor)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(
+                                    horizontal = if (isCompactWidth) 6.dp else 8.dp,
+                                    vertical = 7.dp
+                                ),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = if (isCompleted) "✓ STEP $stepNumber" else "STEP $stepNumber",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 9.sp,
+                                    color = when {
+                                        isCurrent -> accentColor
+                                        isCompleted -> Color(0xFF00DC82)
+                                        else -> Color(0xFF7B7693)
+                                    }
+                                )
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = if (isCompactWidth) 10.sp else 11.sp,
+                                    color = if (isCurrent || isCompleted) Color.White else Color(0xFF8E8AA7),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
-                )
-                2 -> Step2YourExperience(
-                    experience = experience,
-                    onExperienceChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        experience = it
+                }
+            }
+
+            HorizontalDivider(color = Color(0xFF252236), thickness = 1.dp)
+
+            // =========================================================================
+            // 2. SCROLLABLE STEP BODY (RESPONSIVE FOR COMPACT, STANDARD, & TABLET)
+            // =========================================================================
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = horizontalPadding, vertical = 18.dp)
+            ) {
+                AnimatedContent(
+                    targetState = currentStep,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> width / 3 } + fadeIn(tween(260)))
+                                .togetherWith(slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> -width / 3 } + fadeOut(tween(200)))
+                        } else {
+                            (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> -width / 3 } + fadeIn(tween(260)))
+                                .togetherWith(slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> width / 3 } + fadeOut(tween(200)))
+                        }
                     },
-                    occupation = occupation,
-                    onOccupationChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        occupation = it
-                    },
-                    onContinue = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        currentStep = 3
+                    label = "calibrationStepTransition"
+                ) { step ->
+                    when (step) {
+                        1 -> if (onboarding.usesBiometricPhysicalStep1) {
+                            Step1BiometricAssessment(
+                                onboarding = onboarding,
+                                accentColor = accentColor,
+                                isCompactWidth = isCompactWidth,
+                                sex = sex,
+                                onSexChange = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    sex = it
+                                },
+                                age = age,
+                                onAgeChange = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    age = it
+                                },
+                                heightCm = heightCm,
+                                onHeightChange = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    heightCm = it
+                                },
+                                weightKg = weightKg,
+                                onWeightChange = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    weightKg = it
+                                }
+                            )
+                        } else {
+                            StepBespokeAssessmentQuestions(
+                                title = onboarding.step1Title,
+                                subtitle = onboarding.step1Subtitle,
+                                accentColor = accentColor,
+                                isCompactWidth = isCompactWidth,
+                                primaryLabel = onboarding.step1PrimaryQuestionLabel,
+                                primaryBadge = null,
+                                primaryOptions = onboarding.step1PrimaryOptions,
+                                selectedPrimaryIndex = step1PrimaryIndex,
+                                onSelectPrimary = { index, spec ->
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    step1PrimaryIndex = index
+                                    applyOptionMappings(spec)
+                                },
+                                secondaryLabel = onboarding.step1SecondaryQuestionLabel,
+                                secondaryBadge = null,
+                                secondaryOptions = onboarding.step1SecondaryOptions,
+                                selectedSecondaryIndex = step1SecondaryIndex,
+                                onSelectSecondary = { index, spec ->
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    step1SecondaryIndex = index
+                                    applyOptionMappings(spec)
+                                },
+                                insightNote = onboarding.step1InsightNote
+                            )
+                        }
+                        2 -> StepBespokeAssessmentQuestions(
+                            title = onboarding.step2Title,
+                            subtitle = onboarding.step2Subtitle,
+                            accentColor = accentColor,
+                            isCompactWidth = isCompactWidth,
+                            primaryLabel = onboarding.step2PrimaryQuestionLabel,
+                            primaryBadge = onboarding.step2PrimaryBadge,
+                            primaryOptions = onboarding.step2PrimaryOptions,
+                            selectedPrimaryIndex = step2PrimaryIndex,
+                            onSelectPrimary = { index, spec ->
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                step2PrimaryIndex = index
+                                applyOptionMappings(spec)
+                            },
+                            secondaryLabel = onboarding.step2SecondaryQuestionLabel,
+                            secondaryBadge = onboarding.step2SecondaryBadge,
+                            secondaryOptions = onboarding.step2SecondaryOptions,
+                            selectedSecondaryIndex = step2SecondaryIndex,
+                            onSelectSecondary = { index, spec ->
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                step2SecondaryIndex = index
+                                applyOptionMappings(spec)
+                            },
+                            insightNote = onboarding.step2InsightNote
+                        )
+                        3 -> Step3BespokeScheduleAndSetup(
+                            onboarding = onboarding,
+                            accentColor = accentColor,
+                            isCompactWidth = isCompactWidth,
+                            minutes = minutes,
+                            onMinutesChange = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                minutes = it
+                            },
+                            days = days,
+                            onDaysChange = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                days = it
+                            },
+                            equipment = equipment,
+                            onEquipmentChange = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                equipment = it
+                            },
+                            startEpochDay = startEpochDay,
+                            onOpenDatePicker = { showDatePicker = true }
+                        )
+                        4 -> Step4BespokeDiagnosticReview(
+                            template = template,
+                            summary = diagnosticSummary,
+                            accentColor = accentColor,
+                            isCompactWidth = isCompactWidth,
+                            previewActivities = previewActivities,
+                            startEpochDay = startEpochDay,
+                            isAdjusting = isAdjusting
+                        )
                     }
-                )
-                3 -> Step3TimeAndEquipment(
-                    minutes = minutes,
-                    onMinutesChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        minutes = it
-                    },
-                    days = days,
-                    onDaysChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        days = it
-                    },
-                    equipment = equipment,
-                    onEquipmentChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        equipment = it
-                    },
-                    startEpochDay = startEpochDay,
-                    onOpenDatePicker = { showDatePicker = true },
-                    onContinue = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        currentStep = 4
+                }
+            }
+
+            // =========================================================================
+            // 3. PINNED BOTTOM ACTION DOCK (NEVER LOST BELOW THE FOLD ON SMALL PHONES)
+            // =========================================================================
+            Surface(
+                color = Color(0xFF151320),
+                border = BorderStroke(1.dp, Color(0xFF28243A)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = horizontalPadding, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val isFinalStep = currentStep == 4
+                    Button(
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            if (currentStep < 4) {
+                                currentStep++
+                            } else {
+                                onContinue(currentPreferences, startEpochDay, true)
+                            }
+                        },
+                        enabled = !isSaving,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isFinalStep) Color(0xFF00DC82) else accentColor,
+                            contentColor = if (isFinalStep) Color(0xFF042416) else Color(0xFF140E21)
+                        )
+                    ) {
+                        if (isSaving) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = Color(0xFF042416),
+                                    strokeWidth = 2.dp
+                                )
+                                Text("Building Your Schedule…", fontWeight = FontWeight.ExtraBold)
+                            }
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = ctaLabel,
+                                    fontSize = if (isCompactWidth) 14.sp else 15.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Icon(
+                                    imageVector = if (isFinalStep) Icons.Filled.Check else Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     }
-                )
-                4 -> Step4CalibratedReview(
-                    profile = metabolicProfile,
-                    preferences = currentPreferences,
-                    startEpochDay = startEpochDay,
-                    isAdjusting = isAdjusting,
-                    onConfirm = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onContinue(currentPreferences, startEpochDay, true)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.VerifiedUser,
+                            contentDescription = null,
+                            tint = Color(0xFF00DC82),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = if (isFinalStep) {
+                                "100% Free Forever • Full ${template.durationDays}-Day Curriculum Included"
+                            } else {
+                                "Step $currentStep of 4 • Adaptive clinical & performance engine"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF9E98B5),
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
-                )
+                }
             }
         }
     }
@@ -368,7 +696,7 @@ internal fun ProgramPersonalizationScreen(
                         showDatePicker = false
                     }
                 ) {
-                    Text("Select Date", fontWeight = FontWeight.Bold, color = Color(0xFFA78BFA))
+                    Text("Select Date", fontWeight = FontWeight.Bold, color = accentColor)
                 }
             },
             dismissButton = {
@@ -378,11 +706,14 @@ internal fun ProgramPersonalizationScreen(
     }
 }
 
-// ==========================================
-// STEP 1: ABOUT YOU
-// ==========================================
+// ==================================================
+// STEP 1 (A): BIOMETRIC ASSESSMENT (HYPERTROPHY / RECOMP)
+// ==================================================
 @Composable
-private fun Step1AboutYou(
+private fun Step1BiometricAssessment(
+    onboarding: ProgramOnboardingSpec,
+    accentColor: Color,
+    isCompactWidth: Boolean,
     sex: BiologicalSex,
     onSexChange: (BiologicalSex) -> Unit,
     age: Int,
@@ -390,43 +721,37 @@ private fun Step1AboutYou(
     heightCm: Double,
     onHeightChange: (Double) -> Unit,
     weightKg: Double,
-    onWeightChange: (Double) -> Unit,
-    onContinue: () -> Unit
+    onWeightChange: (Double) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                text = "About you",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                text = onboarding.step1Title,
+                style = if (isCompactWidth) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
                 fontFamily = FontFamily.SansSerif,
                 color = Color.White
             )
             Text(
-                text = "Your baseline biometrics help calculate resting metabolic rate and energy expenditure with clinical precision.",
+                text = onboarding.step1Subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 fontFamily = FontFamily.SansSerif,
-                color = Color(0xFF9E8AA7),
+                color = Color(0xFFA8A2BE),
                 lineHeight = 20.sp
             )
         }
 
-        Text(
-            text = "BIOLOGICAL SEX",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF8E8AA7),
-            letterSpacing = 1.sp
-        )
+        SectionHeaderPill(label = onboarding.step1PrimaryQuestionLabel, badge = "Mifflin-St Jeor", accentColor = accentColor)
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             SexOptionCard(
                 title = "Male",
-                subtitle = "Assigned at birth",
+                subtitle = "Metabolic baseline",
                 icon = Icons.Filled.Male,
+                accentColor = accentColor,
                 isSelected = sex == BiologicalSex.MALE,
                 onClick = { onSexChange(BiologicalSex.MALE) },
                 modifier = Modifier.weight(1f)
@@ -434,336 +759,150 @@ private fun Step1AboutYou(
 
             SexOptionCard(
                 title = "Female",
-                subtitle = "Assigned at birth",
+                subtitle = "Metabolic baseline",
                 icon = Icons.Filled.Female,
+                accentColor = accentColor,
                 isSelected = sex == BiologicalSex.FEMALE,
                 onClick = { onSexChange(BiologicalSex.FEMALE) },
                 modifier = Modifier.weight(1f)
             )
         }
 
-        Text(
-            text = "PHYSICAL DIMENSIONS",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF8E8AA7),
-            letterSpacing = 1.sp
-        )
+        SectionHeaderPill(label = onboarding.step1SecondaryQuestionLabel, badge = "Tap − / +", accentColor = accentColor)
 
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             DimensionStepperCard(
                 label = "Age",
+                subtitle = "Years old",
                 valueText = age.toString(),
                 unitText = "yrs",
+                accentColor = accentColor,
                 onDecrement = { if (age > 14) onAgeChange(age - 1) },
                 onIncrement = { if (age < 100) onAgeChange(age + 1) }
             )
 
             DimensionStepperCard(
                 label = "Height",
+                subtitle = "Stature in centimeters",
                 valueText = heightCm.toInt().toString(),
                 unitText = "cm",
+                accentColor = accentColor,
                 onDecrement = { if (heightCm > 100) onHeightChange(heightCm - 1.0) },
                 onIncrement = { if (heightCm < 240) onHeightChange(heightCm + 1.0) }
             )
 
             DimensionStepperCard(
-                label = "Weight",
+                label = "Body Weight",
+                subtitle = "Current morning weight",
                 valueText = "%.1f".format(Locale.US, weightKg),
                 unitText = "kg",
+                accentColor = accentColor,
                 onDecrement = { if (weightKg > 30.0) onWeightChange(weightKg - 0.5) },
                 onIncrement = { if (weightKg < 250.0) onWeightChange(weightKg + 0.5) }
             )
         }
 
-        // Footer Note
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Lock,
-                contentDescription = null,
-                tint = Color(0xFFA78BFA),
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = "Processed on-device · Used solely for metabolic calibration",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF8E8AA7)
-            )
-        }
-
-        Button(
-            onClick = onContinue,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFA78BFA),
-                contentColor = Color(0xFF171020)
-            )
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Continue", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
+        ScientificInsightCard(note = onboarding.step1InsightNote, accentColor = accentColor, icon = Icons.Filled.Lock)
     }
 }
 
-// ===============================================
-// STEP 2: YOUR EXPERIENCE
-// ===============================================
+// ===============================================================
+// STEP 1 (B) & STEP 2: BESPOKE PROGRAM-SPECIFIC INTAKE QUESTIONS
+// ===============================================================
 @Composable
-private fun Step2YourExperience(
-    experience: ProgramExperience,
-    onExperienceChange: (ProgramExperience) -> Unit,
-    occupation: DailyOccupation,
-    onOccupationChange: (DailyOccupation) -> Unit,
-    onContinue: () -> Unit
+private fun StepBespokeAssessmentQuestions(
+    title: String,
+    subtitle: String,
+    accentColor: Color,
+    isCompactWidth: Boolean,
+    primaryLabel: String,
+    primaryBadge: String?,
+    primaryOptions: List<AssessmentOptionSpec>,
+    selectedPrimaryIndex: Int,
+    onSelectPrimary: (Int, AssessmentOptionSpec) -> Unit,
+    secondaryLabel: String,
+    secondaryBadge: String?,
+    secondaryOptions: List<AssessmentOptionSpec>,
+    selectedSecondaryIndex: Int,
+    onSelectSecondary: (Int, AssessmentOptionSpec) -> Unit,
+    insightNote: String
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                text = "Your experience",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                text = title,
+                style = if (isCompactWidth) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
                 fontFamily = FontFamily.SansSerif,
                 color = Color.White
             )
             Text(
-                text = "We tailor volume, exercise complexity, and caloric expenditure to your training history and daily activity.",
+                text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 fontFamily = FontFamily.SansSerif,
-                color = Color(0xFF9E8AA7),
+                color = Color(0xFFA8A2BE),
                 lineHeight = 20.sp
             )
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "GYM EXPERIENCE",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF8E8AA7),
-                letterSpacing = 1.sp
-            )
-            Text(
-                text = "Baseline Volume",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFC4B5FD)
-            )
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            ExperienceOptionCard(
-                title = "Beginner / Starting Fresh",
-                subtitle = "Under 1 year · Learning form, fundamental compound movements",
-                icon = Icons.Filled.FitnessCenter,
-                isRecommended = true,
-                isSelected = experience == ProgramExperience.BEGINNER,
-                onClick = { onExperienceChange(ProgramExperience.BEGINNER) }
+        if (primaryOptions.isNotEmpty()) {
+            SectionHeaderPill(
+                label = primaryLabel,
+                badge = primaryBadge ?: "Select 1",
+                accentColor = accentColor
             )
 
-            ExperienceOptionCard(
-                title = "Intermediate",
-                subtitle = "1 to 3 years · Familiar with compound lifts and overload",
-                icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                isRecommended = false,
-                isSelected = experience == ProgramExperience.SOME_EXPERIENCE,
-                onClick = { onExperienceChange(ProgramExperience.SOME_EXPERIENCE) }
-            )
-
-            ExperienceOptionCard(
-                title = "Advanced",
-                subtitle = "3+ years · Periodized programming, near-maximal adaptation",
-                icon = Icons.Filled.WorkspacePremium,
-                isRecommended = false,
-                isSelected = experience == ProgramExperience.EXPERIENCED,
-                onClick = { onExperienceChange(ProgramExperience.EXPERIENCED) }
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "DAILY OCCUPATION",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF8E8AA7),
-                letterSpacing = 1.sp
-            )
-            Text(
-                text = "NEAT Index",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF00DC82)
-            )
-        }
-
-        // Segmented Tabs: Desk, Light, On feet, Physical
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF1E1C2A), RoundedCornerShape(14.dp))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            DailyOccupation.entries.forEach { occ ->
-                val isSelected = occupation == occ
-                val label = when (occ) {
-                    DailyOccupation.DESK -> "Desk"
-                    DailyOccupation.LIGHT -> "Light"
-                    DailyOccupation.ON_FEET -> "On feet"
-                    DailyOccupation.PHYSICAL -> "Physical"
-                }
-
-                Surface(
-                    onClick = { onOccupationChange(occ) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) Color(0xFFA78BFA) else Color.Transparent
-                ) {
-                    Box(
-                        modifier = Modifier.padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color(0xFF171020) else Color(0xFF8E8AA7)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Occupation Details Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
-            border = BorderStroke(1.dp, Color(0xFF282538))
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .background(Color(0xFF242134), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = when (occupation) {
-                            DailyOccupation.DESK -> Icons.Filled.LaptopMac
-                            DailyOccupation.LIGHT -> Icons.AutoMirrored.Filled.DirectionsWalk
-                            DailyOccupation.ON_FEET -> Icons.AutoMirrored.Filled.DirectionsRun
-                            DailyOccupation.PHYSICAL -> Icons.Filled.FitnessCenter
-                        },
-                        contentDescription = null,
-                        tint = Color(0xFF00DC82),
-                        modifier = Modifier.size(20.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                primaryOptions.forEachIndexed { index, option ->
+                    BespokeAssessmentOptionCard(
+                        indexNumber = index + 1,
+                        option = option,
+                        accentColor = accentColor,
+                        isSelected = selectedPrimaryIndex == index,
+                        onClick = { onSelectPrimary(index, option) }
                     )
                 }
-
-                Text(
-                    text = when (occupation) {
-                        DailyOccupation.DESK -> "Mostly seated · e.g., Software, remote office, driving (~1.2× NEAT multiplier)"
-                        DailyOccupation.LIGHT -> "Light activity · e.g., Teaching, retail, walking (~1.38× NEAT multiplier)"
-                        DailyOccupation.ON_FEET -> "On feet all day · e.g., Nursing, hospitality, trades (~1.55× NEAT multiplier)"
-                        DailyOccupation.PHYSICAL -> "Heavy physical labor · e.g., Construction, farming (~1.73× NEAT multiplier)"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFFC4B5FD),
-                    lineHeight = 18.sp
-                )
             }
         }
 
-        // Calibration Note Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1B192A)),
-            border = BorderStroke(1.dp, Color(0xFF29243E))
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.AutoAwesome,
-                    contentDescription = null,
-                    tint = Color(0xFFA78BFA),
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = "This calibration calculates initial training volume per muscle group and foundational daily caloric burn.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF9E8AA7),
-                    lineHeight = 18.sp
-                )
-            }
-        }
-
-        Button(
-            onClick = onContinue,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFA78BFA),
-                contentColor = Color(0xFF171020)
+        if (secondaryOptions.isNotEmpty()) {
+            Spacer(Modifier.height(2.dp))
+            SectionHeaderPill(
+                label = secondaryLabel,
+                badge = secondaryBadge ?: "Select 1",
+                accentColor = Color(0xFF00DC82)
             )
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Continue", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                secondaryOptions.forEachIndexed { index, option ->
+                    BespokeAssessmentOptionCard(
+                        indexNumber = index + 1,
+                        option = option,
+                        accentColor = accentColor,
+                        isSelected = selectedSecondaryIndex == index,
+                        onClick = { onSelectSecondary(index, option) }
+                    )
+                }
             }
         }
+
+        ScientificInsightCard(
+            note = insightNote,
+            accentColor = accentColor,
+            icon = Icons.Filled.AutoAwesome
+        )
     }
 }
 
 // ==================================================
-// STEP 3: TIME & EQUIPMENT
+// STEP 3: BESPOKE SCHEDULE & SETUP
 // ==================================================
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Step3TimeAndEquipment(
+private fun Step3BespokeScheduleAndSetup(
+    onboarding: ProgramOnboardingSpec,
+    accentColor: Color,
+    isCompactWidth: Boolean,
     minutes: Int,
     onMinutesChange: (Int) -> Unit,
     days: Int,
@@ -771,341 +910,373 @@ private fun Step3TimeAndEquipment(
     equipment: ProgramEquipment,
     onEquipmentChange: (ProgramEquipment) -> Unit,
     startEpochDay: Long,
-    onOpenDatePicker: () -> Unit,
-    onContinue: () -> Unit
+    onOpenDatePicker: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val weeklyTotalMinutes = minutes * days
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                text = "Time & Equipment",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                text = onboarding.step3Title,
+                style = if (isCompactWidth) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
                 fontFamily = FontFamily.SansSerif,
                 color = Color.White
             )
             Text(
-                text = "Set your daily session duration, weekly workout frequency, and equipment access.",
+                text = onboarding.step3Subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 fontFamily = FontFamily.SansSerif,
-                color = Color(0xFF9E8AA7)
+                color = Color(0xFFA8A2BE),
+                lineHeight = 20.sp
             )
         }
 
-        Text("MINUTES PER DAY", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF8E8AA7), letterSpacing = 1.sp)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(15, 20, 30, 45, 60).forEach { min ->
+        // Live Weekly Dosage Summary Pill Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF191726)),
+            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "WEEKLY PROTOCOL DOSE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor,
+                        letterSpacing = 0.9.sp
+                    )
+                    Text(
+                        text = "$days active days · ${7 - days} recovery days",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = accentColor.copy(alpha = 0.16f),
+                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f))
+                ) {
+                    Text(
+                        text = "$weeklyTotalMinutes min/wk",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                    )
+                }
+            }
+        }
+
+        SectionHeaderPill(label = onboarding.step3MinutesLabel, badge = "$minutes min/day", accentColor = accentColor)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            onboarding.step3MinuteChoices.forEach { min ->
+                val isSelected = minutes == min
                 Surface(
                     onClick = { onMinutesChange(min) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (minutes == min) Color(0xFFA78BFA) else Color(0xFF1E1C2A),
-                    border = BorderStroke(1.dp, if (minutes == min) Color(0xFFA78BFA) else Color(0xFF2E2C3D))
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (isSelected) accentColor else Color(0xFF1B1928),
+                    border = BorderStroke(1.5.dp, if (isSelected) accentColor else Color(0xFF2E2A40))
                 ) {
                     Text(
                         text = "$min min",
-                        color = if (minutes == min) Color(0xFF171020) else Color.White,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        color = if (isSelected) Color(0xFF130E1E) else Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp)
                     )
                 }
             }
         }
 
-        Text("TRAINING DAYS PER WEEK", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF8E8AA7), letterSpacing = 1.sp)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(3, 4, 5, 6).forEach { d ->
+        SectionHeaderPill(label = onboarding.step3DaysLabel, badge = "$days days/wk", accentColor = accentColor)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            onboarding.step3DayChoices.forEach { d ->
+                val isSelected = days == d
                 Surface(
                     onClick = { onDaysChange(d) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (days == d) Color(0xFFA78BFA) else Color(0xFF1E1C2A),
-                    border = BorderStroke(1.dp, if (days == d) Color(0xFFA78BFA) else Color(0xFF2E2C3D))
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (isSelected) accentColor else Color(0xFF1B1928),
+                    border = BorderStroke(1.5.dp, if (isSelected) accentColor else Color(0xFF2E2A40))
                 ) {
                     Text(
                         text = "$d days/wk",
-                        color = if (days == d) Color(0xFF171020) else Color.White,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        color = if (isSelected) Color(0xFF130E1E) else Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp)
                     )
                 }
             }
         }
 
-        Text("EQUIPMENT ACCESS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF8E8AA7), letterSpacing = 1.sp)
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            EquipmentOptionCard(
-                title = "No equipment",
-                subtitle = "Bodyweight, mobility, and movement routines",
-                icon = Icons.Filled.SelfImprovement,
-                isSelected = equipment == ProgramEquipment.NONE,
-                onClick = { onEquipmentChange(ProgramEquipment.NONE) }
-            )
-            EquipmentOptionCard(
-                title = "Home Basic",
-                subtitle = "Dumbbells, resistance bands, or adjustable weights",
-                icon = Icons.Filled.Home,
-                isSelected = equipment == ProgramEquipment.HOME_BASIC,
-                onClick = { onEquipmentChange(ProgramEquipment.HOME_BASIC) }
-            )
-            EquipmentOptionCard(
-                title = "Gym access",
-                subtitle = "Full barbell, cable, machine, and free-weight suite",
-                icon = Icons.Filled.FitnessCenter,
-                isSelected = equipment == ProgramEquipment.GYM,
-                onClick = { onEquipmentChange(ProgramEquipment.GYM) }
-            )
+        if (onboarding.showEquipmentSelector && onboarding.step3EquipmentOptions.isNotEmpty()) {
+            SectionHeaderPill(label = onboarding.step3EquipmentLabel, badge = equipment.displayName(), accentColor = accentColor)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                onboarding.step3EquipmentOptions.forEach { option ->
+                    val mappedEq = option.mappedEquipment ?: ProgramEquipment.NONE
+                    val icon = when (mappedEq) {
+                        ProgramEquipment.NONE -> Icons.Filled.SelfImprovement
+                        ProgramEquipment.HOME_BASIC -> Icons.Filled.Home
+                        ProgramEquipment.GYM -> Icons.Filled.FitnessCenter
+                    }
+                    EquipmentOptionCard(
+                        title = option.title,
+                        subtitle = option.subtitle,
+                        icon = icon,
+                        accentColor = accentColor,
+                        isSelected = equipment == mappedEq,
+                        onClick = { onEquipmentChange(mappedEq) }
+                    )
+                }
+            }
         }
 
-        Text("START DATE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF8E8AA7), letterSpacing = 1.sp)
+        SectionHeaderPill(label = "START DATE", badge = "Flexible", accentColor = accentColor)
         Card(
             onClick = onOpenDatePicker,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
-            border = BorderStroke(1.dp, Color(0xFF282538))
+            border = BorderStroke(1.dp, Color(0xFF2D2942))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .background(Color(0xFF242132), RoundedCornerShape(12.dp)),
+                            .background(accentColor.copy(alpha = 0.16f), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Filled.CalendarMonth,
                             contentDescription = null,
-                            tint = Color(0xFFA78BFA),
+                            tint = accentColor,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = LocalDate.ofEpochDay(startEpochDay).format(DateTimeFormatter.ofPattern("EEEE, d MMM yyyy")),
+                            text = LocalDate.ofEpochDay(startEpochDay).format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (startEpochDay == LocalDate.now().toEpochDay()) "Starts today" else "Scheduled start date",
+                            text = if (startEpochDay == LocalDate.now().toEpochDay()) "Day 1 begins today" else "Scheduled future launch",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF8E8AA7)
+                            color = Color(0xFF00DC82)
                         )
                     }
                 }
 
+                Spacer(Modifier.width(8.dp))
+
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = Color(0xFF29233A),
-                    border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.4f))
+                    color = Color(0xFF262238),
+                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f))
                 ) {
                     Text(
                         text = "Change",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFC4B5FD),
+                        color = Color.White,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
             }
         }
-
-        Button(
-            onClick = onContinue,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFA78BFA),
-                contentColor = Color(0xFF171020)
-            )
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Continue to Calibrated Review", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
     }
 }
 
-// ==================================================
-// STEP 4: CALIBRATED REVIEW
-// ==================================================
+// =========================================================================
+// STEP 4: BESPOKE DIAGNOSTIC BLUEPRINT + EMBEDDED 7-DAY SCHEDULE PREVIEW
+// =========================================================================
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Step4CalibratedReview(
-    profile: com.virtue.habittracker.domain.service.MetabolicProfile,
-    preferences: ProgramPreferences,
+private fun Step4BespokeDiagnosticReview(
+    template: ProgramTemplate,
+    summary: ProgramDiagnosticSummary,
+    accentColor: Color,
+    isCompactWidth: Boolean,
+    previewActivities: List<ScheduledProgramActivity>,
     startEpochDay: Long,
-    isAdjusting: Boolean,
-    onConfirm: () -> Unit
+    isAdjusting: Boolean
 ) {
-    val proteinKcal = profile.proteinGrams * 4
-    val carbsKcal = profile.carbsGrams * 4
-    val fatKcal = profile.fatGrams * 9
-    val totalMacroKcal = (proteinKcal + carbsKcal + fatKcal).coerceAtLeast(1)
-
-    val proteinPct = (proteinKcal * 100f / totalMacroKcal).toInt()
-    val carbsPct = (carbsKcal * 100f / totalMacroKcal).toInt()
-    val fatPct = (100 - proteinPct - carbsPct).coerceAtLeast(0)
-
-    val calorieDelta = profile.targetCalories - profile.tdee
-    val deltaBadgeText = when {
-        calorieDelta > 50 -> "+$calorieDelta kcal Anabolic Surplus"
-        calorieDelta < -50 -> "$calorieDelta kcal Recomp Deficit"
-        else -> "Isocaloric Maintenance"
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = accentColor.copy(alpha = 0.16f),
+                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f))
+            ) {
+                Text(
+                    text = "DIAGNOSTIC BLUEPRINT READY",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = accentColor,
+                    letterSpacing = 0.9.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
             Text(
-                text = "Calibrated targets",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
+                text = summary.step4Headline,
+                style = if (isCompactWidth) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
                 fontFamily = FontFamily.SansSerif,
                 color = Color.White
             )
             Text(
-                text = "Here is your personalized metabolic breakdown and volume baseline calculated from Mifflin-St Jeor clinical equations.",
+                text = summary.step4Subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF9E8AA7),
+                color = Color(0xFFA8A2BE),
                 lineHeight = 20.sp
             )
         }
 
-        // METABOLIC STATS GRID
+        // RESPONSIVE DIAGNOSTIC METRICS GRID (never squishes on compact phones)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            StatCard(label = "BMR", value = "${profile.bmr}", unit = "kcal", modifier = Modifier.weight(1f))
-            StatCard(label = "TDEE", value = "${profile.tdee}", unit = "kcal", modifier = Modifier.weight(1f))
-            StatCard(
-                label = "TARGET",
-                value = "${profile.targetCalories}",
-                unit = "kcal",
-                accentColor = Color(0xFF00DC82),
-                modifier = Modifier.weight(1.15f)
-            )
+            summary.metrics.forEach { metric ->
+                StatCard(
+                    label = metric.label,
+                    value = metric.value,
+                    unit = metric.unit,
+                    isCompactWidth = isCompactWidth,
+                    isHighlighted = metric.isHighlighted,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
-        // MACRONUTRIENT SPLIT CARD WITH MULTI-SEGMENT DISTRIBUTION BAR
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
-            border = BorderStroke(1.dp, Color(0xFF282538))
-        ) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+        // MULTI-SEGMENT PROTOCOL / MACRO DISTRIBUTION CARD
+        if (summary.segments.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF171524)),
+                border = BorderStroke(1.dp, Color(0xFF2D2942))
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "TARGET MACRONUTRIENTS",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFC4B5FD),
-                        letterSpacing = 1.sp
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFF231F32),
-                        border = BorderStroke(1.dp, Color(0xFF36304B))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = deltaBadgeText,
+                            text = summary.breakdownCardTitle,
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF00DC82),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFFD5CCFF),
+                            letterSpacing = 0.8.sp
                         )
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFF0D3325),
+                            border = BorderStroke(1.dp, Color(0xFF00DC82).copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = summary.breakdownBadge,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF00DC82),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                            )
+                        }
                     }
-                }
 
-                // Segmented Distribution Bar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color(0xFF242132)),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Box(
+                    // Segmented Distribution Bar
+                    Row(
                         modifier = Modifier
-                            .weight(proteinKcal.toFloat().coerceAtLeast(1f))
-                            .fillMaxHeight()
-                            .background(Color(0xFFA78BFA))
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(carbsKcal.toFloat().coerceAtLeast(1f))
-                            .fillMaxHeight()
-                            .background(Color(0xFF38BDF8))
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(fatKcal.toFloat().coerceAtLeast(1f))
-                            .fillMaxHeight()
-                            .background(Color(0xFFFBBF24))
-                    )
-                }
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFF242132)),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        summary.segments.forEach { segment ->
+                            Box(
+                                modifier = Modifier
+                                    .weight(segment.weight.coerceAtLeast(1f))
+                                    .fillMaxHeight()
+                                    .background(Color(segment.colorHex))
+                            )
+                        }
+                    }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    MacroItem(
-                        label = "Protein",
-                        value = "${profile.proteinGrams}g",
-                        sublabel = "$proteinPct% · $proteinKcal kcal",
-                        color = Color(0xFFA78BFA)
-                    )
-                    MacroItem(
-                        label = "Carbs",
-                        value = "${profile.carbsGrams}g",
-                        sublabel = "$carbsPct% · $carbsKcal kcal",
-                        color = Color(0xFF38BDF8)
-                    )
-                    MacroItem(
-                        label = "Fats",
-                        value = "${profile.fatGrams}g",
-                        sublabel = "$fatPct% · $fatKcal kcal",
-                        color = Color(0xFFFBBF24)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        summary.segments.forEach { segment ->
+                            MacroItem(
+                                label = segment.label,
+                                value = segment.valueText,
+                                sublabel = segment.sublabel,
+                                color = Color(segment.colorHex),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // WEEKLY VOLUME & SCHEDULE SUMMARY CARD
+        // BESPOKE PRESCRIPTION & CADENCE SUMMARY CARD
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
-            border = BorderStroke(1.dp, Color(0xFF282538))
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            border = BorderStroke(1.2.dp, accentColor.copy(alpha = 0.55f))
         ) {
             Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                accentColor.copy(alpha = 0.18f),
+                                Color(0xFF181625)
+                            )
+                        ),
+                        shape = RoundedCornerShape(22.dp)
+                    )
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1114,89 +1285,421 @@ private fun Step4CalibratedReview(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "WEEKLY HYPERTROPHY VOLUME",
+                            text = summary.prescriptionTitle,
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF8E8AA7),
-                            letterSpacing = 0.8.sp
+                            fontWeight = FontWeight.ExtraBold,
+                            color = accentColor,
+                            letterSpacing = 0.9.sp
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "${profile.weeklySetsPerMuscleGroup} sets / muscle group / week",
+                            text = summary.prescriptionHeadline,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
                             color = Color.White
                         )
                     }
+                    Spacer(Modifier.width(10.dp))
                     Box(
                         modifier = Modifier
                             .size(44.dp)
                             .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        Color(0xFFA78BFA).copy(alpha = 0.25f),
-                                        Color(0xFF242132)
-                                    )
-                                ),
-                                shape = RoundedCornerShape(12.dp)
+                                color = accentColor.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(14.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.FitnessCenter,
+                            imageVector = Icons.Filled.WorkspacePremium,
                             contentDescription = null,
-                            tint = Color(0xFFA78BFA),
+                            tint = accentColor,
                             modifier = Modifier.size(22.dp)
                         )
                     }
                 }
 
                 Text(
-                    text = "${preferences.availableDaysPerWeek} days/wk · ${preferences.availableMinutesPerDay} min/session · Starts ${LocalDate.ofEpochDay(startEpochDay).format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}",
+                    text = summary.prescriptionDetail,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFB5AFC7)
+                    color = Color(0xFFD5CFE8),
+                    lineHeight = 19.sp
+                )
+                Text(
+                    text = "Launch Date: ${LocalDate.ofEpochDay(startEpochDay).format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy"))}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF00DC82)
                 )
             }
         }
 
-        Button(
-            onClick = onConfirm,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFA78BFA),
-                contentColor = Color(0xFF171020)
-            )
+        // 3-PHASE SYLLABUS ROADMAP
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
+            border = BorderStroke(1.dp, Color(0xFF282538))
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = if (isAdjusting) "Preview Adjusted Schedule" else "Preview 7-Day Schedule",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "${template.durationDays}-DAY PERIODIZED SYLLABUS",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = accentColor,
+                    letterSpacing = 1.sp
                 )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+                template.phases.forEach { phase ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = accentColor.copy(alpha = 0.16f),
+                            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "P${phase.number}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = "Days ${phase.startDay}–${phase.endDay} · ${phase.title}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = phase.activityTitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF9E98B5)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // EMBEDDED WEEK-1 DAILY SCHEDULE PREVIEW (Eliminates redundant 5th Review Screen!)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
+            border = BorderStroke(1.dp, Color(0xFF282538))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isAdjusting) "RECALIBRATED NEXT 7 DAYS" else "WEEK 1 DAILY SCHEDULE PREVIEW",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF00DC82),
+                        letterSpacing = 0.9.sp
+                    )
+                    Text(
+                        text = "${previewActivities.count { it.estimatedMinutes > 0 }} active / ${previewActivities.count { it.estimatedMinutes == 0 }} rest",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF9E98B5)
+                    )
+                }
+
+                previewActivities.forEach { activity ->
+                    val isRest = activity.estimatedMinutes == 0
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isRest) Color(0xFF14121E) else Color(0xFF1F1C2E),
+                        border = BorderStroke(1.dp, if (isRest) Color(0xFF232033) else Color(0xFF322D49))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "Day ${activity.dayIndex} · " + LocalDate.ofEpochDay(activity.epochDay).format(DateTimeFormatter.ofPattern("EEE, MMM d")),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isRest) Color(0xFF7D7894) else accentColor
+                                )
+                                Text(
+                                    text = activity.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isRest) Color(0xFF9E98B5) else Color.White,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = if (isRest) Color(0xFF211E30) else Color(0xFF0D3325),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isRest) Color(0xFF342F49) else Color(0xFF00DC82).copy(alpha = 0.4f)
+                                )
+                            ) {
+                                Text(
+                                    text = if (isRest) "Rest" else "${activity.estimatedMinutes}m",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (isRest) Color(0xFF9E98B5) else Color(0xFF00DC82),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 // ==================================================
-// HELPER COMPONENTS & CARDS
+// SLEEK LUXURY HELPER COMPONENTS & CARDS
 // ==================================================
+@Composable
+private fun SectionHeaderPill(
+    label: String,
+    badge: String?,
+    accentColor: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(accentColor)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFFD5CFE8),
+                letterSpacing = 0.9.sp
+            )
+        }
+        if (!badge.isNullOrBlank()) {
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = accentColor.copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f))
+            ) {
+                Text(
+                    text = badge,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScientificInsightCard(
+    note: String,
+    accentColor: Color,
+    icon: ImageVector
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF181626)),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(accentColor.copy(alpha = 0.16f), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "CLINICAL & PERFORMANCE RATIONALE",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = accentColor,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.8.sp
+                )
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFD0C9E8),
+                    lineHeight = 18.sp
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun BespokeAssessmentOptionCard(
+    indexNumber: Int,
+    option: AssessmentOptionSpec,
+    accentColor: Color,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+        border = BorderStroke(
+            width = if (isSelected) 1.6.dp else 1.dp,
+            color = if (isSelected) accentColor else Color(0xFF2B273D)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = if (isSelected) {
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                accentColor.copy(alpha = 0.20f),
+                                Color(0xFF1B182B)
+                            )
+                        )
+                    } else {
+                        Brush.horizontalGradient(
+                            colors = listOf(Color(0xFF181624), Color(0xFF161420))
+                        )
+                    }
+                )
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left numbered badge
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .background(
+                        color = if (isSelected) accentColor else Color(0xFF242034),
+                        shape = RoundedCornerShape(11.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "0$indexNumber",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (isSelected) Color(0xFF130E1E) else Color(0xFF9E98B5)
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = option.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+
+                    if (!option.badge.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = if (isSelected) accentColor.copy(alpha = 0.25f) else Color(0xFF29243B),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) accentColor.copy(alpha = 0.6f) else Color(0xFF3B3552)
+                            )
+                        ) {
+                            Text(
+                                text = option.badge,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) Color.White else Color(0xFFC4B5FD),
+                                fontSize = 10.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = option.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSelected) Color(0xFFD5CFE8) else Color(0xFF9892B0),
+                    lineHeight = 17.sp
+                )
+            }
+
+            SelectionCheckCircle(isSelected = isSelected, accentColor = accentColor)
+        }
+    }
+}
+
 @Composable
 private fun SexOptionCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
+    accentColor: Color,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -1205,14 +1708,18 @@ private fun SexOptionCard(
         onClick = onClick,
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Color(0xFF231F34) else Color(0xFF171522)
+        ),
         border = BorderStroke(
-            width = if (isSelected) 1.5.dp else 1.dp,
-            color = if (isSelected) Color(0xFFA78BFA) else Color(0xFF282538)
+            width = if (isSelected) 1.6.dp else 1.dp,
+            color = if (isSelected) accentColor else Color(0xFF282538)
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
@@ -1222,46 +1729,39 @@ private fun SexOptionCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(38.dp)
                         .background(
-                            if (isSelected) Color(0xFF2E2448) else Color(0xFF221F30),
-                            RoundedCornerShape(10.dp)
+                            color = if (isSelected) accentColor.copy(alpha = 0.22f) else Color(0xFF221F30),
+                            shape = RoundedCornerShape(11.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
-                        contentDescription = null,
-                        tint = if (isSelected) Color(0xFFC4B5FD) else Color(0xFF8E8AA7),
-                        modifier = Modifier.size(22.dp)
+                        contentDescription = title,
+                        tint = if (isSelected) accentColor else Color(0xFF8E8AA7),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
-                if (isSelected) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(Color(0xFFA78BFA), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Check,
-                            contentDescription = null,
-                            tint = Color(0xFF171020),
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .border(1.5.dp, Color(0xFF3A354A), CircleShape)
-                    )
-                }
+                SelectionCheckCircle(isSelected = isSelected, accentColor = accentColor)
             }
 
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E8AA7))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8E8AA7),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -1269,8 +1769,10 @@ private fun SexOptionCard(
 @Composable
 private fun DimensionStepperCard(
     label: String,
+    subtitle: String,
     valueText: String,
     unitText: String,
+    accentColor: Color,
     onDecrement: () -> Unit,
     onIncrement: () -> Unit
 ) {
@@ -1283,138 +1785,77 @@ private fun DimensionStepperCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF8E8AA7))
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(valueText, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(unitText, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF8E8AA7), modifier = Modifier.padding(bottom = 4.dp))
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF8E8AA7)
+                )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Surface(
-                    onClick = onDecrement,
-                    shape = CircleShape,
-                    color = Color(0xFF262436),
-                    border = BorderStroke(1.dp, Color(0xFF36324A)),
-                    modifier = Modifier.size(44.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                StepperButton(symbol = "−", accentColor = accentColor, onClick = onDecrement)
+
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.widthIn(min = 72.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("−", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    }
+                    Text(
+                        text = valueText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = unitText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accentColor,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
                 }
 
-                Surface(
-                    onClick = onIncrement,
-                    shape = CircleShape,
-                    color = Color(0xFF262436),
-                    border = BorderStroke(1.dp, Color(0xFF36324A)),
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("+", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
+                StepperButton(symbol = "+", accentColor = accentColor, onClick = onIncrement)
             }
         }
     }
 }
 
 @Composable
-private fun ExperienceOptionCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    isRecommended: Boolean,
-    isSelected: Boolean,
+private fun StepperButton(
+    symbol: String,
+    accentColor: Color,
     onClick: () -> Unit
 ) {
-    Card(
+    Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
-        border = BorderStroke(
-            width = if (isSelected) 1.5.dp else 1.dp,
-            color = if (isSelected) Color(0xFFA78BFA) else Color(0xFF282538)
-        )
+        modifier = Modifier.size(38.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF242134),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f))
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(if (isSelected) Color(0xFF392B58) else Color(0xFF242132), RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isSelected) Color(0xFFC4B5FD) else Color(0xFF8E8AA7),
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                    if (isRecommended) {
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = Color(0xFF392B58)
-                        ) {
-                            Text(
-                                text = "Recommended",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFC4B5FD),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E8AA7))
-            }
-
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .background(Color(0xFFA78BFA), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = Color(0xFF171020),
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .border(1.5.dp, Color(0xFF3A354A), CircleShape)
-                )
-            }
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = symbol,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
         }
     }
 }
@@ -1424,17 +1865,99 @@ private fun EquipmentOptionCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
+    accentColor: Color,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    ExperienceOptionCard(
-        title = title,
-        subtitle = subtitle,
-        icon = icon,
-        isRecommended = false,
-        isSelected = isSelected,
-        onClick = onClick
-    )
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Color(0xFF231F32) else Color(0xFF171522)
+        ),
+        border = BorderStroke(
+            width = if (isSelected) 1.6.dp else 1.dp,
+            color = if (isSelected) accentColor else Color(0xFF282538)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = if (isSelected) accentColor.copy(alpha = 0.22f) else Color(0xFF221F30),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = if (isSelected) accentColor else Color(0xFF8E8AA7),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF8E8AA7)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(10.dp))
+
+            SelectionCheckCircle(isSelected = isSelected, accentColor = accentColor)
+        }
+    }
+}
+
+@Composable
+private fun SelectionCheckCircle(
+    isSelected: Boolean,
+    accentColor: Color = Color(0xFFA78BFA)
+) {
+    Box(
+        modifier = Modifier
+            .size(24.dp)
+            .clip(CircleShape)
+            .background(if (isSelected) accentColor else Color.Transparent)
+            .border(
+                width = 1.5.dp,
+                color = if (isSelected) accentColor else Color(0xFF433E58),
+                shape = CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isSelected) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = "Selected",
+                tint = Color(0xFF130E1E),
+                modifier = Modifier.size(15.dp)
+            )
+        }
+    }
 }
 
 @Composable
@@ -1442,27 +1965,53 @@ private fun StatCard(
     label: String,
     value: String,
     unit: String,
-    accentColor: Color = Color.White,
+    isCompactWidth: Boolean,
+    isHighlighted: Boolean,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF171522)),
-        border = BorderStroke(1.dp, Color(0xFF282538))
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isHighlighted) Color(0xFF142824) else Color(0xFF171522)
+        ),
+        border = BorderStroke(
+            width = if (isHighlighted) 1.4.dp else 1.dp,
+            color = if (isHighlighted) Color(0xFF00DC82).copy(alpha = 0.6f) else Color(0xFF282538)
+        )
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = if (isCompactWidth) 6.dp else 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF8E8AA7))
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = accentColor)
-                Text(unit, style = MaterialTheme.typography.labelSmall, color = Color(0xFF8E8AA7), modifier = Modifier.padding(bottom = 2.dp))
-            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = if (isCompactWidth) 9.sp else 10.sp,
+                color = if (isHighlighted) Color(0xFF00DC82) else Color(0xFF9E98B5),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = value,
+                style = if (isCompactWidth) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (isHighlighted) Color(0xFF00DC82) else Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = unit,
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = if (isCompactWidth) 9.sp else 10.sp,
+                color = Color(0xFF9E98B5),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -1472,9 +2021,13 @@ private fun MacroItem(
     label: String,
     value: String,
     sublabel: String,
-    color: Color
+    color: Color,
+    modifier: Modifier = Modifier
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)
@@ -1484,9 +2037,30 @@ private fun MacroItem(
                     .size(7.dp)
                     .background(color, CircleShape)
             )
-            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = Color(0xFFB5AFC7))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFD0C9E8),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = color)
-        Text(sublabel, style = MaterialTheme.typography.labelSmall, color = Color(0xFF8E8AA7))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = sublabel,
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
+            color = Color(0xFF8E8AA7),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
