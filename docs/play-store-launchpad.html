@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Play Store Launchpad &amp; Luxury Infographics Studio — Virtue Habit Tracker</title>
+  <style>
+    :root {
+      --bg: #0c0b12;
+      --surface: #181624;
+      --surface-card: #211e32;
+      --border: #383354;
+      --violet: #a78bfa;
+      --violet-soft: #c4b5fd;
+      --emerald: #00dc82;
+      --amber: #fbbf24;
+      --text: #f8f5ff;
+      --muted: #9e98b3;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 15% 0%, rgba(167, 139, 250, 0.16), transparent 40%),
+                  radial-gradient(circle at 85% 15%, rgba(0, 220, 130, 0.12), transparent 40%),
+                  var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      padding: 32px 20px 80px;
+    }
+    .container { max-width: 1240px; margin: 0 auto; }
+    header {
+      background: linear-gradient(135deg, #2b2248 0%, #191726 55%, #12111a 100%);
+      border: 1px solid rgba(167, 139, 250, 0.4);
+      border-radius: 28px;
+      padding: 36px;
+      margin-bottom: 32px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      background: rgba(167, 139, 250, 0.2);
+      color: var(--violet-soft);
+      border: 1px solid rgba(167, 139, 250, 0.45);
+      margin-bottom: 10px;
+    }
+    .pill.emerald {
+      background: rgba(0, 220, 130, 0.14);
+      color: #6ee7b7;
+      border-color: rgba(0, 220, 130, 0.45);
+    }
+    h1 { font-size: 2.15rem; font-weight: 800; letter-spacing: -0.02em; color: #fff; margin-bottom: 6px; }
+    h2 { font-size: 1.45rem; font-weight: 800; color: #fff; margin-bottom: 14px; }
+    h3 { font-size: 1.05rem; font-weight: 700; color: var(--violet-soft); margin-bottom: 8px; }
+    .subtitle { color: var(--muted); font-size: 0.96rem; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 12px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid rgba(167, 139, 250, 0.5);
+      background: var(--violet);
+      color: #130e21;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .btn:hover { transform: translateY(-1px); opacity: 0.95; }
+    .btn.secondary {
+      background: var(--surface-card);
+      color: var(--violet-soft);
+      border-color: var(--border);
+    }
+    .btn.emerald {
+      background: var(--emerald);
+      color: #062417;
+      border-color: var(--emerald);
+    }
+
+    /* Luxury Infographic Poster Grid */
+    .section-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 26px;
+      padding: 32px;
+      margin-bottom: 30px;
+    }
+    .infographic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+      gap: 22px;
+      margin-top: 20px;
+    }
+    .poster-card {
+      background: linear-gradient(165deg, #27213c 0%, #171523 60%, #110f1a 100%);
+      border: 1px solid rgba(167, 139, 250, 0.35);
+      border-radius: 24px;
+      padding: 26px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 490px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    .poster-card::before {
+      content: "";
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle, rgba(167, 139, 250, 0.25), transparent 70%);
+      pointer-events: none;
+    }
+    .poster-title {
+      font-size: 1.38rem;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.25;
+      margin: 8px 0 10px;
+    }
+    .poster-sub {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+    .mock-ui {
+      background: rgba(18, 17, 26, 0.85);
+      border: 1px solid rgba(167, 139, 250, 0.28);
+      border-radius: 18px;
+      padding: 16px;
+      margin-top: auto;
+    }
+    .mock-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.04);
+      margin-bottom: 8px;
+      font-size: 0.82rem;
+    }
+    .mock-row:last-child { margin-bottom: 0; }
+    .tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(0, 220, 130, 0.16);
+      color: #6ee7b7;
+    }
+    .tag.violet {
+      background: rgba(167, 139, 250, 0.2);
+      color: var(--violet-soft);
+    }
+    .tag.amber {
+      background: rgba(251, 191, 36, 0.18);
+      color: #fde68a;
+    }
+
+    /* Feature Banner 1024x500 Preview */
+    .feature-banner {
+      background: linear-gradient(125deg, #2d224c 0%, #181626 52%, #0e2923 100%);
+      border: 1px solid rgba(0, 220, 130, 0.4);
+      border-radius: 24px;
+      padding: 36px;
+      margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 28px;
+      align-items: center;
+    }
+    @media (max-width: 820px) {
+      .feature-banner { grid-template-columns: 1fr; }
+    }
+
+    /* Copyable Code Boxes */
+    .copy-box {
+      background: #12101b;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-top: 10px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.88rem;
+      color: #e6e1f5;
+      line-height: 1.55;
+    }
+    .copy-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .copy-btn {
+      background: rgba(167, 139, 250, 0.18);
+      color: var(--violet-soft);
+      border: 1px solid rgba(167, 139, 250, 0.4);
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .copy-btn:hover { background: var(--violet); color: #12101b; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <span class="pill">GOOGLE PLAY CONSOLE &amp; GOOGLE STITCH STUDIO</span>
+        <h1>Virtue Habit Tracker — Store Listing &amp; Luxury Infographics</h1>
+        <p class="subtitle">
+          Package ID: <code>com.ytron.virtuhabit</code> &nbsp;|&nbsp;
+          Account: <strong>d9169839@gmail.com</strong> &nbsp;|&nbsp;
+          Version: <strong>1.0.0 (1)</strong>
+        </p>
+      </div>
+      <div class="btn-row">
+        <a class="btn emerald" href="https://stitch.withgoogle.com/" target="_blank" rel="noopener">Open Google Stitch ↗</a>
+        <a class="btn secondary" href="#stitch-prompts">Jump to Stitch Prompts ↓</a>
+        <a class="btn secondary" href="#play-copy">Jump to Play Store Description ↓</a>
+      </div>
+    </header>
+
+    <!-- 1024x500 Feature Graphic Hero Preview -->
+    <div class="section-block">
+      <span class="pill emerald">1024 × 500 PLAY STORE FEATURE GRAPHIC PREVIEW &amp; 6-SLIDE INFOGRAPHIC DECK</span>
+      <h2>Interactive Luxury Feature Infographics</h2>
+      <p class="subtitle" style="margin-bottom: 20px;">
+        Below is the live luxury visual blueprint of all 6 app feature infographics + the 1024×500 Feature Graphic banner, along with 1-click copy prompts for Google Stitch and Google Play Console.
+      </p>
+
+      <div class="feature-banner">
+        <div>
+          <span class="pill">12 SCIENCE-BACKED PROGRAMS • 100% FREE FOREVER</span>
+          <h2 style="font-size: 2.2rem; margin-top: 6px; margin-bottom: 10px;">VIRTUE HABIT TRACKER</h2>
+          <p style="color: #d7d2e8; font-size: 1.02rem; margin-bottom: 16px;">
+            Become who you choose. Daily habit mastery, Mifflin-St Jeor metabolic fitness, CBT mindfulness, circadian sleep restoration, and dopamine focus.
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <span class="tag">Zero Ads • Zero Paywalls</span>
+            <span class="tag violet">4-Step Calibration Blueprint</span>
+            <span class="tag amber">Guided Session Timers</span>
+          </div>
+        </div>
+        <div class="mock-ui">
+          <div class="mock-row">
+            <span><strong>Today's Consistency Ring</strong></span>
+            <span class="tag">88% COMPLETE</span>
+          </div>
+          <div class="mock-row">
+            <span>🎯 <strong>Spotlight:</strong> Calm Recomposition • Day 14</span>
+            <span class="tag violet">25 MIN TIMER</span>
+          </div>
+          <div class="mock-row">
+            <span>🧬 <strong>Blueprint:</strong> Mifflin-St Jeor BMR/TDEE</span>
+            <span class="tag amber">CALIBRATED</span>
+          </div>
+          <div class="mock-row">
+            <span>☁️ <strong>Encrypted Cloud Checkpoint Sync</strong></span>
+            <span class="tag">ACTIVE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 Vertical Luxury Infographic Posters -->
+      <div class="infographic-grid">
+        <!-- Slide 1 -->
+        <div class="poster-card">
+          <div>
+            <span class="pill">01 • DAILY COMMAND CENTER</span>
+            <div class="poster-title">Become Who You Choose. Small Promises, Kept Daily.</div>
+            <p class="poster-sub">
+              An executive, distraction-free Home command center featuring an animated consistency ring, Today's Active Program Spotlight, and 1-tap science-backed starter habits.
+            </p>
+          </div>
+          <div class="mock-ui">
+            <div class="mock-row">
+              <span>🔥 <strong>Morning Sunlight &amp; Hydration</strong></span>
+              <span class="tag">14-DAY STREAK</span>
+            </div>
+            <div class="mock-row">
+              <span>⚡ <strong>Today's Program Spotlight</strong></span>
+              <span class="tag violet">1-TAP LAUNCH</span>
+            </div>
+            <div class="mock-row">
+              <span>🧘 <strong>Evening Digital Sunset</strong></span>
+              <span class="tag">COMPLETED ✓</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 2 -->
+        <div class="poster-card">
+          <div>
+            <span class="pill">02 • 12 MODULAR CURRICULA</span>
+            <div class="poster-title">12 Science-Backed Programs for Body, Mind &amp; Sleep.</div>
+            <p class="poster-sub">
+              Every program features its own clinical and physiological curriculum—spanning hypertrophy, Zone 2 VO2 Max, CBT anxiety relief, CBT-I sleep, and dopamine reset.
+            </p>
+          </div>
+          <div class="mock-ui">
+            <div class="mock-row">
+              <span>🏋️ <strong>Calm Recomposition &amp; Lean Muscle</strong></span>
+              <span class="tag violet">42–56 DAYS</span>
+            </div>
+            <div class="mock-row">
+              <span>🧠 <strong>CBT Mindfulness &amp; Anxiety Relief</strong></span>
+              <span class="tag">28 DAYS</span>
+            </div>
+            <div class="mock-row">
+              <span>🌙 <strong>Circadian Sleep Restoration (CBT-I)</strong></span>
+              <span class="tag amber">28 DAYS</span>
+            </div>
+            <div class="mock-row">
+              <span>🎯 <strong>Dopamine Detox &amp; Deep Work</strong></span>
+              <span class="tag violet">28 DAYS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 3 -->
+        <div class="poster-card">
+          <div>
+            <span class="pill">03 • 4-STEP DIAGNOSTIC ENGINE</span>
+            <div class="poster-title">Calibrated to Your Biology, Focus &amp; Time Budget.</div>
+            <p class="poster-sub">
+              Bespoke 4-step intake (Baseline → Focus → Cadence → Blueprint) computes your Mifflin-St Jeor BMR/TDEE or clinical protocol and previews Week 1 before you enroll.
+            </p>
+          </div>
+          <div class="mock-ui">
+            <div class="mock-row">
+              <span><strong>1. Baseline</strong> → <strong>2. Focus</strong> → <strong>3. Cadence</strong></span>
+              <span class="tag violet">STEP 4/4</span>
+            </div>
+            <div class="mock-row">
+              <span>📊 <strong>Diagnostic Blueprint Summary</strong></span>
+              <span class="tag">PERSONALIZED</span>
+            </div>
+            <div class="mock-row">
+              <span>🗓️ <strong>Embedded 7-Day Schedule Preview</strong></span>
+              <span class="tag amber">DAY 1–7 READY</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 4 -->
+        <div class="poster-card">
+          <div>
+            <span class="pill">04 • GUIDED SESSION TIMERS</span>
+            <div class="poster-title">3-Phase Roadmaps &amp; Interactive Countdown Coaching.</div>
+            <p class="poster-sub">
+              Filter your curriculum by Phase 1 (Foundation), Phase 2 (Adaptation), or Phase 3 (Mastery), and launch a live countdown timer with step-by-step execution cues.
+            </p>
+          </div>
+          <div class="mock-ui">
+            <div class="mock-row">
+              <span>🗺️ <strong>Phase 1 → Phase 2 → Phase 3</strong></span>
+              <span class="tag violet">ROADMAP</span>
+            </div>
+            <div class="mock-row">
+              <span>⏱️ <strong>Live Guided Session Timer</strong></span>
+              <span class="tag">20:00 RING</span>
+            </div>
+            <div class="mock-row">
+              <span>✅ <strong>Complete &amp; Auto-Mark Today</strong></span>
+              <span class="tag amber">1-TAP DONE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 5 -->
+        <div class="poster-card">
+          <div>
+            <span class="pill">05 • CONSISTENCY TELEMETRY</span>
+            <div class="poster-title">Track Your Streak Velocity &amp; Weekly Momentum.</div>
+            <p class="poster-sub">
+              Inspect 7-day and monthly completion charts, multi-program switcher pills with live completion percentages, and smart daily notification reminders.
+            </p>
+          </div>
+          <div class="mock-ui">
+            <div class="mock-row">
+              <span>📈 <strong>7-Day &amp; Monthly Consistency Charts</strong></span>
+              <span class="tag">ANALYTICS</span>
+            </div>
+            <div class="mock-row">
+              <span>🔄 <strong>Multi-Program Active Switcher</strong></span>
+              <span class="tag violet">ACTIVE • 64%</span>
+            </div>
+            <div class="mock-row">
+              <span>🔔 <strong>Daily Smart WorkManager Reminders</strong></span>
+              <span class="tag amber">8 PM ACTIVE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 6 -->
+        <div class="poster-card">
+          <div>
+            <span class="pill">06 • PRIVACY &amp; ZERO PAYWALLS</span>
+            <div class="poster-title">100% Free Forever. Offline-First &amp; Private Cloud Sync.</div>
+            <p class="poster-sub">
+              On-device biometric BMR/TDEE storage, ultra-lightweight Firestore progress checkpoint syncing, zero ads, and instant 1-tap account deletion compliance.
+            </p>
+          </div>
+          <div class="mock-ui">
+            <div class="mock-row">
+              <span>🛡️ <strong>On-Device Biometrics (Never Uploaded)</strong></span>
+              <span class="tag">100% LOCAL</span>
+            </div>
+            <div class="mock-row">
+              <span>☁️ <strong>Lightweight Firestore Progress Sync</strong></span>
+              <span class="tag violet">TLS 1.3 + AES256</span>
+            </div>
+            <div class="mock-row">
+              <span>💎 <strong>All 12 Programs Unlocked Free</strong></span>
+              <span class="tag amber">$0 FOREVER</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GOOGLE STITCH PROMPTS SECTION -->
+    <div class="section-block" id="stitch-prompts">
+      <span class="pill">GOOGLE STITCH AI DESIGN PROMPTS (d9169839@gmail.com)</span>
+      <h2>Copy-Paste Prompts for Google Stitch</h2>
+      <p class="subtitle" style="margin-bottom: 18px;">
+        Click <strong>"Copy Prompt"</strong> below and paste directly into <a href="https://stitch.withgoogle.com/" target="_blank" rel="noopener" style="color: var(--emerald);">Google Stitch (stitch.withgoogle.com)</a> while signed in with <strong>d9169839@gmail.com</strong>.
+      </p>
+
+      <div class="copy-header">
+        <h3>1. Master Google Stitch Prompt — 6-Slide Luxury Infographic Deck</h3>
+        <button class="copy-btn" onclick="copyText('stitch-master')">Copy Prompt</button>
+      </div>
+      <div class="copy-box">
+        <pre id="stitch-master">Design a luxury, ultra-sleek Google Play Store infographic storyboard and marketing showcase (6 vertical 9:16 mobile poster slides + 1 horizontal 1024x500 Feature Graphic) for an executive Android app named "VIRTUE — Habit Tracker & Guided Mind-Body Programs".
+
+VISUAL & BRAND AESTHETIC:
+- Palette: Deep obsidian midnight background (#12111A to #1B1928 gradient), rich velvet slate glassmorphic cards (#232034), glowing royal violet accents (#A78BFA and #C4B5FD), electric emerald success highlights (#00DC82), and warm champagne gold badges (#FBBF24).
+- Typography: Editorial high-contrast geometric sans-serif (Inter / Plus Jakarta Sans bold headers in pure white #FFFFFF, tracked-out uppercase eyebrow badges, muted lavender subcopy #9E98B3).
+- Mood: Quiet luxury, Whoop / Oura Ring / Apple Fitness+ / Linear dark-mode aesthetic. High-precision biometric dashboards, soft radial violet aura glows, subtle 1px translucent borders.
+
+SLIDE-BY-SLIDE INFOGRAPHIC LAYOUT:
+1. SLIDE 1 (Hero Value Proposition):
+   - Eyebrow Badge: "VIRTUE HABIT TRACKER • 100% FREE FOREVER"
+   - Headline: "Become Who You Choose. Small Promises, Kept Daily."
+   - Visual: A floating obsidian Android phone showing the Today Command Center with an animated 85% Emerald Consistency Ring, "Today's Active Program Spotlight" card ("Calm Recomposition • Day 14 • 25 min"), and 1-tap daily habit check-ins.
+
+2. SLIDE 2 (12 Science-Backed Guided Programs):
+   - Eyebrow Badge: "CLINICAL & METABOLIC CURRICULA"
+   - Headline: "12 Bespoke Programs for Body, Mind, Sleep & Focus."
+   - Visual: Luxury bento grid displaying program cards with domain badges: "Calm Recomposition (42D)", "Mindfulness & CBT Anxiety Relief (28D)", "Circadian Sleep Restoration CBT-I (28D)", "Dopamine Detox & Impulse Control (28D)", "Build Lean Muscle (56D)", and "Aerobic Engine VO2 Max (28D)".
+
+3. SLIDE 3 (4-Step Bespoke Calibration Blueprint):
+   - Eyebrow Badge: "4-STEP DIAGNOSTIC ENGINE"
+   - Headline: "Tailored to Your Exact Biology & Daily Schedule."
+   - Visual: Interactive 4-stage horizontal stepper ("1. Baseline → 2. Focus → 3. Cadence → 4. Blueprint") with a glowing Diagnostic Blueprint Card showing Mifflin-St Jeor BMR/TDEE metabolic targets, clinical rationale, and an embedded 7-Day Week-1 schedule preview.
+
+4. SLIDE 4 (3-Phase Roadmap & Guided Session Timer):
+   - Eyebrow Badge: "ACTIVE PROGRAM EXECUTION"
+   - Headline: "3-Phase Roadmaps & Live Guided Session Timers."
+   - Visual: Active Program screen showing a 3-Phase Roadmap ("Phase 1: Foundation → Phase 2: Adaptation → Phase 3: Mastery") paired with a glassmorphic Guided Session Bottom Sheet featuring a glowing circular 20:00 countdown ring and step-by-step coaching cues.
+
+5. SLIDE 5 (Precision Streaks & Consistency Analytics):
+   - Eyebrow Badge: "BEHAVIORAL TELEMETRY"
+   - Headline: "Visualize Your Momentum & Streak Velocity."
+   - Visual: 7-day and 30-day emerald consistency bar charts, habit streak flame counters, and 1-tap Science-Backed Starter Habit pills ("Morning Hydration", "Deep Work Sprint", "Evening Screen Curfew").
+
+6. SLIDE 6 (Privacy-First & Zero Paywalls):
+   - Eyebrow Badge: "PRIVATE BY DESIGN • ZERO ADS"
+   - Headline: "Offline-First Speed. Encrypted Cloud Sync. On-Device Biometrics."
+   - Visual: Luxury security shield infographic highlighting: "On-Device BMR/TDEE Biometrics", "Lightweight Encrypted Firebase Cloud Sync", "Smart Daily Reminders", and "1-Tap Instant Account Control".</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>2. Google Stitch Prompt — 1024×500 Google Play Feature Graphic Banner</h3>
+        <button class="copy-btn" onclick="copyText('stitch-banner')">Copy Prompt</button>
+      </div>
+      <div class="copy-box">
+        <pre id="stitch-banner">Create a 1024x500 horizontal Google Play Store Feature Graphic banner for "VIRTUE HABIT TRACKER".
+- Background: Deep obsidian luxury dark mode (#12111A) with a soft radial royal-violet (#A78BFA) and emerald (#00DC82) aurora glow on the right side.
+- Left Column (Typography):
+  - Top Pill Badge: "12 SCIENCE-BACKED PROGRAMS • 100% FREE"
+  - Main Title: "VIRTUE" (tracked-out bold white geometric typography)
+  - Subtitle: "Daily Habits. Metabolic Fitness. CBT Mindfulness &amp; Circadian Sleep."
+- Right Column (Visual): Three angled glassmorphic dark UI cards showing: (1) an 88% Emerald Daily Consistency Ring, (2) a "4-Step Personalized Diagnostic Blueprint" card, and (3) a live "Guided Session Countdown Timer (20:00)" card.</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>3. All-In-One Google Stitch Prompt — All 8 Play Console Phone Screenshots (9:16 Portrait UI Set)</h3>
+        <button class="copy-btn" onclick="copyText('stitch-all-screenshots')">Copy All 8 Screenshots Prompt</button>
+      </div>
+      <div class="copy-box">
+        <pre id="stitch-all-screenshots">Design an 8-screen high-resolution Android mobile app UI screenshot flow (1080x1920 portrait 9:16) for Google Play Console for "VIRTUE — Habit Tracker &amp; Mind-Body Programs".
+
+GLOBAL DESIGN SYSTEM (USE ACROSS ALL 8 SCREENS):
+- Theme: Ultra-luxury dark mode. Background #12111A, elevated card surfaces #1E1C2A and #232034, subtle 1px borders #36324A.
+- Accents: Royal Violet (#A78BFA), Soft Lavender (#C4B5FD), Electric Emerald (#00DC82), Champagne Gold (#FBBF24), Coral Rose (#FF5252).
+- Typography: Clean geometric sans-serif (Inter / Plus Jakarta Sans), bold white headings (#F8F5FF), muted slate secondary text (#9E98B3), uppercase tracked-out pill badges.
+- Bottom Navigation Bar (3 tabs on main screens): "Today" (Home icon), "Programs" (Fitness/Sparkle icon), "Profile" (User icon).
+
+SCREEN 1 — TODAY HABIT COMMAND CENTER (HomeTab):
+- Top header: "TODAY'S FOCUS" pill badge, "Good Morning, Alex" title, and a glowing Hero Progress Card with an 85% Electric Emerald circular progress ring ("6 of 7 habits completed • 14-Day Streak 🔥").
+- Active Program Spotlight Card: Glowing violet-bordered card titled "ACTIVE PROGRAM • DAY 14 OF 42", "Calm Recomposition — Parasympathetic Strength &amp; Zone 2", "25 min • Phase 2: Metabolic Adaptation", with an emerald CTA button "Open Today's Session →".
+- Daily Habit Checklist: Sleek rounded cards with emerald checkmarks, streak flame badges ("14d", "21d"), and a "Quick-Add Science-Backed Starters" horizontal chip row ("+ Morning Hydration", "+ 10-Min Mindful Walk", "+ Evening Screen Curfew").
+
+SCREEN 2 — 12 SCIENCE-BACKED PROGRAMS CATALOG (ProgramsTab):
+- Header: "GUIDED TRANSFORMATION" badge, "Explore Programs" headline, and a top-right "Progress" pill button.
+- Active Enrollment Switcher Row: Horizontal glowing pills showing "Calm Recomposition • 33%" and "Circadian Sleep CBT-I • 50%".
+- Program Cards List: Rich dark-mode cards with domain icons, duration pills ("42 DAYS", "28 DAYS", "56 DAYS"), difficulty tags, and "ACTIVE • 33%" emerald badges for:
+  1. "Calm Recomposition" (Low-cortisol fat loss &amp; resistance training)
+  2. "Mindfulness &amp; Anxiety Relief" (Clinical CBT cognitive reframing &amp; vagal breathing)
+  3. "Circadian Sleep Restoration" (CBT-I sleep efficiency &amp; morning lux protocol)
+  4. "Dopamine Detox &amp; Impulse Control" (Prefrontal focus &amp; urge-surfing architecture)
+
+SCREEN 3 — PROGRAM CURRICULUM OVERVIEW &amp; 3-PHASE TIMELINE (ProgramDetailScreen):
+- Hero Header for "Mindfulness &amp; Anxiety Relief (28 Days)" with tags: "CBT &amp; SOMATIC", "15–25 MIN/DAY", "100% FREE".
+- Vertical Connected 3-Phase Timeline Card:
+  • Phase 1 (Days 1–7): "Somatic Stabilization &amp; Vagal Tone"
+  • Phase 2 (Days 8–21): "CBT Cognitive Defusion &amp; Thought Records"
+  • Phase 3 (Days 22–28): "Autonomic Resilience &amp; Stress Inoculation"
+- 7-Day Sample Curriculum Preview cards (Day 1 to Day 7) and a pinned violet bottom CTA button "Personalize My 28-Day Plan".
+
+SCREEN 4 — 4-STEP BESPOKE PERSONALIZATION WIZARD (Steps 1–3 Intake):
+- Pinned top header with an interactive 4-Stage Horizontal Stepper: "[1. Baseline] ── [2. Focus] ── [3. Cadence] ── [4. Blueprint]".
+- Step 1 &amp; 2 Assessment Card: Domain-specific clinical/biometric intake cards with selectable violet-highlighted option tiles ("Primary Anxiety Trigger: Racing Evening Thoughts &amp; Overthinking", "Current Stress Baseline: High Cortisol / Tension") plus clean metric sliders for Daily Time Budget (25 min/day) and Training Days/Week (5 days/week).
+- Pinned bottom glassmorphic navigation dock with "Back" and a glowing violet "Next: Diagnostic Blueprint →" button.
+
+SCREEN 5 — STEP 4 DIAGNOSTIC BLUEPRINT &amp; 7-DAY SCHEDULE PREVIEW (ProgramPersonalizationScreen):
+- Stepper at Stage 4 ("4. Blueprint" active in emerald #00DC82).
+- "YOUR PERSONALIZED CLINICAL &amp; METABOLIC BLUEPRINT" Hero Card displaying calibrated targets: "2,240 kcal TDEE Target • 5 Days/Wk • 25 Min/Session • Low-Cortisol Hypertrophy Split" and a highlighted Clinical Coach Note explaining why this workload matches the user's baseline.
+- Embedded "Week 1 Schedule Preview (Days 1–7)" showing each day's exact title, duration badge, and focus, with a pinned emerald bottom CTA "Start My Personalized Program".
+
+SCREEN 6 — ACTIVE PROGRAM 3-PHASE ROADMAP &amp; TIMELINE (ActiveProgramScreen):
+- Top progress header: "Calm Recomposition • Day 14 of 42 (33% Complete)" with an animated emerald progress bar and a collapsible "My Personalized Blueprint" summary card.
+- Interactive 3-Phase Filter Pills: "[Phase 1: Foundation ✓]" "[Phase 2: Adaptation • Active]" "[Phase 3: Mastery]".
+- Expandable Day 14 Today Card highlighted with an emerald "TODAY" badge, numbered step-by-step coaching instructions, a "Launch 25-Min Guided Timer" button, and "Mark Complete ✓" / "Skip Day" actions.
+
+SCREEN 7 — INTERACTIVE GUIDED SESSION COUNTDOWN TIMER SHEET (GuidedSessionBottomSheet):
+- Modal luxury dark bottom sheet overlaid on the Active Program screen.
+- Large glowing Violet &amp; Emerald circular countdown timer ring reading "18:42" remaining of a 25:00 session, with an "ACTIVE COACHING SESSION" pill badge.
+- Interactive controls ("Pause", "+1 Min", "Reset"), checklist of today's execution steps that users can tap off live during the timer, and a primary emerald button "Finish Session &amp; Complete Day 14 ✓".
+
+SCREEN 8 — CONSISTENCY ANALYTICS &amp; PRIVACY-FIRST PROFILE (History &amp; Profile):
+- Top half: "Habit History &amp; Consistency Telemetry" showing a 7-Day emerald bar chart (92% weekly consistency), total check-ins counter, longest streak trophy badge, and archived habit restore cards.
+- Bottom half: Profile Identity Card with an emerald pill "Offline-first Room cache &amp; Encrypted Cloud Sync active", Daily Smart Reminder time chips ("8 AM", "2 PM", "8 PM"), and "Privacy Policy &amp; Health Disclaimer (HTTPS)".</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>4. Individual Screen Prompt 1 — Today Command Center &amp; Active Program Spotlight</h3>
+        <button class="copy-btn" onclick="copyText('stitch-s1')">Copy Screen 1 Prompt</button>
+      </div>
+      <div class="copy-box">
+        <pre id="stitch-s1">Create a high-resolution Android mobile UI screen (9:16 portrait, dark mode #12111A) for "Virtue Habit Tracker" — Screen 1: Today Command Center.
+Include:
+1. Top header with "VIRTUE • TODAY" lavender pill badge, greeting "Become who you choose.", and a Hero Consistency Card featuring an 85% glowing emerald (#00DC82) circular progress ring, "6 of 7 Habits Done Today", and a "14-Day Streak 🔥" badge.
+2. A royal-violet (#A78BFA) bordered "TODAY'S ACTIVE PROGRAM SPOTLIGHT" card showing "Calm Recomposition • Day 14 of 42", "Today: Parasympathetic Strength &amp; Zone 2 Mobility (25 min)", and an emerald button "Start Today's Session →".
+3. A vertical list of daily habit cards ("Morning Hydration + 500ml Water", "90-Min Deep Work Block", "10-Min Vagal Box Breathing", "Evening Digital Sunset") with emerald check buttons and streak counters.
+4. Bottom navigation bar with 3 tabs: "Today" (selected in violet), "Programs", and "Profile".</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>5. Individual Screen Prompt 2 — 12 Science-Backed Programs Catalog</h3>
+        <button class="copy-btn" onclick="copyText('stitch-s2')">Copy Screen 2 Prompt</button>
+      </div>
+      <div class="copy-box">
+        <pre id="stitch-s2">Create a high-resolution Android mobile UI screen (9:16 portrait, dark mode #12111A) for "Virtue Habit Tracker" — Screen 2: Guided Programs Catalog.
+Include:
+1. Top header with "12 SCIENCE-BACKED CURRICULA • 100% FREE" pill badge, title "Guided Programs", and a top-right emerald pill button "Active Progress (2)".
+2. Horizontal active enrollment switcher chips: "Calm Recomposition • 33% Active" and "Mindfulness &amp; CBT • 50% Active".
+3. Vertical stack of luxury dark glassmorphic program cards (#1E1C2A) with category icons, duration badges, and progress indicators:
+   - "Calm Recomposition" (42 Days • Metabolic &amp; Low-Cortisol Strength • ACTIVE 33%)
+   - "Mindfulness &amp; Anxiety Relief" (28 Days • CBT Cognitive Reframing &amp; Somatic Grounding • ACTIVE 50%)
+   - "Circadian Sleep Restoration" (28 Days • CBT-I Sleep Efficiency &amp; Morning Lux Protocol)
+   - "Dopamine Detox &amp; Impulse Control" (28 Days • Prefrontal Focus &amp; Urge-Surfing Architecture)
+   - "Build Lean Muscle" (56 Days • Hypertrophy &amp; Mechanical Tension Progression)</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>6. Individual Screen Prompt 3 — 4-Step Bespoke Calibration &amp; Diagnostic Blueprint</h3>
+        <button class="copy-btn" onclick="copyText('stitch-s3')">Copy Screen 3 Prompt</button>
+      </div>
+      <div class="copy-box">
+        <pre id="stitch-s3">Create a high-resolution Android mobile UI screen (9:16 portrait, dark mode #12111A) for "Virtue Habit Tracker" — Screen 3: 4-Step Personalization Blueprint.
+Include:
+1. Pinned top header with a 4-stage connected horizontal stepper: "1. Baseline ✓ → 2. Focus ✓ → 3. Cadence ✓ → 4. Blueprint (Active in Emerald #00DC82)".
+2. A glowing royal-violet Diagnostic Blueprint Card titled "YOUR CALIBRATED 42-DAY BLUEPRINT" displaying 4 metric tiles: "2,240 kcal TDEE (Mifflin-St Jeor)", "5 Days / Week", "25 Min / Session", and "Focus: Low-Cortisol Recomp".
+3. A clinical rationale box titled "WHY THIS PROTOCOL WORKS FOR YOU" explaining how parasympathetic down-regulation paired with progressive resistance preserves lean mass.
+4. An embedded "Week 1 Schedule Preview (Days 1–7)" list and a pinned bottom emerald CTA button "Enroll &amp; Start Day 1 (Free)".</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>7. Individual Screen Prompt 4 — Active Program 3-Phase Roadmap &amp; Guided Session Timer</h3>
+        <button class="copy-btn" onclick="copyText('stitch-s4')">Copy Screen 4 Prompt</button>
+      </div>
+      <div class="copy-box">
+        <pre id="stitch-s4">Create a high-resolution Android mobile UI screen (9:16 portrait, dark mode #12111A) for "Virtue Habit Tracker" — Screen 4: Active Program &amp; Live Guided Session Timer.
+Include:
+1. Background screen showing the Active Program 3-Phase Roadmap ("Phase 1: Foundation ✓", "Phase 2: Adaptation • Active", "Phase 3: Mastery") and Day 14's expanded coaching card.
+2. Foreground luxury dark glassmorphic Bottom Sheet (#1B1928) titled "DAY 14 GUIDED SESSION • 25 MIN".
+3. Centerpiece glowing circular countdown timer ring with royal violet (#A78BFA) and emerald (#00DC82) progress arc showing "18:45" remaining.
+4. Numbered step-by-step live execution checklist ("1. 3-Min Physiological Sigh Downregulation ✓", "2. 18-Min Tempo Compound Resistance Circuit", "3. 4-Min Post-Session Parasympathetic Cooldown") and a full-width emerald CTA button "Complete Session &amp; Mark Day 14 Done ✓".</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>8. Individual Screen Prompt 5 — 7-Day Consistency Analytics &amp; Privacy-First Profile</h3>
+        <button class="copy-btn" onclick="copyText('stitch-s5')">Copy Screen 5 Prompt</button>
+      </div>
+      <div class="copy-box">
+        <pre id="stitch-s5">Create a high-resolution Android mobile UI screen (9:16 portrait, dark mode #12111A) for "Virtue Habit Tracker" — Screen 5: Consistency Analytics &amp; Privacy-First Profile.
+Include:
+1. Top Analytics Card titled "7-DAY &amp; 30-DAY CONSISTENCY VELOCITY" with an emerald vertical bar chart showing daily completion percentages (Mon 85%, Tue 100%, Wed 100%, Thu 90%, Fri 100%, Sat 85%, Sun 100%) and "Current Streak: 14 Days 🔥".
+2. User Identity Hero Card with an emerald status pill: "Offline-first Room SQLite &amp; Encrypted Cloud Sync Active".
+3. Settings &amp; Privacy cards: "Daily Smart Reminders (Active at 8:00 PM)", "On-Device Biometrics (100% Local BMR/TDEE)", and "Google Play Compliant Privacy &amp; Health Policy (HTTPS)".</pre>
+      </div>
+    </div>
+
+    <!-- GOOGLE PLAY DEVELOPER CONSOLE LISTING DETAILS -->
+    <div class="section-block" id="play-copy">
+      <span class="pill emerald">GOOGLE PLAY DEVELOPER CONSOLE STORE LISTING FIELDS</span>
+      <h2>Complete Professional App Description &amp; Metadata</h2>
+
+      <div class="copy-header">
+        <h3>App Name (Max 30 Characters — 29 chars)</h3>
+        <button class="copy-btn" onclick="copyText('play-title')">Copy Title</button>
+      </div>
+      <div class="copy-box">
+        <pre id="play-title">Virtue: Habit &amp; Mind Programs</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>Short Description (Max 80 Characters — 79 chars)</h3>
+        <button class="copy-btn" onclick="copyText('play-short')">Copy Short Description</button>
+      </div>
+      <div class="copy-box">
+        <pre id="play-short">Build daily habits &amp; master 12 science-backed fitness, CBT, sleep &amp; focus plans</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>Full Description (Max 4,000 Characters — 3,640 chars)</h3>
+        <button class="copy-btn" onclick="copyText('play-full')">Copy Full Description</button>
+      </div>
+      <div class="copy-box">
+        <pre id="play-full">Become who you choose. Small promises, kept daily.
+
+Virtue Habit Tracker is a luxury, distraction-free daily habit tracker and guided behavioral transformation system designed to help you build unbreakable consistency across your body, mind, sleep, and focus—100% free, with zero ads and zero paywalls.
+
+Unlike generic checklist apps that leave you guessing what to do next, Virtue combines effortless 1-tap daily habit tracking with 12 personalized, science-backed 28 to 56-day guided programs inspired by metabolic exercise physiology, Cognitive Behavioral Therapy (CBT), circadian neuroscience (CBT-I), and deep-work behavioral psychology.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ WHY VIRTUE HABIT TRACKER?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• 100% Free Forever: All 12 executive-grade programs, metabolic calculators, and analytics are completely unlocked. No subscriptions, no locked tiers, and no intrusive ads.
+• 4-Step Bespoke Calibration Engine: Every program adapts to your exact baseline, primary focus, and daily time budget (Baseline → Focus → Cadence → Diagnostic Blueprint).
+• Interactive Guided Session Timer: Launch built-in countdown timers with live step-by-step coaching cues directly inside your daily program sessions.
+• Today's Active Program Spotlight: Your active curriculum session is pinned right to your Home screen so you can execute today's protocol in a single tap.
+• Offline-First Speed + Private Cloud Sync: Powered by a local Room database with instant, encrypted Google Cloud backup so your streaks and program progress automatically sync across your Android devices.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏛️ 12 SCIENCE-BACKED GUIDED PROGRAMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏋️ FITNESS, METABOLISM &amp; LONGEVITY (Mifflin-St Jeor BMR/TDEE Calibrated)
+1. Fitness &amp; General Wellness (28 Days): Progressive full-body strength, mobility, and metabolic conditioning calibrated to your exact TDEE and equipment access.
+2. Calm Recomposition (42 Days): Low-cortisol body recomposition pairing parasympathetic regulation with high-protein caloric precision and resistance training.
+3. Build Lean Muscle (56 Days): Structured hypertrophy microcycles, mechanical tension progression, and recovery volume diagnostics.
+4. Aerobic Engine &amp; VO2 Max (28 Days): Polarized Zone 2 mitochondrial base training paired with high-output cardiac intervals.
+5. Longevity &amp; Joint Mobility (28 Days): Controlled articular rotations (CARs), spinal decompression, balance stability, and fascia resilience.
+
+🧠 MIND, CBT EMOTIONAL RESILIENCE &amp; SLEEP
+6. Mindfulness &amp; Anxiety Relief (28 Days): Clinical CBT cognitive restructuring, somatic vagus-nerve grounding, and cyclic physiological sighs to quiet overthinking.
+7. Circadian Sleep Restoration (28 Days): Evidence-based CBT-I sleep restriction, morning lux anchoring, thermal downregulation, and caffeine cutoff protocols.
+8. Dopamine Detox &amp; Impulse Control (28 Days): Prefrontal stimulus control, urge-surfing protocols, and digital friction architecture to reclaim deep focus.
+9. Gratitude &amp; Emotional Resilience (28 Days): Neuroplasticity-driven positive affect journaling, cognitive reframing, and evening nervous-system decompression.
+
+⚡ EXECUTIVE PERFORMANCE &amp; DAILY RITUALS
+10. Personal Development &amp; Deep Work (28 Days): Ultradian 90-minute deep-work blocks, keystone habit stacking, and weekly executive reviews.
+11. Simple Dermatology Skincare (28 Days): Barrier-first AM/PM dermal routines, UV protection habits, and active ingredient cycling.
+12. Everyday Grooming &amp; Presence (21 Days): High-leverage appearance, posture, wardrobe preparation, and confidence rituals.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 PRECISION STREAK &amp; CONSISTENCY ANALYTICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Real-Time Consistency Ring &amp; Daily Progress Bar: Watch your daily completion percentage animate as you check off habits.
+• 1-Tap Science-Backed Starter Templates: Start immediately with curated habits like Morning Hydration, 10-Min Mindful Walk, Deep Work Sprint, or Evening Screen Curfew.
+• 7-Day &amp; Monthly History Heatmaps: Inspect your streak velocity, weekly completion charts, and restore archived habits anytime.
+• Smart Daily Reminders: Customizable local notification scheduling that respects your focus.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 PRIVACY-FIRST &amp; HEALTH TRANSPARENCY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• On-Device Biometrics: Age, sex, height, and weight entered for BMR/TDEE calculations stay 100% on your device and are never uploaded to external servers.
+• Full Data Ownership: Permanently delete your account and all cloud/local data anytime with a single tap inside Profile → Delete Account Permanently.
+• Medical &amp; Wellness Notice: Virtue Habit Tracker provides educational fitness, metabolic, and behavioral self-help guidance and is not a medical device or clinical healthcare provider. Consult a qualified physician before beginning any new fitness or nutrition program.</pre>
+      </div>
+
+      <div class="copy-header">
+        <h3>Release Notes (v1.0.0 — Max 500 Characters)</h3>
+        <button class="copy-btn" onclick="copyText('play-notes')">Copy Release Notes</button>
+      </div>
+      <div class="copy-box">
+        <pre id="play-notes">🎉 Welcome to Virtue Habit Tracker v1.0.0!
+• 12 bespoke, science-backed guided programs across Fitness, CBT Mindfulness, Circadian Sleep (CBT-I), Dopamine Detox, and Deep Work.
+• 4-Step Personalization Engine with Mifflin-St Jeor BMR/TDEE calibration &amp; 3-Phase Roadmap.
+• Built-in Guided Session Countdown Timer &amp; Home Screen Today Spotlight.
+• 1-tap starter habits, 7-day consistency analytics, smart reminders, and encrypted cloud sync.
+• 100% Free Forever — zero ads, zero paywalls.</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function copyText(id) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text);
+      const btns = document.querySelectorAll('.copy-btn');
+      btns.forEach(b => {
+        if (b.getAttribute('onclick').includes(id)) {
+          const old = b.innerText;
+          b.innerText = 'Copied ✓';
+          setTimeout(() => { b.innerText = old; }, 1800);
+        }
+      });
+    }
+  </script>
+</body>
+</html>

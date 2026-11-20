@@ -1,5 +1,6 @@
 package com.virtue.habittracker.presentation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -41,9 +43,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.virtue.habittracker.R
+import com.virtue.habittracker.presentation.auth.AuthStateViewModel
 import com.virtue.habittracker.presentation.auth.AuthViewModel
+import com.virtue.habittracker.presentation.auth.SessionState
 import com.virtue.habittracker.presentation.history.HistoryViewModel
 import com.virtue.habittracker.presentation.home.HomeViewModel
+import com.virtue.habittracker.presentation.onboarding.OnboardingPreferences
+import com.virtue.habittracker.presentation.onboarding.VirtueOnboardingScreen
 import com.virtue.habittracker.presentation.programs.ProgramsTab
 import com.virtue.habittracker.presentation.theme.VirtueHabitTheme
 import kotlinx.coroutines.delay
@@ -59,15 +65,36 @@ fun App(
     onSignOut: () -> Unit,
     homeViewModel: HomeViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     authViewModel: AuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-    historyViewModel: HistoryViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    historyViewModel: HistoryViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    sessionViewModel: AuthStateViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
+    val context = LocalContext.current
     // HomeTab remains composed underneath the splash so its Room Flow can emit the first snapshot.
     val hasLoadedInitialHomeData by homeViewModel.hasLoadedInitialData.collectAsStateWithLifecycle()
+    val habits by homeViewModel.habits.collectAsStateWithLifecycle()
+    val sessionState by sessionViewModel.state.collectAsStateWithLifecycle()
+    val currentUser = (sessionState as? SessionState.SignedIn)?.user
+    val userId = currentUser?.id
+    val displayName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Virtue Member"
+
+    var showOnboarding by remember(userId) {
+        mutableStateOf(!OnboardingPreferences.hasCompletedOnboarding(context, userId))
+    }
+
     var selectedTab by remember { mutableStateOf(AppTab.HOME) }
     var programsFullScreen by remember { mutableStateOf(false) }
+    var targetActiveEnrollmentId by remember { mutableStateOf<String?>(null) }
     val isOnline = rememberInternetConnectivity()
     var showOnlineBanner by remember { mutableStateOf(false) }
     var hasBeenOffline by remember { mutableStateOf(!isOnline) }
+
+    // Whenever the user is on any tab other than HOME, pressing Back returns to HOME.
+    // When on HOME, BackHandler is disabled so system Back exits/closes the app.
+    BackHandler(enabled = selectedTab != AppTab.HOME && !showOnboarding) {
+        selectedTab = AppTab.HOME
+        programsFullScreen = false
+        targetActiveEnrollmentId = null
+    }
 
     LaunchedEffect(isOnline) {
         if (!isOnline) {
@@ -87,7 +114,7 @@ fun App(
                 .fillMaxSize()
                 .background(Color(0xFF12111A))
                 .statusBarsPadding()
-                .padding(top = 3.dp)
+                .padding(top = 2.dp)
         ) {
             // Smoothly animated offline / online connectivity banners
             AnimatedVisibility(
@@ -116,29 +143,45 @@ fun App(
             // All destinations stay composed to preserve their state and fast tab switching.
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 HomeTab(
-                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HOME) 1f else 0f),
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize(),
                     visible = selectedTab == AppTab.HOME,
                     vm = homeViewModel,
                     historyViewModel = historyViewModel,
                     onOpenHistory = { selectedTab = AppTab.HISTORY },
-                    onOpenPrograms = { selectedTab = AppTab.PROGRAMS }
+                    onOpenPrograms = {
+                        targetActiveEnrollmentId = null
+                        selectedTab = AppTab.PROGRAMS
+                    },
+                    onOpenActiveProgram = { enrollmentId ->
+                        targetActiveEnrollmentId = enrollmentId
+                        programsFullScreen = true
+                        selectedTab = AppTab.PROGRAMS
+                    }
                 )
                 HistoryTab(
-                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.HISTORY) 1f else 0f),
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize(),
                     visible = selectedTab == AppTab.HISTORY,
                     vm = historyViewModel
                 )
                 ProgramsTab(
-                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROGRAMS) 1f else 0f),
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize(),
                     visible = selectedTab == AppTab.PROGRAMS,
-                    onFullScreenChange = { programsFullScreen = it }
+                    onFullScreenChange = { programsFullScreen = it },
+                    openActiveEnrollmentId = targetActiveEnrollmentId,
+                    onConsumedOpenActiveEnrollment = { targetActiveEnrollmentId = null },
+                    onBackToHome = {
+                        programsFullScreen = false
+                        targetActiveEnrollmentId = null
+                        selectedTab = AppTab.HOME
+                    }
                 )
                 ProfileTab(
-                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize().alpha(if (selectedTab == AppTab.PROFILE) 1f else 0f),
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize(),
                     visible = selectedTab == AppTab.PROFILE,
                     onSignOut = { authViewModel.signOut(onComplete = onSignOut) },
                     onOpenHistory = { selectedTab = AppTab.HISTORY },
                     onOpenPrograms = { selectedTab = AppTab.PROGRAMS },
+                    onOpenOnboardingTour = { showOnboarding = true },
                     authViewModel = authViewModel
                 )
             }
@@ -151,7 +194,31 @@ fun App(
             }
         }
         // Cover the complete app (including navigation) only for the first local data load.
-        if (!hasLoadedInitialHomeData) VitueSplashScreen()
+        if (!hasLoadedInitialHomeData) {
+            VitueSplashScreen()
+        } else if (showOnboarding) {
+            VirtueOnboardingScreen(
+                userDisplayName = displayName,
+                existingHabitCount = habits.size,
+                onCreateStarterHabit = { title, description ->
+                    val alreadyExists = habits.any { it.habit.title.equals(title, ignoreCase = true) }
+                    if (!alreadyExists) {
+                        homeViewModel.addHabit(
+                            title = title,
+                            description = description,
+                            onError = {}
+                        )
+                    }
+                },
+                onFinishOnboarding = { openProgramsTab ->
+                    OnboardingPreferences.markOnboardingCompleted(context, userId)
+                    showOnboarding = false
+                    if (openProgramsTab) {
+                        selectedTab = AppTab.PROGRAMS
+                    }
+                }
+            )
+        }
     }
 }
 

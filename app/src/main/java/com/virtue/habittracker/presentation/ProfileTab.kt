@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -80,6 +81,7 @@ fun ProfileTab(
     onSignOut: () -> Unit,
     onOpenHistory: () -> Unit = {},
     onOpenPrograms: () -> Unit = {},
+    onOpenOnboardingTour: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     sessionViewModel: AuthStateViewModel = hiltViewModel()
 ) {
@@ -249,6 +251,14 @@ fun ProfileTab(
             color = Color(0xFF9E98B3),
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp
+        )
+
+        ProfileFeatureRow(
+            icon = Icons.Filled.AutoAwesome,
+            iconTint = Color(0xFFA78BFA),
+            title = "Interactive App Tour & Guide",
+            subtitle = "Replay how to add habits, calibrate programs & track history",
+            onClick = onOpenOnboardingTour
         )
 
         ProfileFeatureRow(

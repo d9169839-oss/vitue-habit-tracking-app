@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -115,14 +116,15 @@ fun HomeTab(
     historyViewModel: HistoryViewModel,
     onOpenHistory: () -> Unit,
     onOpenPrograms: () -> Unit = {},
+    onOpenActiveProgram: (enrollmentId: String) -> Unit = { onOpenPrograms() },
     programsViewModel: ProgramsViewModel = hiltViewModel()
 ) {
     val date by vm.selectedDate.collectAsStateWithLifecycle()
     val habits by vm.habits.collectAsStateWithLifecycle()
     val isLoading by vm.isLoading.collectAsStateWithLifecycle()
     val programsState by programsViewModel.uiState.collectAsStateWithLifecycle()
-    val activeProgram = remember(programsState.programs) {
-        programsState.programs.firstOrNull { it.enrollment.status == ProgramStatus.ACTIVE }
+    val activePrograms = remember(programsState.programs) {
+        programsState.programs.filter { it.enrollment.status == ProgramStatus.ACTIVE }
     }
     val haptics = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -158,120 +160,123 @@ fun HomeTab(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+                .padding(start = 20.dp, end = 20.dp, top = 3.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Header Row: Greeting + Glowing Date Badge + History Shortcut
-            Row(
+            // Header Row: Greeting + Glowing Date Badge + History Shortcut aligned with title text
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = "Today is yours.",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
-                    Spacer(Modifier.height(6.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                    // Quick History / Insights pill aligned directly with "Today is yours."
+                    Surface(
+                        onClick = onOpenHistory,
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF241F35),
+                        border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.35f))
                     ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.History,
+                                contentDescription = "History",
+                                tint = Color(0xFFC4B5FD),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "History",
+                                color = Color(0xFFC4B5FD),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Surface(
+                        onClick = { vm.previousDay() },
+                        shape = CircleShape,
+                        color = Color(0xFF1E1C2A),
+                        border = BorderStroke(1.dp, Color(0xFF343048)),
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("‹", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                    }
+                    Surface(
+                        onClick = { vm.selectDate(LocalDate.now()) },
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF1E1C2A),
+                        border = BorderStroke(1.dp, Color(0xFF343048))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🗓",
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = if (date == LocalDate.now()) {
+                                    "Today, " + date.format(DateTimeFormatter.ofPattern("MMM d"))
+                                } else {
+                                    date.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFE2E8F0)
+                            )
+                        }
+                    }
+                    if (date.isBefore(LocalDate.now())) {
                         Surface(
-                            onClick = { vm.previousDay() },
+                            onClick = { vm.nextDay() },
                             shape = CircleShape,
                             color = Color(0xFF1E1C2A),
                             border = BorderStroke(1.dp, Color(0xFF343048)),
                             modifier = Modifier.size(30.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("‹", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("›", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             }
                         }
-                        Surface(
-                            onClick = { vm.selectDate(LocalDate.now()) },
-                            shape = RoundedCornerShape(50),
-                            color = Color(0xFF1E1C2A),
-                            border = BorderStroke(1.dp, Color(0xFF343048))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "🗓",
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    text = if (date == LocalDate.now()) {
-                                        "Today, " + date.format(DateTimeFormatter.ofPattern("MMM d"))
-                                    } else {
-                                        date.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFE2E8F0)
-                                )
-                            }
-                        }
-                        if (date.isBefore(LocalDate.now())) {
-                            Surface(
-                                onClick = { vm.nextDay() },
-                                shape = CircleShape,
-                                color = Color(0xFF1E1C2A),
-                                border = BorderStroke(1.dp, Color(0xFF343048)),
-                                modifier = Modifier.size(30.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text("›", color = Color(0xFFC4B5FD), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Quick History / Insights pill in top-right (Sign Out remains safely in Profile)
-                Surface(
-                    onClick = onOpenHistory,
-                    shape = RoundedCornerShape(50),
-                    color = Color(0xFF241F35),
-                    border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.35f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.History,
-                            contentDescription = "History",
-                            tint = Color(0xFFC4B5FD),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "History",
-                            color = Color(0xFFC4B5FD),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
                 }
             }
 
-            // Daily Progress Hero Card with Glowing Border
+            // Compact Daily Progress Hero Card with Inline Status Badges (Keeps Habits Above the Fold)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 shape = RoundedCornerShape(24.dp),
                 border = BorderStroke(
-                    1.dp,
+                    1.2.dp,
                     if (totalHabits > 0 && remainingHabits == 0) {
-                        Color(0xFF00DC82).copy(alpha = 0.55f)
+                        Color(0xFF00DC82).copy(alpha = 0.65f)
                     } else {
-                        Color(0xFFA78BFA).copy(alpha = 0.30f)
+                        Color(0xFFA78BFA).copy(alpha = 0.35f)
                     }
                 )
             ) {
@@ -281,70 +286,32 @@ fun HomeTab(
                         .background(
                             brush = Brush.linearGradient(
                                 colors = listOf(
-                                    Color(0xFF393344),
-                                    Color(0xFF2D273A),
-                                    Color(0xFF1F1C2B)
+                                    Color(0xFF3B3548),
+                                    Color(0xFF2D273B),
+                                    Color(0xFF1F1C2C)
                                 ),
                                 start = Offset(0f, 0f),
                                 end = Offset(900f, 900f)
                             ),
                             shape = RoundedCornerShape(24.dp)
                         )
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Top line inside card: Title + High-Contrast Active Routine badge
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "YOUR DAILY PROGRESS",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFC4B5FD),
-                            letterSpacing = 1.2.sp
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = Color(0xFF28203E),
-                            border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.55f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .background(Color(0xFF00DC82), CircleShape)
-                                )
-                                Text(
-                                    text = "Active Routine",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFEDE5FF)
-                                )
-                            }
-                        }
-                    }
-
-                    // Middle section: Circular Progress Indicator & Completion Details
+                    // Top section: Circular Progress Indicator & Completion Details
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(18.dp)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Circular Gauge with subtle inner glow
+                        // Larger Circular Gauge
                         Box(
                             modifier = Modifier
-                                .size(78.dp)
+                                .size(76.dp)
                                 .background(
                                     brush = Brush.radialGradient(
                                         colors = listOf(
-                                            Color(0xFF00DC82).copy(alpha = 0.14f),
+                                            Color(0xFF00DC82).copy(alpha = 0.16f),
                                             Color.Transparent
                                         )
                                     ),
@@ -357,7 +324,7 @@ fun HomeTab(
                                 modifier = Modifier.fillMaxSize(),
                                 color = Color(0xFF00DC82),
                                 trackColor = Color(0xFF14131C),
-                                strokeWidth = 8.dp
+                                strokeWidth = 7.5.dp
                             )
                             Text(
                                 text = "$progressPercentage%",
@@ -367,16 +334,48 @@ fun HomeTab(
                             )
                         }
 
-                        // Progress Text
+                        // Progress Text Details
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = "${summary.completedCount} of $totalHabits completed",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${summary.completedCount} of $totalHabits completed",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = Color(0xFF28203E),
+                                    border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.5f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(Color(0xFF00DC82), CircleShape)
+                                        )
+                                        Text(
+                                            text = "Today",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            color = Color(0xFFEDE5FF)
+                                        )
+                                    }
+                                }
+                            }
                             Text(
                                 text = when {
                                     totalHabits == 0 -> "Add habits to begin tracking your daily rhythm."
@@ -387,11 +386,40 @@ fun HomeTab(
                                 color = if (totalHabits > 0 && remainingHabits == 0) {
                                     Color(0xFF00DC82)
                                 } else {
-                                    Color(0xFFB5AFC7)
+                                    Color(0xFFC4BED6)
                                 },
                                 fontWeight = FontWeight.Medium
                             )
                         }
+                    }
+
+                    // Prominent Status Badges Row (Done, Missed, Left — bigger & clearly visible)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CompactStatusPill(
+                            count = summary.completedCount,
+                            label = "Done",
+                            symbol = "✓",
+                            accent = Color(0xFF00DC82),
+                            modifier = Modifier.weight(1f)
+                        )
+                        CompactStatusPill(
+                            count = summary.notCompletedCount,
+                            label = "Missed",
+                            symbol = "✕",
+                            accent = Color(0xFFFF5252),
+                            modifier = Modifier.weight(1f)
+                        )
+                        CompactStatusPill(
+                            count = summary.unrecordedCount,
+                            label = "Left",
+                            symbol = "⏸",
+                            accent = Color(0xFFA78BFA),
+                            modifier = Modifier.weight(1f)
+                        )
                     }
 
                     // Horizontal Linear Progress Bar
@@ -399,7 +427,7 @@ fun HomeTab(
                         progress = { animatedProgressFloat },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(10.dp)
+                            .height(9.dp)
                             .clip(RoundedCornerShape(50)),
                         color = Color(0xFF00DC82),
                         trackColor = Color(0xFF14131C)
@@ -407,172 +435,134 @@ fun HomeTab(
                 }
             }
 
-            // Small Status Summary Cards Row: Completed, Missed, Unrecorded
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatusSummaryCard(
-                    label = "Completed",
-                    count = summary.completedCount,
-                    accent = Color(0xFF00DC82),
-                    modifier = Modifier.weight(1f),
-                    symbol = "✓"
-                )
-
-                StatusSummaryCard(
-                    label = "Missed",
-                    count = summary.notCompletedCount,
-                    accent = Color(0xFFFF5252),
-                    modifier = Modifier.weight(1f),
-                    symbol = "✕"
-                )
-
-                StatusSummaryCard(
-                    label = "Unrecorded",
-                    count = summary.unrecordedCount,
-                    accent = Color(0xFFA78BFA),
-                    modifier = Modifier.weight(1f),
-                    symbol = "⏸"
-                )
-            }
-
-            // Active Program Today Spotlight Card (Connects Programs directly to Home screen)
-            if (activeProgram != null) {
-                val activeDayActivity = activeProgram.activities.firstOrNull { it.epochDay == date.toEpochDay() }
-                    ?: activeProgram.todayActivities.firstOrNull()
-                Card(
-                    onClick = onOpenPrograms,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    border = BorderStroke(1.2.dp, Color(0xFFA78BFA).copy(alpha = 0.55f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush = Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(0xFF2B2440),
-                                        Color(0xFF1F1B2E),
-                                        Color(0xFF181624)
-                                    )
-                                ),
-                                shape = RoundedCornerShape(22.dp)
-                            )
-                            .padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+            // Sleek Compact Active Program Strip (Horizontal carousel if >1 active program so habits stay visible!)
+            if (activePrograms.isNotEmpty()) {
+                val isMultiProgram = activePrograms.size > 1
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (isMultiProgram) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(50),
-                                color = Color(0xFF0D3325),
-                                border = BorderStroke(1.dp, Color(0xFF00DC82).copy(alpha = 0.45f))
-                            ) {
-                                Text(
-                                    text = "ACTIVE PROGRAM • ${activeProgram.progressPercent}%",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF00DC82),
-                                    fontSize = 10.sp,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = "Open Protocol",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFC4B5FD)
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = Color(0xFFC4B5FD),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
+                            Text(
+                                text = "ONGOING PROGRAMS (${activePrograms.size})",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFFC4B5FD),
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "Swipe for more →",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF8E8AA7),
+                                fontSize = 11.sp
+                            )
                         }
+                    }
 
-                        Text(
-                            text = activeProgram.enrollment.titleSnapshot,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-
-                        if (activeDayActivity != null) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(if (isMultiProgram) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        activePrograms.forEach { activeProgram ->
+                            val activeDayActivity = activeProgram.activities.firstOrNull { it.epochDay == date.toEpochDay() }
+                                ?: activeProgram.todayActivities.firstOrNull()
+                            Card(
+                                onClick = { onOpenActiveProgram(activeProgram.enrollment.id) },
+                                modifier = if (isMultiProgram) Modifier.width(305.dp) else Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(18.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                                border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.5f))
                             ) {
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                                ) {
-                                    Text(
-                                        text = "Day ${activeDayActivity.dayIndex} · ${activeDayActivity.title}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFFD5CFE8),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = if (activeDayActivity.estimatedMinutes == 0) {
-                                            "Active recovery day"
-                                        } else {
-                                            "${activeDayActivity.estimatedMinutes} min scheduled session"
-                                        },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFF9E98B3)
-                                    )
-                                }
-
-                                if (activeDayActivity.estimatedMinutes > 0) {
-                                    val isSessionDone = activeDayActivity.status == ProgramActivityStatus.COMPLETED
-                                    Surface(
-                                        onClick = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            programsViewModel.setActivityStatus(
-                                                activeDayActivity.id,
-                                                if (isSessionDone) ProgramActivityStatus.PENDING
-                                                else ProgramActivityStatus.COMPLETED
-                                            )
-                                        },
-                                        shape = RoundedCornerShape(50),
-                                        color = if (isSessionDone) Color(0xFF0D3325) else Color(0xFF28223C),
-                                        border = BorderStroke(
-                                            1.dp,
-                                            if (isSessionDone) Color(0xFF00DC82) else Color(0xFFA78BFA).copy(alpha = 0.5f)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            brush = Brush.linearGradient(
+                                                colors = listOf(
+                                                    Color(0xFF28213D),
+                                                    Color(0xFF1C192A)
+                                                )
+                                            ),
+                                            shape = RoundedCornerShape(18.dp)
                                         )
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    // Compact Percentage Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .background(Color(0xFF0D3325), RoundedCornerShape(12.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${activeProgram.progressPercent}%",
+                                            color = Color(0xFF00DC82),
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+
+                                    // Program Name & Today's Session
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = activeProgram.enrollment.titleSnapshot,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Color.White,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Text(
+                                            text = if (activeDayActivity != null) {
+                                                "Day ${activeDayActivity.dayIndex}: ${activeDayActivity.title}"
+                                            } else {
+                                                "Tap to open active program log"
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFFC4B5FD),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+
+                                    // Always opens ActiveProgramScreen on card tap
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = Color(0xFF2A2340),
+                                        border = BorderStroke(1.dp, Color(0xFFA78BFA).copy(alpha = 0.45f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Check,
-                                                contentDescription = null,
-                                                tint = if (isSessionDone) Color(0xFF00DC82) else Color(0xFFC4B5FD),
-                                                modifier = Modifier.size(13.dp)
-                                            )
                                             Text(
-                                                text = if (isSessionDone) "Done" else "Log Done",
+                                                text = "Open",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = if (isSessionDone) Color(0xFF00DC82) else Color.White
+                                                fontSize = 11.sp,
+                                                color = Color(0xFFEDE5FF)
+                                            )
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                contentDescription = "Open program",
+                                                tint = Color(0xFFC4B5FD),
+                                                modifier = Modifier.size(13.dp)
                                             )
                                         }
                                     }
@@ -1290,3 +1280,42 @@ private fun HabitCard(
         }
     }
 }
+
+@Composable
+private fun CompactStatusPill(
+    count: Int,
+    label: String,
+    symbol: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = accent.copy(alpha = 0.16f),
+        border = BorderStroke(1.2.dp, accent.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "$symbol $count",
+                color = accent,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+

@@ -10,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -19,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -136,27 +136,73 @@ private fun ProgramDefinition.toPrimaryFocusProgram(): PrimaryFocusProgram {
     )
 }
 
-val focusPrograms: List<PrimaryFocusProgram>
-    get() = ProgramCatalog.definitions.map { it.toPrimaryFocusProgram() }
+val focusPrograms: List<PrimaryFocusProgram> by lazy {
+    ProgramCatalog.definitions.map { it.toPrimaryFocusProgram() }
+}
+
+private val ProgramCategoriesFilterList: List<Pair<ProgramCategory?, String>> by lazy {
+    listOf(
+        null to "All (${focusPrograms.size})",
+        ProgramCategory.FITNESS to "Fitness",
+        ProgramCategory.MINDFULNESS to "Mind & Sleep (CBT)",
+        ProgramCategory.PERSONAL_DEVELOPMENT to "Focus & Dopamine",
+        ProgramCategory.SELF_GROOMING to "Grooming & Skin"
+    )
+}
 
 @Composable
 fun ProgramsTab(
     modifier: Modifier,
     visible: Boolean,
     onFullScreenChange: (Boolean) -> Unit,
+    openActiveEnrollmentId: String? = null,
+    onConsumedOpenActiveEnrollment: () -> Unit = {},
+    onBackToHome: () -> Unit = {},
     vm: ProgramsViewModel = hiltViewModel()
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     var route by remember { mutableStateOf(ProgramRoute.CATALOG) }
     var selectedTemplateId by remember { mutableStateOf<String?>(null) }
     var selectedEnrollmentId by remember { mutableStateOf<String?>(null) }
+    var openedDirectlyFromHome by remember { mutableStateOf(false) }
     var draftPreferences by remember { mutableStateOf(ProgramPreferences()) }
     var draftStartEpochDay by remember { mutableStateOf(LocalDate.now().toEpochDay()) }
+
+    // Synchronous zero-frame jump: if HomeTab requested an active enrollment, switch route immediately
+    // on the same composition pass so the Programs catalog never flashes for even 1 frame.
+    val pendingOpenId = openActiveEnrollmentId
+    if (!pendingOpenId.isNullOrBlank()) {
+        val targetProgress = state.programs.firstOrNull { it.enrollment.id == pendingOpenId }
+            ?: state.programs.firstOrNull { it.enrollment.status == ProgramStatus.ACTIVE }
+        selectedEnrollmentId = targetProgress?.enrollment?.id ?: pendingOpenId
+        selectedTemplateId = targetProgress?.enrollment?.templateId
+        route = ProgramRoute.ACTIVE
+        openedDirectlyFromHome = true
+    }
+
+    LaunchedEffect(openActiveEnrollmentId, state.programs) {
+        if (!openActiveEnrollmentId.isNullOrBlank()) {
+            onFullScreenChange(true)
+            onConsumedOpenActiveEnrollment()
+        }
+    }
 
     val selectedTemplate = vm.catalog.firstOrNull { it.id == selectedTemplateId }
     val selectedProgress = state.programs.firstOrNull { it.enrollment.id == selectedEnrollmentId }
 
+    val exitActiveProgram: () -> Unit = {
+        if (openedDirectlyFromHome) {
+            openedDirectlyFromHome = false
+            route = ProgramRoute.CATALOG
+            onFullScreenChange(false)
+            onBackToHome()
+        } else {
+            route = ProgramRoute.CATALOG
+        }
+    }
+
     val openPersonalizeOrActiveForTemplate: (String) -> Unit = { templateId ->
+        openedDirectlyFromHome = false
         // If user already has an ACTIVE or PAUSED enrollment for this template, open it directly!
         val existingEnrollment = state.programs.firstOrNull {
             it.enrollment.templateId == templateId &&
@@ -184,41 +230,46 @@ fun ProgramsTab(
     }
 
     // Keep app navigation visible while the preview is shown over the catalogue.
-    LaunchedEffect(route) { onFullScreenChange(route != ProgramRoute.CATALOG && route != ProgramRoute.DETAIL) }
+    val effectiveRoute = if (!pendingOpenId.isNullOrBlank()) ProgramRoute.ACTIVE else route
+    LaunchedEffect(effectiveRoute) {
+        onFullScreenChange(effectiveRoute != ProgramRoute.CATALOG && effectiveRoute != ProgramRoute.DETAIL)
+    }
 
-    BackHandler(enabled = route != ProgramRoute.CATALOG) {
-        route = when (route) {
-            ProgramRoute.DETAIL -> ProgramRoute.CATALOG
-            ProgramRoute.PERSONALIZE -> ProgramRoute.CATALOG
-            ProgramRoute.ACTIVE -> ProgramRoute.CATALOG
-            ProgramRoute.ADJUST_PERSONALIZE -> ProgramRoute.ACTIVE
-            ProgramRoute.CATALOG -> ProgramRoute.CATALOG
+    BackHandler(enabled = visible && effectiveRoute != ProgramRoute.CATALOG) {
+        when (effectiveRoute) {
+            ProgramRoute.DETAIL -> route = ProgramRoute.CATALOG
+            ProgramRoute.PERSONALIZE -> route = ProgramRoute.CATALOG
+            ProgramRoute.ACTIVE -> exitActiveProgram()
+            ProgramRoute.ADJUST_PERSONALIZE -> route = ProgramRoute.ACTIVE
+            ProgramRoute.CATALOG -> route = ProgramRoute.CATALOG
         }
     }
 
     Column(
         modifier = modifier
+            .offset(x = if (visible) 0.dp else 10_000.dp)
             .fillMaxSize()
             .background(Color(0xFF12111A))
-            .then(if (visible) Modifier else Modifier.padding(start = 10_000.dp))
     ) {
-        when (route) {
+        when (effectiveRoute) {
             ProgramRoute.CATALOG, ProgramRoute.DETAIL -> {
                 PrimaryFocusProgramScreen(
                     state = state,
                     onSelectCategory = vm::selectCategory,
                     onOpenTemplate = openPersonalizeOrActiveForTemplate,
                     onPreviewTemplate = { templateId ->
+                        openedDirectlyFromHome = false
                         selectedTemplateId = templateId
                         route = ProgramRoute.DETAIL
                     },
                     onOpenProgram = { progress ->
+                        openedDirectlyFromHome = false
                         selectedEnrollmentId = progress.enrollment.id
                         selectedTemplateId = progress.enrollment.templateId
                         route = ProgramRoute.ACTIVE
                     }
                 )
-                if (route == ProgramRoute.DETAIL && selectedTemplate != null) {
+                if (effectiveRoute == ProgramRoute.DETAIL && selectedTemplate != null) {
                     val isAlreadyEnrolled = state.programs.any {
                         it.enrollment.templateId == selectedTemplate.id &&
                             (it.enrollment.status == ProgramStatus.ACTIVE || it.enrollment.status == ProgramStatus.PAUSED)
@@ -236,15 +287,15 @@ fun ProgramsTab(
                     template = template,
                     initialPreferences = draftPreferences,
                     initialStartEpochDay = draftStartEpochDay,
-                    isAdjusting = route == ProgramRoute.ADJUST_PERSONALIZE,
+                    isAdjusting = effectiveRoute == ProgramRoute.ADJUST_PERSONALIZE,
                     isSaving = state.isStarting,
                     onBack = {
-                        route = if (route == ProgramRoute.ADJUST_PERSONALIZE) ProgramRoute.ACTIVE else ProgramRoute.CATALOG
+                        route = if (effectiveRoute == ProgramRoute.ADJUST_PERSONALIZE) ProgramRoute.ACTIVE else ProgramRoute.CATALOG
                     },
                     onContinue = { preferences, startEpochDay, _ ->
                         draftPreferences = preferences
                         draftStartEpochDay = startEpochDay
-                        if (route == ProgramRoute.ADJUST_PERSONALIZE && selectedEnrollmentId != null) {
+                        if (effectiveRoute == ProgramRoute.ADJUST_PERSONALIZE && selectedEnrollmentId != null) {
                             vm.replanProgram(selectedEnrollmentId!!, preferences)
                             route = ProgramRoute.ACTIVE
                         } else {
@@ -260,9 +311,10 @@ fun ProgramsTab(
                 if (state.isInitialLoading || state.isStarting) {
                     SectionLoading(Modifier.fillMaxSize(), "Loading your program…")
                 } else {
+                    val targetEnrollmentId = pendingOpenId ?: selectedEnrollmentId
                     val progress = selectedProgress
                         ?: state.programs.firstOrNull {
-                            if (selectedEnrollmentId != null) it.enrollment.id == selectedEnrollmentId
+                            if (targetEnrollmentId != null) it.enrollment.id == targetEnrollmentId
                             else it.enrollment.templateId == selectedTemplateId
                         }
                         ?: state.programs.firstOrNull()
@@ -273,7 +325,7 @@ fun ProgramsTab(
                         } else {
                             ActiveProgramScreen(
                                 progress = progress,
-                                onBack = { route = ProgramRoute.CATALOG },
+                                onBack = exitActiveProgram,
                                 onAdjust = {
                                     selectedEnrollmentId = progress.enrollment.id
                                     selectedTemplateId = template.id
@@ -286,7 +338,7 @@ fun ProgramsTab(
                                 onDelete = {
                                     vm.deleteEnrollment(progress.enrollment.id)
                                     selectedEnrollmentId = null
-                                    route = ProgramRoute.CATALOG
+                                    exitActiveProgram()
                                 }
                             )
                         }
@@ -308,7 +360,6 @@ fun ProgramsTab(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PrimaryFocusProgramScreen(
     state: ProgramsUiState,
@@ -334,28 +385,18 @@ private fun PrimaryFocusProgramScreen(
     }
 
     val visiblePrograms = remember(state.selectedCategory) {
-        val allPrograms = focusPrograms
         val category = state.selectedCategory
-        if (category == null) allPrograms else allPrograms.filter { it.category == category }
+        if (category == null) focusPrograms else focusPrograms.filter { it.category == category }
     }
 
-    BoxWithConstraints(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF12111A))
+            .widthIn(max = 680.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        val isCompactWidth = maxWidth < 360.dp
-        val horizontalPad = if (isCompactWidth) 14.dp else 20.dp
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .widthIn(max = 680.dp)
-                .align(Alignment.TopCenter)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = horizontalPad, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
             // Top Header Row with Eyebrow on left and interactive "Progress" pill on top right
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -584,20 +625,13 @@ private fun PrimaryFocusProgramScreen(
             }
 
             // Category Filter Pills
-            val categories: List<Pair<ProgramCategory?, String>> = listOf(
-                null to "All (${focusPrograms.size})",
-                ProgramCategory.FITNESS to "Fitness",
-                ProgramCategory.MINDFULNESS to "Mind & Sleep (CBT)",
-                ProgramCategory.PERSONAL_DEVELOPMENT to "Focus & Dopamine",
-                ProgramCategory.SELF_GROOMING to "Grooming & Skin"
-            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                categories.forEach { (category, label) ->
+                ProgramCategoriesFilterList.forEach { (category, label) ->
                     val isSelected = state.selectedCategory == category
                     Surface(
                         onClick = { onSelectCategory(category) },
@@ -657,7 +691,6 @@ private fun PrimaryFocusProgramScreen(
                 )
             }
         }
-    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
